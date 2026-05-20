@@ -12,8 +12,8 @@
     "preview": "vite preview",
     "electron:dev": "set NODE_ENV=development && electron .",
     "electron:build": "tsc && vite build && electron-builder",
-    "electron:build:mac": "tsc && vite build && electron-builder --mac",
-    "electron:build:win": "tsc && vite build && electron-builder --win"
+    "electron:build:mac": "tsc && vite build && electron-builder --mac --publish never",
+	"electron:build:win": "tsc && vite build && electron-builder --win --publish never"
   },
   "dependencies": {
     "electron-store": "^11.0.2",
