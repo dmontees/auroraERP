@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aurora ERP</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- RESTAURAR BACKUP antes de cargar React -->
+    <script>
+      (async function() {
+        // Solo en Electron
+        if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+          try {
+            const fs = window.require('fs');
+            const path = window.require('path');
+            const electron = window.require('electron');
+            const app = electron.remote ? electron.remote.app : electron.app;
+            
+            const userDataPath = app.getPath('userData');
+            const backupFile = path.join(userDataPath, 'aurora-backup.json');
+            
+            if (fs.existsSync(backupFile)) {
+              const backupData = JSON.parse(fs.readFileSync(backupFile, 'utf-8'));
+              
+              // Restaurar solo si localStorage está vacío
+              if (localStorage.length === 0) {
+                console.log('🔄 Restaurando datos desde backup...');
+                for (const [key, value] of Object.entries(backupData)) {
+                  localStorage.setItem(key, value);
+                }
+                console.log('✅ Datos restaurados correctamente');
+              } else {
+                console.log('ℹ️ localStorage ya tiene datos, no se restaura backup');
+              }
+            } else {
+              console.log('ℹ️ No hay backup previo (primera instalación)');
+            }
+          } catch (error) {
+            console.warn('⚠️ Error al restaurar backup:', error);
+          }
+        }
+      })();
+    </script>
+    
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
