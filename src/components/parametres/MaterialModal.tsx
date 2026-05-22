@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import type { Material, GrupMaterial } from '../../types/parametres';
 import type { Proveidor } from '../../types/proveidor';
 import SearchableSelect from '../common/SearchableSelect';
+import { storage } from '../../utils/storageManager';
 
 interface MaterialModalProps {
   material: Material | null;
@@ -43,7 +44,7 @@ function MaterialModal({
     }
   );
   
-  const esNoUtilitzat = formData.estat === 'no_utilitzat';  // ← AÑADIR ESTA LÍNEA
+  const esNoUtilitzat = formData.estat === 'no_utilitzat';
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,27 +93,27 @@ function MaterialModal({
             <div className="form-group">
               <label>Grup *</label>
               <SearchableSelect
-  value={formData.grup}
-  onChange={(value) => setFormData({ ...formData, grup: value })}
-  options={grups.map(g => ({ value: g.codi, label: g.nom }))}
-  placeholder="Selecciona un grup..."
-  required={true}
-  disabled={esNoUtilitzat}
-/>
+                value={formData.grup}
+                onChange={(value) => setFormData({ ...formData, grup: value })}
+                options={grups.map(g => ({ value: g.codi, label: g.nom }))}
+                placeholder="Selecciona un grup..."
+                required={true}
+                disabled={esNoUtilitzat}
+              />
             </div>
 
             <div className="form-group">
               <label>Proveïdor (opcional)</label>
               <SearchableSelect
-  value={formData.proveidor}
-  onChange={(value) => setFormData({ ...formData, proveidor: value })}
-  options={proveidors.map(p => ({ 
-    value: p.codi, 
-    label: p.nomComercial || p.nomFiscal 
-  }))}
-  placeholder="Cap proveïdor"
-  disabled={esNoUtilitzat}
-/>
+                value={formData.proveidor}
+                onChange={(value) => setFormData({ ...formData, proveidor: value })}
+                options={proveidors.map(p => ({ 
+                  value: p.codi, 
+                  label: p.nomComercial || p.nomFiscal 
+                }))}
+                placeholder="Cap proveïdor"
+                disabled={esNoUtilitzat}
+              />
             </div>
 
             <div className="form-group">
@@ -187,30 +188,30 @@ function MaterialModal({
           </div>
 
           <div className="modal-footer">
-          {material && onDelete && !materialEnUs && (
-  <button 
-    type="button" 
-    className="btn-secondary"
-    onClick={() => {
-      onDelete(formData.codi);
-      onClose();
-    }}
-    style={{ 
-      marginRight: 'auto',
-      borderColor: '#dc2626',
-      color: '#dc2626'
-    }}
-  >
-    Eliminar
-  </button>
-)}
-  <button type="button" className="btn-secondary" onClick={onClose}>
-    Cancel·lar
-  </button>
-  <button type="submit" className="btn-primary">
-    {material ? 'Actualitzar' : 'Crear'} Material
-  </button>
-</div>
+            {material && onDelete && !materialEnUs && (
+              <button 
+                type="button" 
+                className="btn-secondary"
+                onClick={() => {
+                  onDelete(formData.codi);
+                  onClose();
+                }}
+                style={{ 
+                  marginRight: 'auto',
+                  borderColor: '#dc2626',
+                  color: '#dc2626'
+                }}
+              >
+                Eliminar
+              </button>
+            )}
+            <button type="button" className="btn-secondary" onClick={onClose}>
+              Cancel·lar
+            </button>
+            <button type="submit" className="btn-primary">
+              {material ? 'Actualitzar' : 'Crear'} Material
+            </button>
+          </div>
         </form>
       </div>
     </div>

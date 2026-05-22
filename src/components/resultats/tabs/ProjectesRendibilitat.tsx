@@ -221,15 +221,15 @@ if (ingressos === 0 && p.ingresSenseIVA) {
                           fontWeight: 600,
                           background: 
                             p.estat === 'completat' ? '#d1fae5' :
-                            p.estat === 'en-curs' ? '#dbeafe' :
+                            p.estat === 'en_curs' ? '#dbeafe' :
                             p.estat === 'paused' ? '#fef3c7' : '#fee2e2',
                           color:
                             p.estat === 'completat' ? '#065f46' :
-                            p.estat === 'en-curs' ? '#1e40af' :
+                            p.estat === 'en_curs' ? '#1e40af' :
                             p.estat === 'paused' ? '#92400e' : '#991b1b'
                         }}>
                           {p.estat === 'completat' ? '✓' : 
-                           p.estat === 'en-curs' ? '⋯' :
+                           p.estat === 'en_curs' ? '⋯' :
                            p.estat === 'paused' ? '⏸' : '✕'}
                         </span>
                       </td>

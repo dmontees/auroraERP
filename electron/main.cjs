@@ -1,85 +1,272 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
+const Store = require('electron-store');
+
+let backupInterval = null;
+let mainWindow = null;
+
+// Inicializar electron-store
+const store = new Store({
+  name: 'aurora-data',
+  defaults: {
+    clients: [],
+    proveidors: [],
+    projectes: [],
+    facturesVenda: [],
+    facturesCompra: [],
+    pressupostos: [],
+    parametres: {
+      categories: [],
+      serveis: [],
+      unitats: [],
+      tarifes: [],
+      materials: [],
+      grupsMaterials: [],
+      plantilles: []
+    },
+    partsTreball: [],
+    version: '1.0.1',
+    migrationCompleted: false
+  },
+  // Opcional: schema validation
+  schema: {
+    clients: { type: 'array' },
+    facturesVenda: { type: 'array' },
+    projectes: { type: 'array' },
+    version: { type: 'string' }
+  }
+});
 
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     icon: path.join(__dirname, '../build/icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js')
     },
-    title: 'Aurora'
+    title: 'Aurora ERP',
+    backgroundColor: '#1a1a1a'
   });
 
-  // MIGRACIÓN AUTOMÁTICA: Copiar datos persistentes
-  migrateDataIfNeeded();
+  // Restaurar backup si existe (por compatibilidad)
+  restoreBackupIfNeeded();
 
-  // Cargar la app
+  // Cargar aplicación
   if (process.env.NODE_ENV === 'development') {
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // Remover el menú por defecto
-  win.setMenuBarVisibility(false);
+  mainWindow.setMenuBarVisibility(false);
 
-  // BACKUP AUTOMÁTICO cada 30 segundos
-  setInterval(() => {
-    backupLocalStorage(win);
+  // BACKUP AUTOMÁTICO cada 30 segundos (ahora de electron-store)
+  backupInterval = setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      backupElectronStore();
+    } else {
+      if (backupInterval) {
+        clearInterval(backupInterval);
+        backupInterval = null;
+      }
+    }
   }, 30000);
 
-  // BACKUP al cerrar
-  win.on('close', () => {
-    backupLocalStorage(win);
+  // Backup final al cerrar
+  mainWindow.on('close', () => {
+    if (backupInterval) {
+      clearInterval(backupInterval);
+      backupInterval = null;
+    }
+    
+    if (!mainWindow.isDestroyed()) {
+      try {
+        backupElectronStore();
+        console.log('✅ Backup final guardado antes de cerrar');
+      } catch (error) {
+        console.error('❌ Error al hacer backup final:', error);
+      }
+    }
   });
-}
 
-// FUNCIÓN: Migrar datos de versiones anteriores
-function migrateDataIfNeeded() {
-  const userDataPath = app.getPath('userData');
-  const backupFile = path.join(userDataPath, 'aurora-backup.json');
+  mainWindow.on('closed', () => {
+    if (backupInterval) {
+      clearInterval(backupInterval);
+      backupInterval = null;
+    }
+    mainWindow = null;
+  });
 
-  // Si existe backup, preparar para restaurar en el navegador
-  if (fs.existsSync(backupFile)) {
-    console.log('✅ Backup encontrado, se restaurará en el navegador');
-  } else {
-    console.log('ℹ️ No hay backup previo (primera instalación)');
+  // CONFIGURAR AUTO-UPDATER
+  if (process.env.NODE_ENV !== 'development') {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'dmontees',
+      repo: 'auroraERP'
+    });
+
+    // Comprobar actualizaciones al arrancar
+    autoUpdater.checkForUpdatesAndNotify();
+
+    // Comprobar cada hora
+    setInterval(() => {
+      autoUpdater.checkForUpdates();
+    }, 3600000);
   }
 }
 
-// FUNCIÓN: Hacer backup del localStorage
-function backupLocalStorage(win) {
-  win.webContents.executeJavaScript(`
-    const data = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      data[key] = localStorage.getItem(key);
-    }
-    JSON.stringify(data);
-  `).then(dataStr => {
+// ============================================
+// FUNCIONES DE BACKUP Y RESTAURACIÓN
+// ============================================
+
+function backupElectronStore() {
+  try {
     const userDataPath = app.getPath('userData');
     const backupFile = path.join(userDataPath, 'aurora-backup.json');
     
-    try {
-      fs.writeFileSync(backupFile, dataStr, 'utf-8');
-      console.log('✅ Backup guardado correctamente');
-    } catch (error) {
-      console.error('❌ Error al guardar backup:', error);
-    }
-  }).catch(err => {
-    console.error('❌ Error al leer localStorage:', err);
-  });
+    // Leer todos los datos del store
+    const data = store.store;
+    
+    // Guardar backup con formato legible
+    fs.writeFileSync(backupFile, JSON.stringify(data, null, 2), 'utf-8');
+    console.log('✅ Backup de electron-store guardado:', backupFile);
+  } catch (error) {
+    console.error('❌ Error al guardar backup de electron-store:', error);
+  }
 }
 
-app.whenReady().then(createWindow);
+function restoreBackupIfNeeded() {
+  const userDataPath = app.getPath('userData');
+  const backupFile = path.join(userDataPath, 'aurora-backup.json');
+
+  try {
+    if (fs.existsSync(backupFile)) {
+      console.log('📂 Backup encontrado, verificando...');
+      
+      const backupData = JSON.parse(fs.readFileSync(backupFile, 'utf-8'));
+      
+      // Si el store está vacío, restaurar desde backup
+      const currentData = store.store;
+      const storeIsEmpty = Object.keys(currentData).length === 0 || 
+                          (currentData.clients && currentData.clients.length === 0);
+      
+      if (storeIsEmpty && backupData) {
+        console.log('🔄 Restaurando datos desde backup...');
+        Object.entries(backupData).forEach(([key, value]) => {
+          store.set(key, value);
+        });
+        console.log('✅ Datos restaurados desde backup');
+      } else {
+        console.log('ℹ️  Store ya contiene datos, no se restaura backup');
+      }
+    } else {
+      console.log('ℹ️  No hay backup previo (primera instalación)');
+    }
+  } catch (error) {
+    console.error('❌ Error al restaurar backup:', error);
+  }
+}
+
+// ============================================
+// EVENTOS DE AUTO-UPDATER
+// ============================================
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('🔍 Comprobant actualitzacions...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('✅ Actualització disponible:', info.version);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-available', {
+      version: info.version,
+      releaseDate: info.releaseDate
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', () => {
+  console.log('✅ Aurora està actualitzat');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  console.log(`📥 Descarregant: ${progress.percent.toFixed(1)}%`);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('download-progress', progress.percent);
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('✅ Actualització descarregada:', info.version);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-downloaded', {
+      version: info.version
+    });
+  }
+});
+
+autoUpdater.on('error', (error) => {
+  console.error('❌ Error en auto-updater:', error);
+});
+
+// ============================================
+// IPC HANDLERS
+// ============================================
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
+// Handler para obtener la ruta del store (útil para debug)
+ipcMain.handle('get-store-path', () => {
+  return store.path;
+});
+
+// Handler para exportar todos los datos (útil para backups manuales)
+ipcMain.handle('export-all-data', () => {
+  return store.store;
+});
+
+// Handler para importar datos (útil para restaurar backups)
+ipcMain.handle('import-data', (_, data) => {
+  try {
+    Object.entries(data).forEach(([key, value]) => {
+      store.set(key, value);
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error importando datos:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
+// EVENTOS DE APLICACIÓN
+// ============================================
+
+app.whenReady().then(() => {
+  console.log('🚀 Aurora ERP iniciado');
+  console.log('📁 Store ubicado en:', store.path);
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
+  if (backupInterval) {
+    clearInterval(backupInterval);
+    backupInterval = null;
+  }
+  
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -89,4 +276,10 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
+});
+
+// Backup final antes de salir
+app.on('before-quit', () => {
+  console.log('🛑 Aplicación cerrándose...');
+  backupElectronStore();
 });

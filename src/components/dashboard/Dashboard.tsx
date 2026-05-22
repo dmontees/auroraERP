@@ -5,6 +5,7 @@ import type { Gasto } from '../../types/facturaCompra';
 import type { Projecte } from '../../types/projecte';
 import type { Pressupost } from '../../types/pressupost';
 import type { Client } from '../../types/client';
+import { storage } from '../../utils/storageManager';
 
 export default function Dashboard() {
   const [facturesVenda, setFacturesVenda] = useState<FacturaVenta[]>([]);
@@ -15,14 +16,11 @@ export default function Dashboard() {
 
   // Cargar datos
   useEffect(() => {
-    const loadData = () => {
-      setFacturesVenda(JSON.parse(localStorage.getItem('plateaFacturesVenda') || '[]'));
-      setGastos(JSON.parse(localStorage.getItem('plateaGastos') || '[]'));
-      setProjectes(JSON.parse(localStorage.getItem('plateaProjectes') || '[]'));
-      setPressupostos(JSON.parse(localStorage.getItem('plateaPressupostos') || '[]'));
-      setClients(JSON.parse(localStorage.getItem('plateaClients') || '[]'));
-    };
-    loadData();
+    setFacturesVenda(storage.getFacturesVenda());
+    setGastos(storage.getFacturesCompra());
+    setProjectes(storage.getProjectes());
+    setPressupostos(storage.getPressupostos());
+    setClients(storage.getClients());
   }, []);
 
   // CALCULAR KPIs
@@ -37,74 +35,74 @@ export default function Dashboard() {
   const facturesVencudes = facturesVenda.filter(f => f.estat === 'vencuda');
   const totalVencudes = facturesVencudes.reduce((sum, f) => sum + f.pendentCobrar, 0);
 
-  const projectesActius = projectes.filter(p => p.estat === 'en-curs').length;
+  const projectesActius = projectes.filter(p => p.estat === 'en_curs').length;
 
-// DATOS PARA GRÁFICO (últimos 6 meses)
-const getGraficData = () => {
-  const mesos: string[] = [];
-  const avui = new Date();
-  
-  for (let i = 5; i >= 0; i--) {
-    const data = new Date(avui.getFullYear(), avui.getMonth() - i, 1);
-    mesos.push(data.toISOString().substring(0, 7));
-  }
-
-  const ingressos = mesos.map(mes => {
-    // Ingresos de facturas
-    let total = facturesVenda
-      .filter(f => f.dataFactura && f.dataFactura.startsWith(mes))
-      .reduce((sum, f) => sum + f.totalFactura, 0);
+  // DATOS PARA GRÁFICO (últimos 6 meses)
+  const getGraficData = () => {
+    const mesos: string[] = [];
+    const avui = new Date();
     
-    // AÑADIR ingresos de proyectos importados sin factura
-    projectes
-      .filter(p => p.esImportat && p.dataInici && p.dataInici.startsWith(mes))
-      .forEach(p => {
-        const teFactura = facturesVenda.some(f => f.projecte === p.codi);
-        
-        if (!teFactura) {
-          let ingressos = 0;
+    for (let i = 5; i >= 0; i--) {
+      const data = new Date(avui.getFullYear(), avui.getMonth() - i, 1);
+      mesos.push(data.toISOString().substring(0, 7));
+    }
+
+    const ingressos = mesos.map(mes => {
+      // Ingresos de facturas
+      let total = facturesVenda
+        .filter(f => f.dataFactura && f.dataFactura.startsWith(mes))
+        .reduce((sum, f) => sum + f.totalFactura, 0);
+      
+      // AÑADIR ingresos de proyectos importados sin factura
+      projectes
+        .filter(p => p.esImportat && p.dataInici && p.dataInici.startsWith(mes))
+        .forEach(p => {
+          const teFactura = facturesVenda.some(f => f.projecte === p.codi);
           
-          if (p.tasques && p.tasques.length > 0) {
-            ingressos = p.tasques.reduce((sum, t) => sum + (t.importe || 0), 0);
-          } else if (p.ingresSenseIVA) {
-            ingressos = p.ingresSenseIVA;
+          if (!teFactura) {
+            let ingressos = 0;
+            
+            if (p.tasques && p.tasques.length > 0) {
+              ingressos = p.tasques.reduce((sum, t) => sum + (t.importe || 0), 0);
+            } else if (p.ingresSenseIVA) {
+              ingressos = p.ingresSenseIVA;
+            }
+            
+            total += ingressos;
           }
+        });
+      
+      return total;
+    });
+    
+    const despeses = mesos.map(mes => {
+      // Despesas de gastos
+      let total = gastos
+        .filter(g => g.dataGasto && g.dataGasto.startsWith(mes))
+        .reduce((sum, g) => sum + g.totalGasto, 0);
+      
+      // AÑADIR despesas de proyectos importados
+      projectes
+        .filter(p => p.esImportat && p.dataInici && p.dataInici.startsWith(mes))
+        .forEach(p => {
+          // Calcular despesas del proyecto
+          const recursosHumans = p.recursosHumans?.reduce((sum, r) => sum + (r.cost || 0), 0) || 0;
+          const materials = p.materials?.reduce((sum, m) => sum + (m.preuProveidor || 0), 0) || 0;
+          const despesesProjecte = recursosHumans + materials;
           
-          total += ingressos;
-        }
-      });
-    
-    return total;
-  });
-  
-  const despeses = mesos.map(mes => {
-    // Despesas de gastos
-    let total = gastos
-      .filter(g => g.dataGasto && g.dataGasto.startsWith(mes))
-      .reduce((sum, g) => sum + g.totalGasto, 0);
-    
-    // AÑADIR despesas de proyectos importados
-    projectes
-      .filter(p => p.esImportat && p.dataInici && p.dataInici.startsWith(mes))
-      .forEach(p => {
-        // Calcular despesas del proyecto
-        const recursosHumans = p.recursosHumans?.reduce((sum, r) => sum + (r.cost || 0), 0) || 0;
-        const materials = p.materials?.reduce((sum, m) => sum + (m.preuProveidor || 0), 0) || 0;
-        const despesesProjecte = recursosHumans + materials;
-        
-        total += despesesProjecte;
-      });
-    
-    return total;
-  });
+          total += despesesProjecte;
+        });
+      
+      return total;
+    });
 
-  const labels = mesos.map(m => {
-    const [any, mes] = m.split('-');
-    return new Date(parseInt(any), parseInt(mes) - 1).toLocaleString('ca', { month: 'short' });
-  });
+    const labels = mesos.map(m => {
+      const [any, mes] = m.split('-');
+      return new Date(parseInt(any), parseInt(mes) - 1).toLocaleString('ca', { month: 'short' });
+    });
 
-  return { labels, ingressos, despeses };
-};
+    return { labels, ingressos, despeses };
+  };
 
   const graficData = getGraficData();
 
@@ -114,7 +112,7 @@ const getGraficData = () => {
     gastosVencuts: gastos.filter(g => g.estat === 'vencuda').slice(0, 3),
     pressupostsPendents: pressupostos.filter(p => p.estat === 'pendent').slice(0, 3),
     projectesPropers: projectes
-      .filter(p => p.estat === 'en-curs' && p.dataEntrega)
+      .filter(p => p.estat === 'en_curs' && p.dataEntrega)
       .sort((a, b) => new Date(a.dataEntrega).getTime() - new Date(b.dataEntrega).getTime())
       .slice(0, 3)
   };
@@ -148,7 +146,7 @@ const getGraficData = () => {
       {/* HEADER */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          Benvingut a Aurora ERP - Platea Films
+          Benvingut a Aurora ERP
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem' }}>
           {new Date().toLocaleDateString('ca-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}

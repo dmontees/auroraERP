@@ -1,35 +1,41 @@
-export interface Contacte {
+export interface CategoriaProveidor {
   codi: string;
   nom: string;
-  correuElectronic: string;
-  carrec: string;
-  telefon: string;
-  notes: string;
+  color: string; // Hex color
+}
+
+export interface DocumentProveidor {
+  id: string;
+  nom: string;
+  tipus: 'contracte' | 'assegurança' | 'certificat' | 'altres';
+  dataCarrega: string;
+  urlFitxer: string; // Base64 o ruta
+  mida?: number; // bytes
 }
 
 export interface Tarifa {
   codi: string;
-  servei: string; // Código del servicio (SRV-00001)
-  unitat: string; // Código de la unidad (UNT-00001)
+  servei: string;
+  unitat: string;
   preu: number;
 }
 
 export interface Proveidor {
   codi: string;
-  tipus?: 'Proveïdor' | 'Acreedor';
+  tipus: 'Proveïdor' | 'Acreedor';
   dataAlta: string;
   nomFiscal: string;
   nomComercial: string;
   pais: 'Espanya' | 'UE-VIES' | 'Estranger-exportació' | 'Altres';
   domicili: string;
   nif: string;
-  personaContacte: string;
   telefon: string;
   correuElectronic: string;
   web: string;
   notesInternes: string;
-  contactes: Contacte[];
   tipusIVA: 'Normal' | 'Exempt' | 'Reduit' | 'Superreduit';
   retencio: number;
   tarifesEspecials: Tarifa[];
+  categories: string[]; // Array de codis de categories
+  documents: DocumentProveidor[]; // Documentación adjunta
 }

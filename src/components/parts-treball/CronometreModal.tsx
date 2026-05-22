@@ -2,8 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { X, Play, Pause, Square } from 'lucide-react';
 import type { Client } from '../../types/client';
 import type { Projecte } from '../../types/projecte';
-import type { CronometreState, PartTreball } from '../../types/partTreball';
+import type { PartTreball } from '../../types/partTreball';
 import SearchableSelect from '../common/SearchableSelect';
+import { useCronometre } from './useCronometre';
+
+interface CronometreModalProps {
+  onClose: () => void;
+  clients: Client[];
+  projectes: Projecte[];
+  onCrearPart: (part: Omit<PartTreball, 'codi'>) => void;
+}
 
 export default function CronometreModal({
   onClose,
@@ -11,7 +19,16 @@ export default function CronometreModal({
   projectes,
   onCrearPart
 }: CronometreModalProps) {
-  const [cronometreState, setCronometreState] = useState<CronometreState | null>(null);
+  const {
+    cronometreState,
+    iniciar,
+    pausar,
+    reanudar,
+    detenir,
+    cancelar,
+    formatTemps
+  } = useCronometre();
+
   const [mode, setMode] = useState<'projecte' | 'administratiu'>('projecte');
   const [formData, setFormData] = useState({
     client: '',
@@ -24,30 +41,26 @@ export default function CronometreModal({
     descripcio: ''
   });
 
-  // Cargar estado del cronómetro desde localStorage
+  // Cargar datos del cronómetro si está activo
   useEffect(() => {
-    const saved = localStorage.getItem('plateaCronometre');
-    if (saved) {
-      const state = JSON.parse(saved);
-      setCronometreState(state);
-      
-      if (state.mode === 'projecte') {
+    if (cronometreState) {
+      if (cronometreState.mode === 'projecte') {
         setFormData({
-          client: state.client,
-          projecte: state.projecte,
-          tasca: state.tasca || '',
-          descripcio: state.descripcio
+          client: cronometreState.client,
+          projecte: cronometreState.projecte,
+          tasca: cronometreState.tasca || '',
+          descripcio: cronometreState.descripcio
         });
         setMode('projecte');
       } else {
         setFormAdministratiu({
-          titol: state.titolAdministratiu || '',
-          descripcio: state.descripcio
+          titol: cronometreState.titolAdministratiu || '',
+          descripcio: cronometreState.descripcio
         });
         setMode('administratiu');
       }
     }
-  }, []);
+  }, [cronometreState]);
 
   const projectesFiltrats = formData.client
     ? projectes.filter(p => p.client === formData.client)
@@ -76,35 +89,21 @@ export default function CronometreModal({
   // INICIAR cronómetro
   const handleIniciar = () => {
     if (mode === 'projecte') {
-      const nouState: CronometreState = {
-        actiu: true,
-        pausat: false,
+      iniciar({
         mode: 'projecte',
         client: formData.client,
         projecte: formData.projecte,
         tasca: formData.tasca,
-        descripcio: formData.descripcio,
-        horaInici: Date.now(),
-        tempsTranscorregut: 0
-      };
-
-      localStorage.setItem('plateaCronometre', JSON.stringify(nouState));
-      setCronometreState(nouState);
+        descripcio: formData.descripcio
+      });
     } else {
-      const nouState: CronometreState = {
-        actiu: true,
-        pausat: false,
+      iniciar({
         mode: 'administratiu',
         client: '',
         projecte: '',
         descripcio: formAdministratiu.descripcio,
-        titolAdministratiu: formAdministratiu.titol,
-        horaInici: Date.now(),
-        tempsTranscorregut: 0
-      };
-
-      localStorage.setItem('plateaCronometre', JSON.stringify(nouState));
-      setCronometreState(nouState);
+        titolAdministratiu: formAdministratiu.titol
+      });
     }
     
     onClose();
@@ -112,107 +111,54 @@ export default function CronometreModal({
 
   // PAUSAR cronómetro
   const handlePausar = () => {
-    if (!cronometreState) return;
-
-    const ara = Date.now();
-    const tempsNou = cronometreState.tempsTranscorregut + (ara - (cronometreState.ultimaPausa || cronometreState.horaInici));
-
-    const nouState: CronometreState = {
-      ...cronometreState,
-      pausat: true,
-      tempsTranscorregut: tempsNou,
-      ultimaPausa: ara
-    };
-
-    localStorage.setItem('plateaCronometre', JSON.stringify(nouState));
-    setCronometreState(nouState);
+    pausar();
     onClose();
   };
 
   // REANUDAR cronómetro
   const handleReanudar = () => {
-    if (!cronometreState) return;
-
-    const nouState: CronometreState = {
-      ...cronometreState,
-      pausat: false,
-      ultimaPausa: Date.now()
-    };
-
-    localStorage.setItem('plateaCronometre', JSON.stringify(nouState));
-    setCronometreState(nouState);
+    reanudar();
     onClose();
   };
 
   // DETENER cronómetro
   const handleDetenir = () => {
-    if (!cronometreState) return;
-
     if (!confirm('Vols crear un part de treball amb aquest temps?')) {
-      localStorage.removeItem('plateaCronometre');
-      setCronometreState(null);
+      cancelar();
       onClose();
       return;
     }
 
-    // Calcular tiempo total
-    const ara = Date.now();
-    const tempsTotal = cronometreState.pausat
-      ? cronometreState.tempsTranscorregut
-      : cronometreState.tempsTranscorregut + (ara - (cronometreState.ultimaPausa || cronometreState.horaInici));
+    const result = detenir();
+    if (!result) return;
 
-    const tempsMinuts = Math.round(tempsTotal / 60000);
+    const { horaInici, horaFi, tempsMinuts, state } = result;
 
-    const dataInici = new Date(cronometreState.horaInici);
-    const dataFi = new Date(ara);
-
-    const horaInici = `${String(dataInici.getHours()).padStart(2, '0')}:${String(dataInici.getMinutes()).padStart(2, '0')}`;
-    const horaFi = `${String(dataFi.getHours()).padStart(2, '0')}:${String(dataFi.getMinutes()).padStart(2, '0')}`;
-
-// Crear el part de treball
-const nouPart: Omit<PartTreball, 'codi'> = cronometreState.mode === 'administratiu' 
-  ? {
-      data: new Date().toISOString().split('T')[0],
-      horaInici,
-      horaFi,
-      temps: tempsMinuts,
-      client: '',
-      projecte: 'ADMIN',
-      tasca: cronometreState.titolAdministratiu || 'Tasca administrativa',
-      descripcio: cronometreState.descripcio
-    }
-  : {
-      data: new Date().toISOString().split('T')[0],
-      horaInici,
-      horaFi,
-      temps: tempsMinuts,
-      client: cronometreState.client,
-      projecte: cronometreState.projecte,
-      tasca: cronometreState.tasca,
-      descripcio: cronometreState.descripcio
-    };
+    // Crear el part de treball
+    const nouPart: Omit<PartTreball, 'codi'> = state.mode === 'administratiu' 
+      ? {
+          data: new Date().toISOString().split('T')[0],
+          horaInici,
+          horaFi,
+          temps: tempsMinuts,
+          client: '',
+          projecte: 'ADMIN',
+          tasca: state.titolAdministratiu || 'Tasca administrativa',
+          descripcio: state.descripcio
+        }
+      : {
+          data: new Date().toISOString().split('T')[0],
+          horaInici,
+          horaFi,
+          temps: tempsMinuts,
+          client: state.client,
+          projecte: state.projecte,
+          tasca: state.tasca,
+          descripcio: state.descripcio
+        };
 
     onCrearPart(nouPart);
-
-    localStorage.removeItem('plateaCronometre');
-    setCronometreState(null);
     onClose();
-  };
-
-  // Formatear tiempo transcurrido
-  const formatTemps = () => {
-    if (!cronometreState) return '00:00:00';
-
-    const ara = Date.now();
-    const temps = cronometreState.pausat
-      ? cronometreState.tempsTranscorregut
-      : cronometreState.tempsTranscorregut + (ara - (cronometreState.ultimaPausa || cronometreState.horaInici));
-
-    const hores = Math.floor(temps / 3600000);
-    const minuts = Math.floor((temps % 3600000) / 60000);
-    const segons = Math.floor((temps % 60000) / 1000);
-
-    return `${String(hores).padStart(2, '0')}:${String(minuts).padStart(2, '0')}:${String(segons).padStart(2, '0')}`;
   };
 
   return (

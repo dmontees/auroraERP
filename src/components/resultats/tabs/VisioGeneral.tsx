@@ -72,7 +72,7 @@ const dataFi = new Date(periode.dataFi);
 const mesesEnPeriode = Math.max(1, Math.round((dataFi.getTime() - dataInici.getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
 const beneficiMitjaMensual = beneficiActual / mesesEnPeriode;
 
-const projectesActius = projectes.filter(p => p.estat === 'en-curs').length;
+const projectesActius = projectes.filter(p => p.estat === 'en_curs').length;
   
   // Calcular métricas período anterior (si comparamos)
   let variacioIngressos, variacioDespeses, variacioBenefici, variacioMarge;
@@ -500,7 +500,7 @@ const projectesActius = projectes.filter(p => p.estat === 'en-curs').length;
       dades={[
         {
           label: 'En curs',
-          valor: projectes.filter(p => p.estat === 'en-curs').length,
+          valor: projectes.filter(p => p.estat === 'en_curs').length,
           color: '#3b82f6'
         },
         {

@@ -1,3 +1,36 @@
+export type TipusFactura = 'normal' | 'rectificativa';
+
+export interface FacturaVenta {
+  codi: string;
+  tipus: TipusFactura; // ← NUEVO: tipo de factura
+  facturaRectificada?: string; // ← NUEVO: código factura que rectifica
+  motivoRectificativa?: string; // ← NUEVO: motivo de la rectificativa
+  
+  // ... resto de campos existentes
+  estat: EstatFacturaVenta;
+  client: string;
+  projecte?: string;
+  dataFactura: string;
+  dataVenciment: string;
+  dataEnviada?: string;
+  ivaPercent: number;
+  irpfPercent: number;
+  tasques: TascaCategoria[];
+  baseImposable: number;
+  ivaImport: number;
+  irpfImport: number;
+  totalFactura: number;
+  pagaments: PagamentClient[];
+  totalPagat: number;
+  pendentCobrar: number;
+  observacions: string;
+  plantillesSeleccionades: string[];
+  plantillesText: string;
+  accions: AccioFactura[];
+  documentPDF?: string;
+  documentPDFName?: string;
+}
+
 export type EstatFacturaVenta = 
   | 'borrador' 
   | 'enviada' 

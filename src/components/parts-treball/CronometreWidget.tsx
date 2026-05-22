@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Pause } from 'lucide-react';
 import type { CronometreState } from '../../types/partTreball';
+import { storage } from '../../utils/storageManager';
 
 export default function CronometreWidget() {
   const [cronometreState, setCronometreState] = useState<CronometreState | null>(null);
@@ -9,53 +10,44 @@ export default function CronometreWidget() {
   // Cargar estado del cronómetro
   useEffect(() => {
     const carregarCronometre = () => {
-      const saved = localStorage.getItem('plateaCronometre');
-      if (saved) {
-        setCronometreState(JSON.parse(saved));
-      } else {
-        setCronometreState(null);
-      }
+      const state = storage.getCronometre();
+      setCronometreState(state);
     };
 
     carregarCronometre();
 
-    // Escuchar cambios en localStorage
+    // Actualizar cada segundo
     const interval = setInterval(carregarCronometre, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-// Actualizar tiempo cada segundo
-useEffect(() => {
-  if (!cronometreState?.actiu) {
-    setTempsActual('00:00:00');
-    return;
-  }
+  // Actualizar tiempo cada segundo
+  useEffect(() => {
+    if (!cronometreState?.actiu) {
+      setTempsActual('00:00:00');
+      return;
+    }
 
-  // Calcular tiempo inmediatamente
-  const calcularTemps = () => {
-    const ara = Date.now();
-    const temps = cronometreState.pausat
-      ? cronometreState.tempsTranscorregut
-      : cronometreState.tempsTranscorregut + (ara - (cronometreState.ultimaPausa || cronometreState.horaInici));
+    const calcularTemps = () => {
+      const ara = Date.now();
+      const temps = cronometreState.pausat
+        ? cronometreState.tempsTranscorregut
+        : cronometreState.tempsTranscorregut + (ara - (cronometreState.ultimaPausa || cronometreState.horaInici));
 
-    const hores = Math.floor(temps / 3600000);
-    const minuts = Math.floor((temps % 3600000) / 60000);
-    const segons = Math.floor((temps % 60000) / 1000);
+      const hores = Math.floor(temps / 3600000);
+      const minuts = Math.floor((temps % 3600000) / 60000);
+      const segons = Math.floor((temps % 60000) / 1000);
 
-    setTempsActual(`${String(hores).padStart(2, '0')}:${String(minuts).padStart(2, '0')}:${String(segons).padStart(2, '0')}`);
-  };
+      setTempsActual(`${String(hores).padStart(2, '0')}:${String(minuts).padStart(2, '0')}:${String(segons).padStart(2, '0')}`);
+    };
 
-  // Calcular tiempo inicial
-  calcularTemps();
+    calcularTemps();
+    const interval = setInterval(calcularTemps, 1000);
 
-  // Actualizar cada segundo
-  const interval = setInterval(calcularTemps, 1000);
+    return () => clearInterval(interval);
+  }, [cronometreState]);
 
-  return () => clearInterval(interval);
-}, [cronometreState]);
-
-  // No mostrar si no hay cronómetro activo
   if (!cronometreState?.actiu) return null;
 
   return (
@@ -70,7 +62,6 @@ useEffect(() => {
         margin: '0 1rem 1rem 1rem'
       }}
     >
-      {/* Header */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -94,7 +85,6 @@ useEffect(() => {
         </span>
       </div>
 
-      {/* Tiempo */}
       <div style={{
         fontSize: '1.5rem',
         fontWeight: 700,
@@ -106,7 +96,6 @@ useEffect(() => {
         {tempsActual}
       </div>
 
-      {/* Info proyecto */}
       <div style={{
         fontSize: '0.7rem',
         color: cronometreState.pausat ? '#78350f' : '#1e3a8a',

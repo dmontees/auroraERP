@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import type { Pressupost } from '../../types/pressupost';
 import type { Client } from '../../types/client';
 import PressupostModal from './PressupostModal';
+import { storage } from '../../utils/storageManager';
 
 function PressupostosSection() {
   const [pressupostos, setPressupostos] = useState<Pressupost[]>([]);
@@ -11,79 +12,72 @@ function PressupostosSection() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstat, setFilterEstat] = useState<'Tots' | 'esborrany' | 'enviat' | 'acceptat' | 'rebutjat'>('Tots');
 
-  // Cargar presupuestos desde localStorage
+  // Cargar presupuestos
   useEffect(() => {
-    const saved = localStorage.getItem('plateaPressupostos');
-    if (saved) setPressupostos(JSON.parse(saved));
+    setPressupostos(storage.getPressupostos());
   }, []);
 
-  // Guardar presupuestos en localStorage
+  // Guardar presupuestos
   const savePressupostos = (newPressupostos: Pressupost[]) => {
+    storage.setPressupostos(newPressupostos);
     setPressupostos(newPressupostos);
-    localStorage.setItem('plateaPressupostos', JSON.stringify(newPressupostos));
   };
 
   const deletePressupost = (codi: string) => {
     const nuevos = pressupostos.filter(p => p.codi !== codi);
     savePressupostos(nuevos);
   };
-  
 
   // Cargar clientes para mostrar nombres
   const [clients, setClients] = useState<Client[]>([]);
   useEffect(() => {
-    const saved = localStorage.getItem('plateaClients');
-    if (saved) setClients(JSON.parse(saved));
+    setClients(storage.getClients());
   }, []);
 
-// Escuchar navegación desde otras secciones
-useEffect(() => {
-  // Solo ejecutar si los presupuestos ya están cargados
-  if (pressupostos.length === 0) return;
-  
-  const navigateTo = localStorage.getItem('plateaNavigateTo');
-  if (navigateTo) {
-    try {
-      const data = JSON.parse(navigateTo);
-      if (data.type === 'pressupost' && data.codi) {
-        // Buscar el presupuesto
-        const pressupost = pressupostos.find(p => p.codi === data.codi);
-        if (pressupost) {
-          // Pequeño delay para asegurar que la sección está montada
-          setTimeout(() => {
-            setEditingPressupost(pressupost);
-            setShowModal(true);
-          }, 100);
+  // Escuchar navegación desde otras secciones
+  useEffect(() => {
+    if (pressupostos.length === 0) return;
+    
+    const navigateTo = localStorage.getItem('plateaNavigateTo');
+    if (navigateTo) {
+      try {
+        const data = JSON.parse(navigateTo);
+        if (data.type === 'pressupost' && data.codi) {
+          const pressupost = pressupostos.find(p => p.codi === data.codi);
+          if (pressupost) {
+            setTimeout(() => {
+              setEditingPressupost(pressupost);
+              setShowModal(true);
+            }, 100);
+          }
+          localStorage.removeItem('plateaNavigateTo');
         }
-        // Limpiar
-        localStorage.removeItem('plateaNavigateTo');
+      } catch (e) {
+        // Silenciar error
       }
-    } catch (e) {
     }
-  }
-}, [pressupostos]);
+  }, [pressupostos]);
 
-// Filtrar y ordenar presupuestos (más recientes primero)
-const filteredPressupostos = pressupostos
-  .filter(pressupost => {
-    const client = clients.find(c => c.codi === pressupost.client);
-    const clientNom = client?.nomComercial || client?.nomFiscal || '';
-    
-    const matchSearch = 
-      pressupost.codi.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pressupost.nomProjecte.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchEstat = filterEstat === 'Tots' || pressupost.estat === filterEstat;
-    
-    return matchSearch && matchEstat;
-  })
-  .sort((a, b) => {
-    // Ordenar por fecha descendente (más recientes primero)
-    const dateA = new Date(a.data).getTime();
-    const dateB = new Date(b.data).getTime();
-    return dateB - dateA;
-  });
+  // Filtrar y ordenar presupuestos (más recientes primero)
+  const filteredPressupostos = pressupostos
+    .filter(pressupost => {
+      const client = clients.find(c => c.codi === pressupost.client);
+      const clientNom = client?.nomComercial || client?.nomFiscal || '';
+      
+      const matchSearch = 
+        pressupost.codi.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pressupost.nomProjecte.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchEstat = filterEstat === 'Tots' || pressupost.estat === filterEstat;
+      
+      return matchSearch && matchEstat;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.data).getTime();
+      const dateB = new Date(b.data).getTime();
+      return dateB - dateA;
+    });
 
   // Calcular totales de un presupuesto
   const calcularTotals = (pressupost: Pressupost) => {
@@ -97,51 +91,41 @@ const filteredPressupostos = pressupostos
     
     return { totalGastos, totalPressupost, benefici, percentBenefici };
   };
-// Exportar a Excel
-const exportarExcel = () => {
-  // Preparar datos para Excel
-  const excelData = filteredPressupostos.map(pressupost => {
-    const client = clients.find(c => c.codi === pressupost.client);
-    const totals = calcularTotals(pressupost);
-    
-    return {
-      'Codi': pressupost.codi,
-      'Estat': pressupost.estat.toUpperCase(),
-      'Client': client?.nomComercial || client?.nomFiscal || '-',
-      'Projecte': pressupost.nomProjecte || '-',
-      'Data': pressupost.data,
-      'Data Venciment': pressupost.dataVenciment,
-      'Gastos (€)': totals.totalGastos.toFixed(2),
-      'Total Pressupost (€)': totals.totalPressupost.toFixed(2),
-      'Benefici (€)': totals.benefici.toFixed(2),
-      '% Benefici': totals.percentBenefici.toFixed(1) + '%'
-    };
-  });
 
-  // Crear workbook y worksheet
-  const ws = XLSX.utils.json_to_sheet(excelData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Pressupostos');
+  // Exportar a Excel
+  const exportarExcel = () => {
+    const excelData = filteredPressupostos.map(pressupost => {
+      const client = clients.find(c => c.codi === pressupost.client);
+      const totals = calcularTotals(pressupost);
+      
+      return {
+        'Codi': pressupost.codi,
+        'Estat': pressupost.estat.toUpperCase(),
+        'Client': client?.nomComercial || client?.nomFiscal || '-',
+        'Projecte': pressupost.nomProjecte || '-',
+        'Data': pressupost.data,
+        'Data Venciment': pressupost.dataVenciment,
+        'Gastos (€)': totals.totalGastos.toFixed(2),
+        'Total Pressupost (€)': totals.totalPressupost.toFixed(2),
+        'Benefici (€)': totals.benefici.toFixed(2),
+        '% Benefici': totals.percentBenefici.toFixed(1) + '%'
+      };
+    });
 
-  // Ajustar anchos de columna
-  const colWidths = [
-    { wch: 12 }, // Codi
-    { wch: 12 }, // Estat
-    { wch: 30 }, // Client
-    { wch: 30 }, // Projecte
-    { wch: 12 }, // Data
-    { wch: 15 }, // Data Venciment
-    { wch: 15 }, // Gastos
-    { wch: 18 }, // Total Pressupost
-    { wch: 15 }, // Benefici
-    { wch: 12 }  // % Benefici
-  ];
-  ws['!cols'] = colWidths;
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pressupostos');
 
-  // Descargar archivo
-  const fileName = `pressupostos_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(wb, fileName);
-};
+    const colWidths = [
+      { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 30 }, { wch: 12 },
+      { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 12 }
+    ];
+    ws['!cols'] = colWidths;
+
+    const fileName = `pressupostos_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   return (
     <div>
       {/* BARRA DE FILTROS Y ACCIONES */}
@@ -259,7 +243,7 @@ const exportarExcel = () => {
         </table>
       </div>
 
- {/* MODAL DE PRESUPUESTO */}
+      {/* MODAL DE PRESUPUESTO */}
       {(showModal || editingPressupost) && (
         <PressupostModal
           onClose={() => {

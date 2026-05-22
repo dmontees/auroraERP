@@ -914,7 +914,7 @@ const vincularFactura = (codiFactura: string) => {
 
 return (
   <div className="modal-overlay">
-    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1000px', maxHeight: '95vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1400px', maxHeight: '95vh', display: 'flex', flexDirection: 'column' }}>
       <div className="modal-header">
   <h2>
     <FileText size={24} />

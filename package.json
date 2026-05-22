@@ -1,7 +1,7 @@
 {
   "name": "Aurora-erp",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Dani Montes",
@@ -13,10 +13,11 @@
     "electron:dev": "set NODE_ENV=development && electron .",
     "electron:build": "tsc && vite build && electron-builder",
     "electron:build:mac": "tsc && vite build && electron-builder --mac --publish never",
-	"electron:build:win": "tsc && vite build && electron-builder --win --publish never"
+    "electron:build:win": "tsc && vite build && electron-builder --win --publish never"
   },
   "dependencies": {
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.3",
     "file-saver": "^2.0.5",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
@@ -39,9 +40,10 @@
   "build": {
     "appId": "com.aurora.erp",
     "productName": "Aurora",
-    "directories": {
-      "buildResources": "build",
-      "output": "release"
+    "publish": {
+      "provider": "github",
+      "owner": "dmontees",
+      "repo": "auroraERP"
     },
     "files": [
       "dist/**/*",
@@ -55,11 +57,11 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         }
-      ]
+      ],
+      "minimumSystemVersion": "10.13.0"
     },
     "win": {
       "icon": "build/icon.ico",

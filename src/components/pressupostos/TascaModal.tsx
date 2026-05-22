@@ -1,207 +1,274 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import SearchableSelect from '../common/SearchableSelect';
-import type { Tasca } from '../../types/pressupost';
+import { X, Save } from 'lucide-react';
+import type { TascaPressupost } from '../../types/pressupost';
+import { storage } from '../../utils/storageManager';
 
-interface Props {
+interface TascaModalProps {
   onClose: () => void;
-  onSave: (tasca: Tasca, categoria: string) => void;
-  existingCategories: string[];
-  editingTasca?: Tasca;
-  editingCategory?: string;
-  serveis?: Array<{ codi: string; nom: string; categoria: string }>;
-  unitats?: Array<{ codi: string; nom: string }>;
-  clientTarifes?: Array<{ servei: string; unitat: string; preu: number }>;
-  parametres?: any;
+  onSave: (tasca: Omit<TascaPressupost, 'id' | 'ordre'>) => void;
+  editingTasca?: TascaPressupost | null;
+  parametres: any;
 }
 
-export default function TascaModal({
-  onClose,
-  onSave,
-  existingCategories,
+export default function TascaModal({ 
+  onClose, 
+  onSave, 
   editingTasca,
-  editingCategory,
-  serveis = [],
-  unitats = [],
-  clientTarifes = [],
-  parametres
-}: Props) {
+  parametres 
+}: TascaModalProps) {
   const [formData, setFormData] = useState({
+    categoria: editingTasca?.categoria || '',
     servei: editingTasca?.servei || '',
     descripcio: editingTasca?.descripcio || '',
     quantitat: editingTasca?.quantitat || 1,
     unitat: editingTasca?.unitat || '',
-    preu: editingTasca?.preu || 0
+    tarifa: editingTasca?.tarifa || 0,
+    importe: editingTasca?.importe || 0
   });
 
-  // Buscar tarifa del cliente o de parámetros
-  const buscarTarifa = (servei: string, unitat: string): number => {
-    // 1. Buscar primero en tarifas del cliente
-    const tarifaClient = clientTarifes.find(t => t.servei === servei && t.unitat === unitat);
-    if (tarifaClient) {
-      return tarifaClient.preu;
-    }
-    
-    // 2. Si no hay tarifa del cliente, buscar en tarifas generales de parámetros
-    const tarifaGeneral = parametres?.tarifes?.find((t: any) => t.servei === servei && t.unitat === unitat);
-    if (tarifaGeneral) {
-      return tarifaGeneral.preu;
-    }
-        return 0;
-  };
-
-  // Cambio de servei
-  const handleServeiChange = (codiServei: string) => {
-    const serveiData = serveis.find(s => s.codi === codiServei);
-    
+  // Auto-calcular importe
+  useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      servei: codiServei,
-      descripcio: serveiData?.descripcio || '',
-      preu: prev.unitat ? buscarTarifa(codiServei, prev.unitat) : 0
+      importe: prev.quantitat * prev.tarifa
     }));
-  };
+  }, [formData.quantitat, formData.tarifa]);
 
-  // Cambio de unitat
-  const handleUnitatChange = (codiUnitat: string) => {
+  // Auto-rellenar al seleccionar servicio
+  useEffect(() => {
+    if (formData.servei && parametres?.serveis) {
+      const serveiData = parametres.serveis.find((s: any) => s.codi === formData.servei);
+      if (serveiData) {
+        setFormData(prev => ({
+          ...prev,
+          categoria: serveiData.categoria,
+          descripcio: serveiData.descripcio
+        }));
+      }
+    }
+  }, [formData.servei, parametres]);
 
-    
-    const preu = formData.servei ? buscarTarifa(formData.servei, codiUnitat) : 0;
-    
-    setFormData(prev => ({
-      ...prev,
-      unitat: codiUnitat,
-      preu
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-  
-    if (!formData.servei || !formData.unitat) {
-      alert('Has de seleccionar un servei i una unitat');
+  const handleSave = () => {
+    if (!formData.categoria || !formData.servei) {
+      alert('Has de seleccionar categoria i servei');
       return;
     }
-  
-    // Obtener nombre del servei
-    const serveiData = serveis.find(s => s.codi === formData.servei);
-    const serveiNom = serveiData?.nom || formData.servei;
-  
-    // Obtener nombre de unitat
-    const unitatData = unitats.find(u => u.codi === formData.unitat);
-    const unitatNom = unitatData?.nom || formData.unitat;
-  
-    // Determinar categoría
-    let categoria = editingCategory || '';
-    if (!categoria) {
-      categoria = serveiData?.categoria || 'ALTRES';
-    }
-  
-    const tasca: Tasca = {
-      id: editingTasca?.id || `task-${Date.now()}-${Math.random()}`,
-      servei: serveiNom,  // Guardar NOMBRE, no código
-      descripcio: formData.descripcio,
-      quantitat: formData.quantitat,
-      unitat: unitatNom,  // Guardar NOMBRE, no código
-      preu: formData.preu
-    };
-  
-    onSave(tasca, categoria);
+
+    onSave(formData);
   };
 
+  const categoriesDisponibles = parametres?.categories || [];
+  const serveisDisponibles = parametres?.serveis || [];
+  const unitatsDisponibles = parametres?.unitats || [];
+
   return (
-    <div className="modal-overlay" style={{ zIndex: 2000 }}>
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+        padding: '1rem'
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div 
-        className="modal-content" 
-        onClick={(e) => e.stopPropagation()} 
-        style={{ maxWidth: '600px' }}
+        style={{
+          background: 'white',
+          borderRadius: '8px',
+          width: '100%',
+          maxWidth: '600px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+        }}
       >
-        <div className="modal-header">
-          <h2>{editingTasca ? 'Editar Tasca' : 'Afegir Tasca'}</h2>
-          <button className="modal-close" onClick={onClose}>
+        {/* HEADER */}
+        <div style={{
+          padding: '1.5rem',
+          borderBottom: '1px solid var(--color-border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>
+            {editingTasca ? 'Editar Tasca' : 'Nova Tasca'}
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0.5rem',
+              color: 'var(--color-text-tertiary)'
+            }}
+          >
             <X size={24} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label>Servei *</label>
-              <SearchableSelect
-                value={formData.servei}
-                onChange={handleServeiChange}
-                options={serveis.map(s => ({ value: s.codi, label: s.nom }))}
-                placeholder="Selecciona servei..."
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Descripció</label>
-              <textarea
+        {/* BODY */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Categoria */}
+            <div>
+              <label className="form-label">
+                Categoria <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <select
+                value={formData.categoria}
+                onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
                 className="form-input"
+              >
+                <option value="">Selecciona categoria...</option>
+                <option value="MATERIALS">Materials</option>
+                {categoriesDisponibles.map((cat: any) => (
+                  <option key={cat.codi} value={cat.codi}>
+                    {cat.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Servei */}
+            <div>
+              <label className="form-label">
+                Servei <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <select
+                value={formData.servei}
+                onChange={(e) => setFormData(prev => ({ ...prev, servei: e.target.value }))}
+                className="form-input"
+              >
+                <option value="">Selecciona servei...</option>
+                {serveisDisponibles
+                  .filter((s: any) => !formData.categoria || s.categoria === formData.categoria)
+                  .map((serv: any) => (
+                    <option key={serv.codi} value={serv.codi}>
+                      {serv.descripcio}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Descripció */}
+            <div>
+              <label className="form-label">Descripció</label>
+              <textarea
                 value={formData.descripcio}
-                onChange={(e) => setFormData({ ...formData, descripcio: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, descripcio: e.target.value }))}
+                placeholder="Descripció detallada de la tasca..."
+                className="form-input"
                 rows={3}
-                placeholder="Detalls addicionals de la tasca..."
+                style={{ resize: 'vertical' }}
               />
             </div>
 
+            {/* Quantitat i Unitat */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div className="form-group">
-                <label>Quantitat *</label>
+              <div>
+                <label className="form-label">Quantitat</label>
                 <input
                   type="number"
-                  className="form-input"
                   value={formData.quantitat}
-                  onChange={(e) => setFormData({ ...formData, quantitat: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, quantitat: parseFloat(e.target.value) || 0 }))}
                   min="0"
                   step="0.01"
-                  required
+                  className="form-input"
                 />
               </div>
 
-              <div className="form-group">
-  <label>Unitat *</label>
-  <SearchableSelect
-    value={formData.unitat}
-    onChange={handleUnitatChange}
-    options={unitats.map(u => ({ value: u.codi, label: u.nom }))}
-    placeholder="Selecciona unitat..."
-  />
-</div>
+              <div>
+                <label className="form-label">Unitat</label>
+                <select
+                  value={formData.unitat}
+                  onChange={(e) => setFormData(prev => ({ ...prev, unitat: e.target.value }))}
+                  className="form-input"
+                >
+                  <option value="">-</option>
+                  {unitatsDisponibles.map((unit: any) => (
+                    <option key={unit.codi} value={unit.codi}>
+                      {unit.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>Tarifa (€)</label>
-              <input
-                type="number"
-                className="form-input"
-                value={formData.preu}
-                onChange={(e) => setFormData({ ...formData, preu: parseFloat(e.target.value) || 0 })}
-                min="0"
-                step="0.01"
-              />
-            </div>
+            {/* Tarifa i Import */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label className="form-label">Tarifa (€)</label>
+                <input
+                  type="number"
+                  value={formData.tarifa}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tarifa: parseFloat(e.target.value) || 0 }))}
+                  min="0"
+                  step="0.01"
+                  className="form-input"
+                />
+              </div>
 
-            <div style={{
-              padding: '1rem',
-              background: 'var(--color-bg-tertiary)',
-              borderRadius: '6px',
-              marginTop: '1rem'
-            }}>
-              <strong>Import total:</strong> {(formData.quantitat * formData.preu).toFixed(2)}€
+              <div>
+                <label className="form-label">Import Total</label>
+                <input
+                  type="text"
+                  value={`${formData.importe.toFixed(2)}€`}
+                  disabled
+                  className="form-input"
+                  style={{ 
+                    background: '#f3f4f6', 
+                    fontWeight: 600,
+                    fontSize: '1.1rem'
+                  }}
+                />
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel·lar
-            </button>
-            <button type="submit" className="btn-primary">
-              {editingTasca ? 'Desar Canvis' : 'Afegir Tasca'}
-            </button>
-          </div>
-        </form>
+        {/* FOOTER */}
+        <div style={{
+          padding: '1.5rem',
+          borderTop: '1px solid var(--color-border)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '0.75rem',
+          background: '#f9fafb'
+        }}>
+          <button
+            onClick={onClose}
+            className="btn-secondary"
+          >
+            Cancel·lar
+          </button>
+          <button
+            onClick={handleSave}
+            className="btn-primary"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <Save size={18} />
+            {editingTasca ? 'Actualitzar' : 'Afegir'}
+          </button>
+        </div>
       </div>
     </div>
   );

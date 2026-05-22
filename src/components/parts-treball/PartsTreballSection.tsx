@@ -6,6 +6,7 @@ import type { Client } from '../../types/client';
 import type { Projecte } from '../../types/projecte';
 import PartTreballModal from './PartTreballModal';
 import CronometreModal from './CronometreModal';
+import { storage } from '../../utils/storageManager';
 
 interface PartsTreballSectionProps {
   clients: Client[];
@@ -29,15 +30,12 @@ export default function PartsTreballSection({ clients }: PartsTreballSectionProp
 
   // Cargar datos
   useEffect(() => {
-    const savedParts = localStorage.getItem('plateaPartsTreball');
-    setParts(savedParts ? JSON.parse(savedParts) : []);
-    
-    const savedProjectes = localStorage.getItem('plateaProjectes');
-    setProjectes(savedProjectes ? JSON.parse(savedProjectes) : []);
+    setParts(storage.getPartsTreball());
+    setProjectes(storage.getProjectes());
   }, []);
 
   const saveParts = (newParts: PartTreball[]) => {
-    localStorage.setItem('plateaPartsTreball', JSON.stringify(newParts));
+    storage.setPartsTreball(newParts);
     setParts(newParts);
   };
 
@@ -98,31 +96,31 @@ export default function PartsTreballSection({ clients }: PartsTreballSectionProp
       partsFiltrats = partsFiltrats.filter(p => p.client === filtreClient);
     }
 
-// Ordenar por fecha y hora de fin (más recientes primero)
-partsFiltrats = partsFiltrats.sort((a, b) => {
-  // Primero comparar por fecha
-  const dateA = new Date(a.data).getTime();
-  const dateB = new Date(b.data).getTime();
-  
-  if (dateA !== dateB) {
-    return dateB - dateA; // Más recientes primero
-  }
-  
-  // Si las fechas son iguales, ordenar por hora de fin
-  const [horaA, minA] = a.horaFi.split(':').map(Number);
-  const [horaB, minB] = b.horaFi.split(':').map(Number);
-  const minutosA = horaA * 60 + minA;
-  const minutosB = horaB * 60 + minB;
-  
-  return minutosB - minutosA; // Más tarde primero
-});
+    // Ordenar por fecha y hora de fin (más recientes primero)
+    partsFiltrats = partsFiltrats.sort((a, b) => {
+      // Primero comparar por fecha
+      const dateA = new Date(a.data).getTime();
+      const dateB = new Date(b.data).getTime();
+      
+      if (dateA !== dateB) {
+        return dateB - dateA; // Más recientes primero
+      }
+      
+      // Si las fechas son iguales, ordenar por hora de fin
+      const [horaA, minA] = a.horaFi.split(':').map(Number);
+      const [horaB, minB] = b.horaFi.split(':').map(Number);
+      const minutosA = horaA * 60 + minA;
+      const minutosB = horaB * 60 + minB;
+      
+      return minutosB - minutosA; // Más tarde primero
+    });
 
-return partsFiltrats;
+    return partsFiltrats;
   };
 
   const partsFiltrats = getPartsFiltrats();
 
-    // Calcular total de tiempos
+  // Calcular total de tiempos
   const totalTemps = partsFiltrats.reduce((sum, p) => sum + p.temps, 0);
 
   // Eliminar part
@@ -141,209 +139,209 @@ return partsFiltrats;
   return (
     <div className="section-placeholder">
       
-{/* FILTROS */}
-<div style={{ 
-  display: 'flex',
-  gap: '1rem',
-  marginBottom: '1.5rem',
-  flexWrap: 'wrap',
-  alignItems: 'center'
-}}>
-  {/* Filtros de período */}
-  <div style={{ 
-    display: 'flex', 
-    gap: '0.25rem',
-    background: 'var(--color-bg-secondary)',
-    padding: '0.25rem',
-    borderRadius: '8px',
-    border: '1px solid var(--color-border)'
-  }}>
-    <button
-      onClick={() => setFiltrePeriode('tots')}
-      style={{
-        padding: '0.4rem 0.75rem',
-        fontSize: '0.8rem',
-        background: filtrePeriode === 'tots' ? 'var(--color-accent-primary)' : 'transparent',
-        color: filtrePeriode === 'tots' ? 'white' : 'var(--color-text-primary)',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontWeight: 500,
-        transition: 'all 0.2s'
-      }}
-    >
-      Tots
-    </button>
-    <button
-      onClick={() => setFiltrePeriode('mes-anterior')}
-      style={{
-        padding: '0.4rem 0.75rem',
-        fontSize: '0.8rem',
-        background: filtrePeriode === 'mes-anterior' ? 'var(--color-accent-primary)' : 'transparent',
-        color: filtrePeriode === 'mes-anterior' ? 'white' : 'var(--color-text-primary)',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontWeight: 500,
-        transition: 'all 0.2s'
-      }}
-    >
-      Mes Anterior
-    </button>
-    <button
-      onClick={() => setFiltrePeriode('mes-actual')}
-      style={{
-        padding: '0.4rem 0.75rem',
-        fontSize: '0.8rem',
-        background: filtrePeriode === 'mes-actual' ? 'var(--color-accent-primary)' : 'transparent',
-        color: filtrePeriode === 'mes-actual' ? 'white' : 'var(--color-text-primary)',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontWeight: 500,
-        transition: 'all 0.2s'
-      }}
-    >
-      Mes Actual
-    </button>
-    <button
-      onClick={() => setFiltrePeriode('mes-seguent')}
-      style={{
-        padding: '0.4rem 0.75rem',
-        fontSize: '0.8rem',
-        background: filtrePeriode === 'mes-seguent' ? 'var(--color-accent-primary)' : 'transparent',
-        color: filtrePeriode === 'mes-seguent' ? 'white' : 'var(--color-text-primary)',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontWeight: 500,
-        transition: 'all 0.2s'
-      }}
-    >
-      Mes Següent
-    </button>
-    <button
-      onClick={() => setFiltrePeriode('personalitzat')}
-      style={{
-        padding: '0.4rem 0.75rem',
-        fontSize: '0.8rem',
-        background: filtrePeriode === 'personalitzat' ? 'var(--color-accent-primary)' : 'transparent',
-        color: filtrePeriode === 'personalitzat' ? 'white' : 'var(--color-text-primary)',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontWeight: 500,
-        transition: 'all 0.2s',
+      {/* FILTROS */}
+      <div style={{ 
         display: 'flex',
-        alignItems: 'center',
-        gap: '0.3rem'
-      }}
-    >
-      <Calendar size={14} />
-      Entre dates
-    </button>
-  </div>
+        gap: '1rem',
+        marginBottom: '1.5rem',
+        flexWrap: 'wrap',
+        alignItems: 'center'
+      }}>
+        {/* Filtros de período */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '0.25rem',
+          background: 'var(--color-bg-secondary)',
+          padding: '0.25rem',
+          borderRadius: '8px',
+          border: '1px solid var(--color-border)'
+        }}>
+          <button
+            onClick={() => setFiltrePeriode('tots')}
+            style={{
+              padding: '0.4rem 0.75rem',
+              fontSize: '0.8rem',
+              background: filtrePeriode === 'tots' ? 'var(--color-accent-primary)' : 'transparent',
+              color: filtrePeriode === 'tots' ? 'white' : 'var(--color-text-primary)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'all 0.2s'
+            }}
+          >
+            Tots
+          </button>
+          <button
+            onClick={() => setFiltrePeriode('mes-anterior')}
+            style={{
+              padding: '0.4rem 0.75rem',
+              fontSize: '0.8rem',
+              background: filtrePeriode === 'mes-anterior' ? 'var(--color-accent-primary)' : 'transparent',
+              color: filtrePeriode === 'mes-anterior' ? 'white' : 'var(--color-text-primary)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'all 0.2s'
+            }}
+          >
+            Mes Anterior
+          </button>
+          <button
+            onClick={() => setFiltrePeriode('mes-actual')}
+            style={{
+              padding: '0.4rem 0.75rem',
+              fontSize: '0.8rem',
+              background: filtrePeriode === 'mes-actual' ? 'var(--color-accent-primary)' : 'transparent',
+              color: filtrePeriode === 'mes-actual' ? 'white' : 'var(--color-text-primary)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'all 0.2s'
+            }}
+          >
+            Mes Actual
+          </button>
+          <button
+            onClick={() => setFiltrePeriode('mes-seguent')}
+            style={{
+              padding: '0.4rem 0.75rem',
+              fontSize: '0.8rem',
+              background: filtrePeriode === 'mes-seguent' ? 'var(--color-accent-primary)' : 'transparent',
+              color: filtrePeriode === 'mes-seguent' ? 'white' : 'var(--color-text-primary)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'all 0.2s'
+            }}
+          >
+            Mes Següent
+          </button>
+          <button
+            onClick={() => setFiltrePeriode('personalitzat')}
+            style={{
+              padding: '0.4rem 0.75rem',
+              fontSize: '0.8rem',
+              background: filtrePeriode === 'personalitzat' ? 'var(--color-accent-primary)' : 'transparent',
+              color: filtrePeriode === 'personalitzat' ? 'white' : 'var(--color-text-primary)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+          >
+            <Calendar size={14} />
+            Entre dates
+          </button>
+        </div>
 
-  {/* Fechas personalizadas (inline) */}
-  {filtrePeriode === 'personalitzat' && (
-    <>
-      <input
-        type="date"
-        className="form-input"
-        value={dataInici}
-        onChange={(e) => setDataInici(e.target.value)}
-        style={{ width: '140px', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
-      />
-      <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.85rem' }}>→</span>
-      <input
-        type="date"
-        className="form-input"
-        value={dataFi}
-        onChange={(e) => setDataFi(e.target.value)}
-        style={{ width: '140px', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
-      />
-    </>
-  )}
+        {/* Fechas personalizadas (inline) */}
+        {filtrePeriode === 'personalitzat' && (
+          <>
+            <input
+              type="date"
+              className="form-input"
+              value={dataInici}
+              onChange={(e) => setDataInici(e.target.value)}
+              style={{ width: '140px', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+            />
+            <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.85rem' }}>→</span>
+            <input
+              type="date"
+              className="form-input"
+              value={dataFi}
+              onChange={(e) => setDataFi(e.target.value)}
+              style={{ width: '140px', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+            />
+          </>
+        )}
 
-  {/* Separador */}
-  <div style={{ width: '1px', height: '30px', background: 'var(--color-border)' }} />
+        {/* Separador */}
+        <div style={{ width: '1px', height: '30px', background: 'var(--color-border)' }} />
 
-  {/* Filtro Cliente */}
-  <div style={{ minWidth: '180px', maxWidth: '200px' }}>
-    <SearchableSelect
-      value={filtreClient}
-      onChange={(value) => setFiltreClient(value)}
-      options={[
-        { value: '', label: 'Tots els clients' },
-        ...clients.map(c => ({ value: c.codi, label: c.nomComercial || c.nomFiscal }))
-      ]}
-      placeholder="Client..."
-    />
-  </div>
+        {/* Filtro Cliente */}
+        <div style={{ minWidth: '180px', maxWidth: '200px' }}>
+          <SearchableSelect
+            value={filtreClient}
+            onChange={(value) => setFiltreClient(value)}
+            options={[
+              { value: '', label: 'Tots els clients' },
+              ...clients.map(c => ({ value: c.codi, label: c.nomComercial || c.nomFiscal }))
+            ]}
+            placeholder="Client..."
+          />
+        </div>
 
-  {/* Filtro Proyecto */}
-  <div style={{ minWidth: '180px', maxWidth: '200px' }}>
-    <SearchableSelect
-      value={filtreProjecte}
-      onChange={(value) => setFiltreProjecte(value)}
-      options={[
-        { value: '', label: 'Tots els projectes' },
-        ...projectes.map(p => ({ value: p.codi, label: `${p.codi} - ${p.titol}` }))
-      ]}
-      placeholder="Projecte..."
-    />
-  </div>
+        {/* Filtro Proyecto */}
+        <div style={{ minWidth: '180px', maxWidth: '200px' }}>
+          <SearchableSelect
+            value={filtreProjecte}
+            onChange={(value) => setFiltreProjecte(value)}
+            options={[
+              { value: '', label: 'Tots els projectes' },
+              ...projectes.map(p => ({ value: p.codi, label: `${p.codi} - ${p.titol}` }))
+            ]}
+            placeholder="Projecte..."
+          />
+        </div>
 
-  {/* Spacer */}
-  <div style={{ flex: 1 }} />
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
 
-  {/* Total Temps (más discreto) */}
-  <div style={{
-    padding: '0.5rem 1rem',
-    background: 'var(--color-bg-tertiary)',
-    border: '2px solid var(--color-accent-primary)',
-    borderRadius: '8px',
-    fontWeight: 600,
-    color: 'var(--color-accent-primary)',
-    fontSize: '0.9rem',
-    whiteSpace: 'nowrap'
-  }}>
-    ⏱️ {formatTemps(totalTemps)}
-  </div>
+        {/* Total Temps */}
+        <div style={{
+          padding: '0.5rem 1rem',
+          background: 'var(--color-bg-tertiary)',
+          border: '2px solid var(--color-accent-primary)',
+          borderRadius: '8px',
+          fontWeight: 600,
+          color: 'var(--color-accent-primary)',
+          fontSize: '0.9rem',
+          whiteSpace: 'nowrap'
+        }}>
+          ⏱️ {formatTemps(totalTemps)}
+        </div>
 
-  {/* Botones */}
-  <button
-    className="btn-secondary"
-    onClick={() => setShowCronometreModal(true)}
-    style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '0.4rem',
-      padding: '0.5rem 1rem',
-      fontSize: '0.85rem'
-    }}
-  >
-    <Clock size={16} />
-    Cronòmetre
-  </button>
-  <button
-    className="btn-primary"
-    onClick={() => {
-      setEditingPart(null);
-      setShowModal(true);
-    }}
-    style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '0.4rem',
-      padding: '0.5rem 1rem',
-      fontSize: '0.85rem'
-    }}
-  >
-    <Plus size={16} />
-    Nou Part
-  </button>
-</div>
+        {/* Botones */}
+        <button
+          className="btn-secondary"
+          onClick={() => setShowCronometreModal(true)}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.4rem',
+            padding: '0.5rem 1rem',
+            fontSize: '0.85rem'
+          }}
+        >
+          <Clock size={16} />
+          Cronòmetre
+        </button>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            setEditingPart(null);
+            setShowModal(true);
+          }}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.4rem',
+            padding: '0.5rem 1rem',
+            fontSize: '0.85rem'
+          }}
+        >
+          <Plus size={16} />
+          Nou Part
+        </button>
+      </div>
 
       {/* TABLA */}
       <div className="placeholder-card" style={{ overflowX: 'auto' }}>
@@ -393,19 +391,19 @@ return partsFiltrats;
                       {new Date(part.data).toLocaleDateString('ca-ES')}
                     </td>
                     <td style={{ padding: '0.75rem', fontWeight: 500 }}>
-  {part.projecte === 'ADMIN' ? (
-    <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Tasca administrativa</span>
-  ) : (
-    projecte?.titol || '-'
-  )}
-</td>
-<td style={{ padding: '0.75rem' }}>
-  {part.projecte === 'ADMIN' ? (
-    part.tasca || '-'
-  ) : (
-    tasca?.servei || '-'
-  )}
-</td>
+                      {part.projecte === 'ADMIN' ? (
+                        <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Tasca administrativa</span>
+                      ) : (
+                        projecte?.titol || '-'
+                      )}
+                    </td>
+                    <td style={{ padding: '0.75rem' }}>
+                      {part.projecte === 'ADMIN' ? (
+                        part.tasca || '-'
+                      ) : (
+                        tasca?.servei || '-'
+                      )}
+                    </td>
                     <td style={{ padding: '0.75rem' }}>
                       {client?.nomComercial || client?.nomFiscal || '-'}
                     </td>
