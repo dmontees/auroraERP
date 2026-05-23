@@ -970,7 +970,7 @@ export default function FacturaVendaModal({
                   }}
                   style={{ justifyContent: 'center', fontSize: '1rem', padding: '1rem' }}
                 >
-                  🇪🇸 Català
+                  🏴󠁥󠁳󠁣󠁴󠁿 Català
                 </button>
                 <button
                   type="button"
