@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Pressupost } from '../types/pressupost';
 import type { Client } from '../types/client';
+import { storage } from './storageManager';
 
 export const generarPressupostPDF = (
   formData: Pressupost,
@@ -80,8 +81,7 @@ export const generarPressupostPDF = (
   const tr = t[idioma];
   
   // Obtener datos
-  const parametresGuardats = localStorage.getItem('plateaParametres');
-  const parametresData = parametresGuardats ? JSON.parse(parametresGuardats) : null;
+  const parametresData = storage.getParametres();
   const client = clients.find(c => c.codi === formData.client);
   
   // ... AQUÍ VA TODO EL RESTO DEL CÓDIGO QUE COPIASTE

@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 
 interface TipusModalProps {
   onClose: () => void;
-  onSelect: (tipus: 'Proveïdor' | 'Acreedor') => void;
+  onSelect: (tipus: 'Proveïdor' | 'Acreedor' | 'Treballador') => void;
 }
 
 export default function TipusModal({ onClose, onSelect }: TipusModalProps) {
@@ -18,22 +18,29 @@ export default function TipusModal({ onClose, onSelect }: TipusModalProps) {
         </div>
         <div className="modal-body">
           <p style={{ marginBottom: '1.5rem', color: 'var(--color-text-secondary)' }}>
-            Vols donar d'alta un proveïdor o un acreedor?
+            Quin tipus de persona vols donar d'alta?
           </p>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button 
-              className="btn-primary" 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <button
+              className="btn-primary"
               onClick={() => onSelect('Proveïdor')}
-              style={{ flex: 1 }}
+              style={{ textAlign: 'left', padding: '0.75rem 1rem' }}
             >
-              Proveïdor
+              🏢 Proveïdor — empresa o professional extern
             </button>
-            <button 
-              className="btn-secondary" 
+            <button
+              className="btn-secondary"
               onClick={() => onSelect('Acreedor')}
-              style={{ flex: 1 }}
+              style={{ textAlign: 'left', padding: '0.75rem 1rem' }}
             >
-              Acreedor
+              🏦 Acreedor — proveïdor de serveis generals
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => onSelect('Treballador')}
+              style={{ textAlign: 'left', padding: '0.75rem 1rem', borderColor: '#8b5cf6', color: '#8b5cf6' }}
+            >
+              👷 Treballador — empleat ocasional (RRHH)
             </button>
           </div>
         </div>

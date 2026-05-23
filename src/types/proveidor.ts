@@ -22,7 +22,7 @@ export interface Tarifa {
 
 export interface Proveidor {
   codi: string;
-  tipus: 'Proveïdor' | 'Acreedor';
+  tipus: 'Proveïdor' | 'Acreedor' | 'Treballador';
   dataAlta: string;
   nomFiscal: string;
   nomComercial: string;
@@ -38,4 +38,11 @@ export interface Proveidor {
   tarifesEspecials: Tarifa[];
   categories: string[]; // Array de codis de categories
   documents: DocumentProveidor[]; // Documentación adjunta
+  // Camps específics per a Treballadors (tipus === 'Treballador')
+  actiu?: boolean;                   // treballador actiu (contractat); default true
+  percentatgeSSEmpresa?: number;     // % SS càrrec empresa; default 30.2
+  percentatgeSSTreballador?: number; // % SS càrrec treballador; default 6.35
+  percentatgeIRPF?: number;          // % IRPF retingut; default 15
+  salariDiari?: number;              // salari diari brut de referència
+  serveisAssociats?: string[];       // codis de serveis que realitza
 }

@@ -1,14 +1,12 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { FacturaVenta } from '../../../types/facturaVenta';
-import type { Projecte } from '../../../types/projecte';
 import type { TascaCategoria } from '../../../types/pressupost';
 import SearchableSelect from '../../common/SearchableSelect';
 
 interface Props {
   formData: FacturaVenta;
   setFormData: (data: FacturaVenta) => void;
-  projectes: Projecte[];
   parametres: any;
   totals: {
     baseImposable: number;
@@ -33,7 +31,6 @@ interface Props {
 export default function TasquesTab({
   formData,
   setFormData,
-  projectes,
   parametres,
   totals,
   clientBlocked,
@@ -52,32 +49,6 @@ export default function TasquesTab({
   
   return (
     <div>
-      {/* Projecte */}
-      <div style={{
-        background: 'var(--color-bg-tertiary)',
-        padding: '1.5rem',
-        borderRadius: '8px',
-        marginBottom: '1.5rem'
-      }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>
-          🎬 Projecte Vinculat
-        </h3>
-        
-        <SearchableSelect
-          value={formData.projecte || ''}
-          onChange={(value) => setFormData({ ...formData, projecte: value || undefined })}
-          options={[
-            { value: '', label: 'Cap projecte' },
-            ...projectes.map(p => ({
-              value: p.codi,
-              label: `${p.codi} - ${p.titol}`
-            }))
-          ]}
-          placeholder="Selecciona un projecte (opcional)..."
-          disabled={clientBlocked || tePagaments}
-        />
-      </div>
-
       {/* Tasques */}
       <div style={{
         background: 'var(--color-bg-tertiary)',

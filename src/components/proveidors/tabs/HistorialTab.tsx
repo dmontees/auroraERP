@@ -18,6 +18,7 @@ interface HistorialTabProps {
 
 export default function HistorialTab({ hook }: HistorialTabProps) {
   const { formData, historial } = hook;
+  const isTreballador = formData.tipus === 'Treballador';
 
   if (!historial) {
     return (
@@ -27,11 +28,77 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
         color: 'var(--color-text-tertiary)'
       }}>
         <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-          Aquest és un proveïdor nou
+          {isTreballador ? 'Aquest és un treballador nou' : 'Aquest és un proveïdor nou'}
         </p>
         <p style={{ fontSize: '0.9rem' }}>
-          L'historial es mostrarà quan hi hagi factures o projectes relacionats
+          {isTreballador
+            ? 'L\'historial es mostrarà quan estigui vinculat a projectes'
+            : 'L\'historial es mostrarà quan hi hagi factures o projectes relacionats'}
         </p>
+      </div>
+    );
+  }
+
+  if (isTreballador) {
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+          <div style={{ padding: '1.25rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <Briefcase size={18} style={{ color: '#1e40af' }} />
+              <span style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 600 }}>PROJECTES VINCULATS</span>
+            </div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#1e40af' }}>
+              {historial.projectes.length}
+            </div>
+          </div>
+          <div style={{ padding: '1.25rem', background: '#f3f4f6', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <FileText size={18} style={{ color: '#6b7280' }} />
+              <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>PRESSUPOSTOS</span>
+            </div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#6b7280' }}>
+              {historial.pressupostos.length}
+            </div>
+          </div>
+        </div>
+
+        {historial.projectes.length > 0 ? (
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--color-text-primary)' }}>
+              Projectes vinculats ({historial.projectes.length})
+            </h3>
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f9fafb', borderBottom: '1px solid var(--color-border)' }}>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Codi</th>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom</th>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Estat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.projectes.map(projecte => (
+                    <tr key={projecte.codi} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      <td style={{ padding: '0.75rem', fontWeight: 500 }}>{projecte.codi}</td>
+                      <td style={{ padding: '0.75rem' }}>{projecte.nom || projecte.titol || '-'}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, background: '#dbeafe', color: '#1e40af' }}>
+                          {projecte.estat?.toUpperCase() || 'ACTIU'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-tertiary)', border: '2px dashed var(--color-border)', borderRadius: '8px' }}>
+            <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Encara no hi ha activitat</p>
+            <p style={{ fontSize: '0.9rem' }}>Aquest treballador no té projectes vinculats</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -39,9 +106,9 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
   return (
     <div>
       {/* STATS CARDS */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, 1fr)', 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '1rem',
         marginBottom: '2rem'
       }}>
@@ -51,9 +118,9 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
           borderRadius: '8px',
           border: '1px solid #bfdbfe'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
@@ -73,9 +140,9 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
           borderRadius: '8px',
           border: '1px solid #bbf7d0'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
@@ -95,9 +162,9 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
           borderRadius: '8px',
           border: '1px solid #fde68a'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
@@ -117,9 +184,9 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
           borderRadius: '8px',
           border: '1px solid #e5e7eb'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
@@ -129,7 +196,7 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
             </span>
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#6b7280' }}>
-            {historial.ultimaFactura 
+            {historial.ultimaFactura
               ? new Date(historial.ultimaFactura).toLocaleDateString('ca-ES')
               : 'Cap'}
           </div>
@@ -139,15 +206,15 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
       {/* FACTURAS */}
       {historial.factures.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ 
-            fontSize: '1.1rem', 
-            fontWeight: 600, 
+          <h3 style={{
+            fontSize: '1.1rem',
+            fontWeight: 600,
             marginBottom: '1rem',
             color: 'var(--color-text-primary)'
           }}>
             Factures de compra ({historial.factures.length})
           </h3>
-          
+
           <div style={{
             border: '1px solid var(--color-border)',
             borderRadius: '8px',
@@ -177,7 +244,7 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
                 {historial.factures
                   .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
                   .map(factura => (
-                    <tr 
+                    <tr
                       key={factura.id}
                       style={{ borderBottom: '1px solid var(--color-border)' }}
                     >

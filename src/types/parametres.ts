@@ -74,6 +74,17 @@ export interface Parametres {
   modalitats: Modalitat[];
   tipusProduccio: TipusProducció[];
   dadesEmpresa: DadesEmpresa;
+  categoriesProveidors?: any[];
+  categoriesAcreedor?: any[];
+  configCalendari?: {
+    rodatge: { actiu: boolean; color: string };
+    entrega: { actiu: boolean; color: string };
+    facturesVenda: { actiu: boolean; color: string };
+    facturesCompra: { actiu: boolean; color: string };
+    pressupostos: { actiu: boolean; color: string };
+  };
+  categoriesCalendari?: { id: string; nom: string; color: string }[];
+  extresEsdevenimentsAuto?: Record<string, { ubicacio?: string; horaInici?: string; horaFi?: string; enllac?: string }>;
 }
 
 export interface Modalitat {

@@ -8,8 +8,9 @@ import MaterialsTab from './tabs/MaterialsTab';
 import PlantillesTab from './tabs/PlantillesTab';
 import ModalitatsTab from './tabs/ModalitatsTab';
 import CategoriesProveidorsTab from './tabs/CategoriesProveidorsTab';
+import CalendariTab from './tabs/CalendariTab';
 
-type TabType = 'empresa' | 'serveis' | 'unitats' | 'tarifes' | 'materials' | 'plantilles' | 'modalitats' | 'categoriesProveidors';
+type TabType = 'empresa' | 'serveis' | 'unitats' | 'tarifes' | 'materials' | 'plantilles' | 'modalitats' | 'categoriesProveidors' | 'calendari';
 
 export default function ParametresPage() {
   const [activeTab, setActiveTab] = useState<TabType>('serveis');
@@ -26,6 +27,7 @@ export default function ParametresPage() {
     { id: 'plantilles', label: 'Plantilles' },
     { id: 'modalitats', label: 'Modalitats' },
     { id: 'categoriesProveidors', label: 'Cat. Proveïdors' },
+    { id: 'calendari', label: 'Calendari' },
     { id: 'empresa', label: 'Dades Empresa' }
   ];
 
@@ -55,7 +57,10 @@ export default function ParametresPage() {
       
       case 'categoriesProveidors':
         return <CategoriesProveidorsTab hook={hook} />;
-      
+
+      case 'calendari':
+        return <CalendariTab hook={hook} />;
+
       default:
         return null;
     }

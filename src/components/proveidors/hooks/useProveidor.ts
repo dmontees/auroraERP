@@ -6,7 +6,7 @@ import { storage } from '../../../utils/storageManager';
 interface UseProveidorProps {
   initialProveidor?: Proveidor | null;
   nextCode: string;
-  tipus: 'Proveïdor' | 'Acreedor';
+  tipus: 'Proveïdor' | 'Acreedor' | 'Treballador';
 }
 
 export function useProveidor({ initialProveidor, nextCode, tipus }: UseProveidorProps) {
@@ -25,25 +25,37 @@ export function useProveidor({ initialProveidor, nextCode, tipus }: UseProveidor
     }
     
     // Nuevo proveedor
-    return {
+    const base = {
       codi: nextCode,
       tipus: tipus,
       dataAlta: new Date().toISOString().split('T')[0],
       nomFiscal: '',
       nomComercial: '',
-      pais: 'Espanya',
+      pais: 'Espanya' as const,
       domicili: '',
       nif: '',
       telefon: '',
       correuElectronic: '',
       web: '',
       notesInternes: '',
-      tipusIVA: 'Normal',
+      tipusIVA: 'Normal' as const,
       retencio: 0,
       tarifesEspecials: [],
       categories: [],
       documents: []
     };
+    if (tipus === 'Treballador') {
+      return {
+        ...base,
+        actiu: true,
+        percentatgeSSEmpresa: 30.2,
+        percentatgeSSTreballador: 6.35,
+        percentatgeIRPF: 15,
+        salariDiari: 0,
+        serveisAssociats: []
+      };
+    }
+    return base;
   });
 
   // ============================================================================
@@ -105,7 +117,10 @@ export function useProveidor({ initialProveidor, nextCode, tipus }: UseProveidor
   // ============================================================================
   
   const hasRealData = useMemo(() => {
-    return (
+    if (formData.tipus === 'Treballador') {
+      return !!(formData.nomFiscal || formData.nomComercial);
+    }
+    return !!(
       formData.nomFiscal ||
       formData.nomComercial ||
       formData.nif ||
@@ -125,18 +140,24 @@ export function useProveidor({ initialProveidor, nextCode, tipus }: UseProveidor
 
   const esEnUs = useMemo(() => {
     if (!initialProveidor) return false;
+    const codi = initialProveidor.codi;
 
-    if (facturesCompra.some(f => f.proveidor === initialProveidor.codi)) return true;
-    
-    if (pressupostos.some(p => 
-      p.materials.some((m: any) => m.proveidor === initialProveidor.codi) ||
-      p.recursosHumans.some((r: any) => r.proveidor === initialProveidor.codi)
+    if ((parametres?.materials || []).some((m: any) => m.proveidor === codi)) return true;
+
+    if (facturesCompra.some((f: any) => f.tipus === 'factura-compra' && f.proveidor === codi)) return true;
+
+    if (pressupostos.some((p: any) =>
+      p.materials?.some((m: any) => m.proveidor === codi) ||
+      p.recursosHumans?.some((r: any) => r.proveidor === codi)
     )) return true;
 
-    if (projectes.some(p => p.proveidor === initialProveidor.codi)) return true;
+    if (projectes.some((p: any) =>
+      p.materials?.some((m: any) => m.proveidor === codi) ||
+      p.recursosHumans?.some((r: any) => r.proveidor === codi)
+    )) return true;
 
     return false;
-  }, [initialProveidor, facturesCompra, pressupostos, projectes]);
+  }, [initialProveidor, parametres, facturesCompra, pressupostos, projectes]);
 
   const esEliminable = useMemo(() => {
     return initialProveidor && !esEnUs;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { storage } from '../../../utils/storageManager';
 
 interface NotesTabProps {
   hook: any;
@@ -15,11 +16,8 @@ export default function NotesTab({ hook }: NotesTabProps) {
         </h3>
         
         {(() => {
-          const parametresGuardats = localStorage.getItem('plateaParametres');
-          if (!parametresGuardats) return <p style={{ color: 'var(--color-text-tertiary)' }}>No hi ha plantilles disponibles</p>;
-          
-          const parametres = JSON.parse(parametresGuardats);
-          const tipusPeuPagina = parametres.tipusPlantilles?.find((t: any) => t.nom === 'Peu de pàgina de pressupost');
+          const parametres = storage.getParametres();
+          const tipusPeuPagina = (parametres as any).tipusPlantilles?.find((t: any) => t.nom === 'Peu de pàgina de pressupost');
           
           if (!tipusPeuPagina) return <p style={{ color: 'var(--color-text-tertiary)' }}>No hi ha plantilles de peu de pàgina</p>;
           

@@ -246,10 +246,17 @@ export default function GastosTab({ hook }: GastosTabProps) {
                       <SearchableSelect
                         value={recurs.proveidor}
                         onChange={(value) => actualitzarRecursHuma(recurs.id, 'proveidor', value)}
-                        options={proveidors.map((p: any) => ({ 
-                          value: p.codi, 
-                          label: p.nomComercial || p.nomFiscal 
-                        }))}
+                        options={[
+                          { value: '', label: 'Cap proveïdor' },
+                          ...proveidors.filter((p: any) => p.tipus !== 'Treballador').map((p: any) => ({
+                            value: p.codi,
+                            label: p.nomComercial || p.nomFiscal
+                          })),
+                          ...proveidors.filter((p: any) => p.tipus === 'Treballador').map((p: any) => ({
+                            value: p.codi,
+                            label: `👷 ${p.nomComercial || p.nomFiscal}`
+                          }))
+                        ]}
                         placeholder="Selecciona proveïdor..."
                         disabled={pressupostBloquejat}
                       />

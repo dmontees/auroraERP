@@ -24,6 +24,9 @@ export default function GastoGeneralModal({
   editingGasto
 }: GastoGeneralModalProps) {
   
+  // Freeze the code at open time so re-renders from parent don't change it
+  const [codiFixed] = useState(() => editingGasto?.codi || nextCode);
+
   const [formData, setFormData] = useState<Omit<GastoGeneral, 'totalGasto' | 'pendentPagament' | 'estat' | 'pagaments' | 'totalPagat'>>(
     editingGasto ? {
       codi: editingGasto.codi,
@@ -41,9 +44,9 @@ export default function GastoGeneralModal({
       documentPDF: editingGasto.documentPDF,
       documentPDFName: editingGasto.documentPDFName
     } : {
-      codi: nextCode,
+      codi: codiFixed,
       tipus: 'gasto-general',
-      categoria: 'otros',
+      categoria: 'seguro',
       concepte: '',
       mesImputacion: (() => {
         const now = new Date();
@@ -83,7 +86,7 @@ export default function GastoGeneralModal({
 
   const pendentPagament = totalGasto - totalPagat;
   const camposBloquejats = totalPagat > 0;
-  const completamentPagada = pendentPagament <= 0.01;
+  const completamentPagada = totalGasto > 0.01 && pendentPagament <= 0.01;
 
   const prepararGasto = (): GastoGeneral | null => {
     if (!formData.concepte || !formData.dataGasto || !formData.mesImputacion) {
@@ -251,6 +254,9 @@ export default function GastoGeneralModal({
                   {cat.icon} {cat.nom}
                 </option>
               ))}
+              {formData.categoria === 'autonomo' && (
+                <option value="autonomo">👤 Quota Autònom (usa Obligació Fiscal per a noves)</option>
+              )}
             </select>
           </div>
 

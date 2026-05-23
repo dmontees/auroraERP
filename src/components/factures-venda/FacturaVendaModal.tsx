@@ -56,6 +56,7 @@ export default function FacturaVendaModal({
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<{ categoriaIndex: number; materialIndex: number } | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [copyDialogProjecte, setCopyDialogProjecte] = useState<import('../../types/projecte').Projecte | null>(null);
 
   const [formData, setFormData] = useState<FacturaVenta>(
     editingFactura
@@ -167,7 +168,7 @@ export default function FacturaVendaModal({
   const totals = calcularTotals();
   const tePagaments = formData.pagaments.length > 0;
   const estaPagada = totals.pendentCobrar <= 0.01;
-  const esEliminable = formData.estat === 'borrador' && !tePagaments;
+  const esEliminable = (formData.estat === 'borrador' || formData.estat === 'enviada') && !tePagaments;
 
   // Toggle plantilla
   const togglePlantilla = (codi: string) => {
@@ -199,20 +200,34 @@ export default function FacturaVendaModal({
   };
 
   // Gestión tasques
-  const afegirTasca = (tasca: Tasca, categoria: string) => {
+  const afegirTasca = (tasca: any) => {
+    const categoria = tasca.categoria;
+
+    const serveiData = parametres?.serveis?.find((s: any) => s.codi === tasca.servei);
+    const unitatData = parametres?.unitats?.find((u: any) => u.codi === tasca.unitat);
+
+    const tascaConvertida = {
+      servei: serveiData?.nom || tasca.servei,
+      descripcio: tasca.descripcio,
+      quantitat: tasca.quantitat,
+      unitat: unitatData?.nom || tasca.unitat,
+      preu: tasca.tarifa,
+      importe: tasca.importe
+    };
+
     const nouTasques = [...formData.tasques];
     const catIndex = nouTasques.findIndex(c => c.categoria === categoria);
-    
+
     if (catIndex >= 0) {
       if (editingTasca && editingTasca.categoriaIndex === catIndex) {
-        nouTasques[catIndex].tasques[editingTasca.tascaIndex] = tasca;
+        nouTasques[catIndex].tasques[editingTasca.tascaIndex] = tascaConvertida;
       } else {
-        nouTasques[catIndex].tasques.push(tasca);
+        nouTasques[catIndex].tasques.push(tascaConvertida);
       }
     } else {
-      nouTasques.push({ categoria, tasques: [tasca] });
+      nouTasques.push({ categoria, tasques: [tascaConvertida] });
     }
-  
+
     setFormData(prev => ({ ...prev, tasques: nouTasques }));
     setShowTascaModal(false);
     setEditingTasca(null);
@@ -302,6 +317,75 @@ export default function FacturaVendaModal({
     return 0;
   };
 
+  // Vincular projecte
+  const handleProjecteSeleccionat = (codiProjecte: string | undefined) => {
+    if (!codiProjecte) {
+      setFormData(prev => ({ ...prev, projecte: undefined }));
+      return;
+    }
+    const projecte = projectes.find(p => p.codi === codiProjecte);
+    if (!projecte) return;
+    setCopyDialogProjecte(projecte);
+  };
+
+  const vincularProjecteEnStorage = (codiProjecte: string) => {
+    const projectesStorage = storage.getProjectes();
+    storage.setProjectes(projectesStorage.map((p: any) =>
+      p.codi === codiProjecte ? { ...p, facturaAssociada: formData.codi } : p
+    ));
+  };
+
+  const handleVincularSenseCopiar = (projecte: import('../../types/projecte').Projecte) => {
+    setFormData(prev => ({ ...prev, projecte: projecte.codi }));
+    vincularProjecteEnStorage(projecte.codi);
+    setCopyDialogProjecte(null);
+  };
+
+  const handleCopiarDadesProjecte = (projecte: import('../../types/projecte').Projecte) => {
+    const tascasCategoritzades: any[] = [];
+    projecte.tasques.forEach(tasca => {
+      let categoria = tascasCategoritzades.find(c => c.categoria === tasca.categoria);
+      if (!categoria) {
+        categoria = { categoria: tasca.categoria, tasques: [] };
+        tascasCategoritzades.push(categoria);
+      }
+      categoria.tasques.push({
+        id: tasca.id,
+        servei: tasca.servei,
+        descripcio: tasca.descripcio,
+        quantitat: tasca.quantitat,
+        unitat: tasca.unitat,
+        preu: tasca.tarifa
+      });
+    });
+
+    const clientData = clients.find(c => c.codi === projecte.client);
+    let ivaPercent = 21;
+    if (clientData?.tipusIVA === 'Exempt') ivaPercent = 0;
+    else if (clientData?.tipusIVA === 'Reduit') ivaPercent = 10;
+    else if (clientData?.tipusIVA === 'Superreduit') ivaPercent = 4;
+    const irpfPercent = clientData?.retencio || 0;
+
+    setFormData(prev => ({
+      ...prev,
+      client: projecte.client,
+      projecte: projecte.codi,
+      tasques: tascasCategoritzades,
+      ivaPercent,
+      irpfPercent,
+      observacions: `Factura generada des del projecte ${projecte.codi}`,
+      avisFacturacio: projecte.avisFacturacio ? { ...projecte.avisFacturacio } : prev.avisFacturacio,
+      accions: [...prev.accions, {
+        data: new Date().toISOString(),
+        descripcio: `Dades copiades del projecte ${projecte.codi}`,
+        automatic: true
+      }]
+    }));
+
+    vincularProjecteEnStorage(projecte.codi);
+    setCopyDialogProjecte(null);
+  };
+
   // Preparar factura completa
   const prepararFactura = (): FacturaVenta | null => {
     if (!validationResult.isValid) {
@@ -327,7 +411,7 @@ export default function FacturaVendaModal({
     if (!editingFactura) return;
     
     if (!esEliminable) {
-      alert('No es pot eliminar una factura enviada o amb pagaments registrats');
+      alert('No es pot eliminar una factura amb pagaments registrats o en un estat avançat');
       return;
     }
   
@@ -369,17 +453,46 @@ export default function FacturaVendaModal({
     }));
   };
 
+  const toggleAvisFacturacio = () => {
+    const nouActiu = !(formData.avisFacturacio?.actiu ?? false);
+    const nouAvis = { actiu: nouActiu, descripcio: formData.avisFacturacio?.descripcio || '' };
+    setFormData(prev => ({ ...prev, avisFacturacio: nouAvis }));
+    // Sincronitzar amb el projecte vinculat
+    if (formData.projecte) {
+      const projectes = storage.getProjectes();
+      storage.setProjectes(projectes.map((p: any) =>
+        p.codi === formData.projecte ? { ...p, avisFacturacio: nouAvis } : p
+      ));
+    }
+  };
+
+  const updateAvisDescripcio = (descripcio: string) => {
+    const nouAvis = { actiu: formData.avisFacturacio?.actiu ?? false, descripcio };
+    setFormData(prev => ({ ...prev, avisFacturacio: nouAvis }));
+    if (formData.projecte) {
+      const projectes = storage.getProjectes();
+      storage.setProjectes(projectes.map((p: any) =>
+        p.codi === formData.projecte ? { ...p, avisFacturacio: nouAvis } : p
+      ));
+    }
+  };
+
   const generarPDF = (idioma: 'ca' | 'es' | 'en') => {
+    if (formData.avisFacturacio?.actiu) {
+      alert('⚠️ Hi ha un avís de facturació actiu.\n\nDesprés de solucionar el problema pendent, desactiva l\'avís abans de generar la factura en PDF.');
+      return;
+    }
+
     const facturaCompleta = prepararFactura();
     if (!facturaCompleta) {
       alert('Cal completar els camps obligatoris abans de generar el PDF');
       return;
     }
-    
+
     const projectes = storage.getProjectes();
-    
+
     const pdfBase64 = generarFacturaVentaPDF(facturaCompleta, clients, projectes, idioma);
-    
+
     setFormData(prev => ({
       ...prev,
       documentPDF: pdfBase64,
@@ -394,7 +507,7 @@ export default function FacturaVendaModal({
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        style={{ maxWidth: '1400px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       >
         {/* HEADER */}
         <div className="modal-header">
@@ -416,6 +529,7 @@ export default function FacturaVendaModal({
             )}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+
             <button
               type="button"
               onClick={() => setShowLanguageModal(true)}
@@ -441,10 +555,10 @@ export default function FacturaVendaModal({
             {formData.projecte && (
               <div 
                 onClick={() => {
-                  localStorage.setItem('plateaNavigateTo', JSON.stringify({
+                  storage.setNavigateTo({
                     type: 'projecte',
-                    codi: formData.projecte
-                  }));
+                    codi: formData.projecte as string
+                  });
                   onClose();
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('navigate-to', { 
@@ -466,7 +580,15 @@ export default function FacturaVendaModal({
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 title="Clic per obrir el projecte"
               >
-                Projecte:<br /> {formData.projecte}
+                Projecte: {formData.projecte}
+                {formData.avisFacturacio?.actiu && (
+                  <span
+                    title={formData.avisFacturacio.descripcio || 'Avís de facturació actiu'}
+                    style={{ marginLeft: '0.4rem', fontSize: '0.9rem' }}
+                  >
+                    ⚠️
+                  </span>
+                )}
               </div>
             )}
 
@@ -586,10 +708,14 @@ export default function FacturaVendaModal({
                 formData={formData}
                 setFormData={setFormData}
                 clients={clients}
+                projectes={projectes}
                 totals={totals}
                 clientBlocked={clientBlocked}
                 tePagaments={tePagaments}
                 warnings={validationResult.warnings}
+                onToggleAvis={toggleAvisFacturacio}
+                onUpdateAvisDescripcio={updateAvisDescripcio}
+                onProjecteSeleccionat={handleProjecteSeleccionat}
               />
             )}
 
@@ -597,7 +723,6 @@ export default function FacturaVendaModal({
               <TasquesTab
                 formData={formData}
                 setFormData={setFormData}
-                projectes={projectes}
                 parametres={parametres}
                 totals={totals}
                 clientBlocked={clientBlocked}
@@ -744,6 +869,72 @@ export default function FacturaVendaModal({
           materials={parametres?.materials || []}
           grups={parametres?.grupsMaterials || []}
         />
+      )}
+
+      {/* Dialog: copiar dades del projecte */}
+      {copyDialogProjecte && (
+        <div
+          className="modal-overlay"
+          onClick={() => setCopyDialogProjecte(null)}
+          style={{ zIndex: 2000 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '500px' }}
+          >
+            <div className="modal-header">
+              <h2 style={{ fontSize: '1.1rem' }}>
+                Vincular projecte {copyDialogProjecte.codi}
+              </h2>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '0.75rem' }}>
+                Vols copiar les dades del projecte <strong>{copyDialogProjecte.codi} – {copyDialogProjecte.titol}</strong> a aquesta factura?
+              </p>
+              <p style={{ fontSize: '0.88rem', color: 'var(--color-text-secondary)', lineHeight: '1.5' }}>
+                Si copies les dades, s'importaran totes les tasques, el client, la configuració fiscal i l'avís de facturació.
+                L'estat del projecte <strong>no canviarà</strong> i podràs continuar fent-ne el seguiment amb normalitat.
+              </p>
+              {copyDialogProjecte.facturaAssociada && (
+                <div style={{
+                  marginTop: '0.75rem',
+                  padding: '0.6rem 0.9rem',
+                  background: '#fef3c7',
+                  border: '1px solid #fbbf24',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  color: '#92400e'
+                }}>
+                  ⚠️ Aquest projecte ja té la factura <strong>{copyDialogProjecte.facturaAssociada}</strong> vinculada. En continuar, s'actualitzarà el vincle.
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setCopyDialogProjecte(null)}
+              >
+                Cancel·lar
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => handleVincularSenseCopiar(copyDialogProjecte)}
+              >
+                Vincular sense copiar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => handleCopiarDadesProjecte(copyDialogProjecte)}
+              >
+                Sí, copiar dades
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal idioma PDF */}

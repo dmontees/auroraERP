@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, FileText, FolderKanban } from 'lucide-react';
+import { storage } from '../../utils/storageManager';
 import type { Pressupost } from '../../types/pressupost';
 import { usePressupost } from './hooks/usePressupost';
 import { useAutoSave } from '../../hooks/useAutoSave';
@@ -80,7 +81,7 @@ export default function PressupostModal({
         className="modal-content" 
         onClick={(e) => e.stopPropagation()} 
         style={{ 
-          maxWidth: '1000px', 
+          maxWidth: '1400px',
           maxHeight: '90vh', 
           overflow: 'hidden', 
           display: 'flex', 
@@ -144,10 +145,10 @@ export default function PressupostModal({
               <div 
                 onClick={() => {
                   const codiProjecte = formData.projecteVinculat || formData.projecteCreat;
-                  localStorage.setItem('plateaNavigateTo', JSON.stringify({
+                  storage.setNavigateTo({
                     type: 'projecte',
-                    codi: codiProjecte
-                  }));
+                    codi: codiProjecte as string
+                  });
                   onClose();
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('navigate-to', { 

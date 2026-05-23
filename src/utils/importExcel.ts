@@ -1,53 +1,53 @@
 import * as XLSX from 'xlsx';
 import type { EstatProjecte } from '../types/projecte';
+import { storage } from './storageManager';
 
 
 // IMPORTAR CATEGORÍAS
 export const importCategories = (data: any[]) => {
-  const parametres = JSON.parse(localStorage.getItem('plateaParametres') || '{}');
+  const parametres = storage.getParametres();
   const categoriesExistents = parametres.categories || [];
-  
-  let maxCodi = categoriesExistents.length === 0 
-    ? 0 
+
+  let maxCodi = categoriesExistents.length === 0
+    ? 0
     : Math.max(...categoriesExistents.map((c: any) => parseInt(c.codi.split('-')[1])));
-  
+
   const novesCategories = data.map((row, index) => {
     if (!row.Nom && !row.nom) {
       throw new Error(`Fila ${index + 2}: Falta el camp "Nom"`);
     }
-    
+
     return {
       codi: `CAT-${String(maxCodi + index + 1).padStart(5, '0')}`,
       nom: row.Nom || row.nom
     };
   });
-  
-  parametres.categories = [...categoriesExistents, ...novesCategories];
-  localStorage.setItem('plateaParametres', JSON.stringify(parametres));
-  
+
+  storage.setParametres({ ...parametres, categories: [...categoriesExistents, ...novesCategories] });
+
   return novesCategories.length;
 };
 
 // IMPORTAR SERVEIS
 export const importServeis = (data: any[]) => {
-  const parametres = JSON.parse(localStorage.getItem('plateaParametres') || '{}');
+  const parametres = storage.getParametres();
   const serveisExistents = parametres.serveis || [];
   const categories = parametres.categories || [];
-  
-  let maxCodi = serveisExistents.length === 0 
-    ? 0 
+
+  let maxCodi = serveisExistents.length === 0
+    ? 0
     : Math.max(...serveisExistents.map((s: any) => parseInt(s.codi.split('-')[1])));
-  
+
   const nousServeis = data.map((row, index) => {
     if (!row.Nom && !row.nom) {
       throw new Error(`Fila ${index + 2}: Falta el camp "Nom"`);
     }
-    
+
     const nomCategoria = row.Categoria || row.categoria || '';
-    const categoria = categories.find((c: any) => 
+    const categoria = categories.find((c: any) =>
       c.nom.toLowerCase() === nomCategoria.toLowerCase()
     );
-    
+
     return {
       codi: `SRV-${String(maxCodi + index + 1).padStart(5, '0')}`,
       nom: row.Nom || row.nom,
@@ -55,48 +55,46 @@ export const importServeis = (data: any[]) => {
       categoria: categoria?.codi || ''
     };
   });
-  
-  parametres.serveis = [...serveisExistents, ...nousServeis];
-  localStorage.setItem('plateaParametres', JSON.stringify(parametres));
-  
+
+  storage.setParametres({ ...parametres, serveis: [...serveisExistents, ...nousServeis] });
+
   return nousServeis.length;
 };
 
 // IMPORTAR UNITATS
 export const importUnitats = (data: any[]) => {
-  const parametres = JSON.parse(localStorage.getItem('plateaParametres') || '{}');
+  const parametres = storage.getParametres();
   const unitatsExistents = parametres.unitats || [];
-  
-  let maxCodi = unitatsExistents.length === 0 
-    ? 0 
+
+  let maxCodi = unitatsExistents.length === 0
+    ? 0
     : Math.max(...unitatsExistents.map((u: any) => parseInt(u.codi.split('-')[1])));
-  
+
   const novesUnitats = data.map((row, index) => {
     if (!row.Nom && !row.nom) {
       throw new Error(`Fila ${index + 2}: Falta el camp "Nom"`);
     }
-    
+
     return {
       codi: `UNT-${String(maxCodi + index + 1).padStart(5, '0')}`,
       nom: row.Nom || row.nom
     };
   });
-  
-  parametres.unitats = [...unitatsExistents, ...novesUnitats];
-  localStorage.setItem('plateaParametres', JSON.stringify(parametres));
-  
+
+  storage.setParametres({ ...parametres, unitats: [...unitatsExistents, ...novesUnitats] });
+
   return novesUnitats.length;
 };
 
 // IMPORTAR TARIFES
 export const importTarifes = (data: any[]) => {
-  const parametres = JSON.parse(localStorage.getItem('plateaParametres') || '{}');
+  const parametres = storage.getParametres();
   const tarifesExistents = parametres.tarifes || [];
   const serveis = parametres.serveis || [];
   const unitats = parametres.unitats || [];
-  
-  const clients = JSON.parse(localStorage.getItem('plateaClients') || '[]');
-  const proveidors = JSON.parse(localStorage.getItem('plateaProveidors') || '[]');
+
+  const clients = storage.getClients();
+  const proveidors = storage.getProveidors();
   const tarifesClients = clients.flatMap((c: any) => c.tarifesEspecials || []);
   const tarifesProveidors = proveidors.flatMap((p: any) => p.tarifesEspecials || []);
   
@@ -139,18 +137,17 @@ export const importTarifes = (data: any[]) => {
     };
   });
   
-  parametres.tarifes = [...tarifesExistents, ...novesTarifes];
-  localStorage.setItem('plateaParametres', JSON.stringify(parametres));
-  
+  storage.setParametres({ ...parametres, tarifes: [...tarifesExistents, ...novesTarifes] });
+
   return novesTarifes.length;
 };
 
 // IMPORTAR MATERIALS
 export const importMaterials = (data: any[]) => {
-  const parametres = JSON.parse(localStorage.getItem('plateaParametres') || '{}');
+  const parametres = storage.getParametres();
   const materialsExistents = parametres.materials || [];
   const grups = parametres.grupsMaterials || [];
-  const proveidors = JSON.parse(localStorage.getItem('plateaProveidors') || '[]');
+  const proveidors = storage.getProveidors();
   
   let maxCodi = materialsExistents.length === 0 
     ? 0 
@@ -198,15 +195,14 @@ export const importMaterials = (data: any[]) => {
     };
   });
   
-  parametres.materials = [...materialsExistents, ...nousMaterials];
-  localStorage.setItem('plateaParametres', JSON.stringify(parametres));
-  
+  storage.setParametres({ ...parametres, materials: [...materialsExistents, ...nousMaterials] });
+
   return nousMaterials.length;
 };
 
 // IMPORTAR CLIENTS
 export const importClients = (data: any[]) => {
-  const clientsExistents = JSON.parse(localStorage.getItem('plateaClients') || '[]');
+  const clientsExistents = storage.getClients();
   
   let maxCodi = clientsExistents.length === 0 
     ? 0 
@@ -240,14 +236,14 @@ export const importClients = (data: any[]) => {
   });
   
   const totalsClients = [...clientsExistents, ...nousClients];
-  localStorage.setItem('plateaClients', JSON.stringify(totalsClients));
-  
+  storage.setClients(totalsClients);
+
   return nousClients.length;
 };
 
 // IMPORTAR PROVEÏDORS (con tipo y códigos diferentes)
 export const importProveidors = (data: any[]) => {
-  const proveidorsExistents = JSON.parse(localStorage.getItem('plateaProveidors') || '[]');
+  const proveidorsExistents = storage.getProveidors();
   
   // Obtener máximo código para cada tipo
   const proveidors = proveidorsExistents.filter((p: any) => p.tipus === 'Proveïdor' || !p.tipus);  // ← CORREGIDO
@@ -314,16 +310,16 @@ export const importProveidors = (data: any[]) => {
   });
   
   const totalsProveidors = [...proveidorsExistents, ...nousProveidors];
-  localStorage.setItem('plateaProveidors', JSON.stringify(totalsProveidors));
-  
+  storage.setProveidors(totalsProveidors);
+
   return nousProveidors.length;
 };
 
 // IMPORTAR PROJECTES DE REFERÈNCIA
 export const importProjectesReferencia = (data: any[]) => {
-  const projectesExistents = JSON.parse(localStorage.getItem('plateaProjectes') || '[]');
-  const clientsExistents = JSON.parse(localStorage.getItem('plateaClients') || '[]');
-  const parametres = JSON.parse(localStorage.getItem('plateaParametres') || '{}');
+  const projectesExistents = storage.getProjectes();
+  const clientsExistents = storage.getClients();
+  const parametres = storage.getParametres();
   
   let maxCodi = projectesExistents.length === 0 
     ? 0 
@@ -389,16 +385,17 @@ if (dataCompleta) {
       : 21;
     
     // Parsear estado
-    const estatRaw = (row.Estat || row.estat || 'entregat').toLowerCase();
-    let estat: EstatProjecte = 'entregat';
-    
+    const estatRaw = (row.Estat || row.estat || 'acabat').toLowerCase();
+    let estat: EstatProjecte = 'acabat';
+
     if (estatRaw === 'esborrany') estat = 'esborrany';
     else if (estatRaw === 'planificat') estat = 'planificat';
-    else if (estatRaw === 'en curs' || estatRaw === 'en_curs' || estatRaw === 'enproces') estat = 'en_curs';
-    else if (estatRaw === 'post producció' || estatRaw === 'post_produccio') estat = 'post_produccio';
-    else if (estatRaw === 'entregat') estat = 'entregat';
+    else if (estatRaw === 'rodatge' || estatRaw === 'en curs' || estatRaw === 'en_curs' || estatRaw === 'enproces') estat = 'rodatge';
+    else if (estatRaw === 'edicio' || estatRaw === 'edició' || estatRaw === 'post producció' || estatRaw === 'post_produccio') estat = 'edicio';
+    else if (estatRaw === 'esperant_feedback' || estatRaw === 'esperant feedback' || estatRaw === 'entregat') estat = 'esperant_feedback';
+    else if (estatRaw === 'revisio' || estatRaw === 'revisió') estat = 'revisio';
+    else if (estatRaw === 'acabat') estat = 'acabat';
     else if (estatRaw === 'facturat') estat = 'facturat';
-    else if (estatRaw === 'cancel·lat' || estatRaw === 'cancelat') estat = 'cancelat';
     
     // Parsear directe
     const directeRaw = (row.Directe || row.directe || '').toString().toLowerCase();
@@ -532,7 +529,7 @@ if (numeroFactura && dataFactura) {
       esDirect,
       dataInici: dataProjecte,
       dataEntrega: dataProjecte,
-      dataFinalitzacio: estat === 'entregat' || estat === 'facturat' ? dataProjecte : undefined,
+      dataFinalitzacio: estat === 'acabat' || estat === 'facturat' ? dataProjecte : undefined,
       estat,
       recursosHumans,  // ← Con tarea ficticia
       materials,       // ← Con material ficticio
@@ -563,8 +560,8 @@ if (numeroFactura && dataFactura) {
   });
   
   const totalsProjectes = [...projectesExistents, ...nousProjectes];
-  localStorage.setItem('plateaProjectes', JSON.stringify(totalsProjectes));
-  
+  storage.setProjectes(totalsProjectes);
+
   return nousProjectes.length;
 };
 

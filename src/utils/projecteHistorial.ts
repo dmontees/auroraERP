@@ -171,7 +171,7 @@ export const registrarGastoAfegit = (
   return afegirEntradaHistorial(
     projecte,
     'modificacio',
-    `Gasto afegit: ${descripcioGasto}`,
+    `Despesa afegida: ${descripcioGasto}`,
     `Import: ${importGasto.toFixed(2)}€`
   );
 };
@@ -187,7 +187,7 @@ export const registrarGastoEliminat = (
   return afegirEntradaHistorial(
     projecte,
     'modificacio',
-    `Gasto eliminat: ${descripcioGasto}`,
+    `Despesa eliminada: ${descripcioGasto}`,
     `Import: ${importGasto.toFixed(2)}€`
   );
 };
@@ -203,7 +203,7 @@ export const registrarGastoTrasladatATasca = (
   return afegirEntradaHistorial(
     projecte,
     'tasca',
-    `Gasto convertit a tasca: ${descripcioGasto}`,
+    `Despesa convertida a tasca: ${descripcioGasto}`,
     `Import: ${importGasto.toFixed(2)}€`
   );
 };

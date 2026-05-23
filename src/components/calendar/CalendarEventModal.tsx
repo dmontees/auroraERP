@@ -8,49 +8,66 @@ interface CalendarEventModalProps {
   onSave: (esdeveniment: any) => void;
   projectes: Projecte[];
   editingEsdeveniment?: any | null;
+  categoriesCalendari?: { id: string; nom: string; color: string }[];
 }
 
-export default function CalendarEventModal({ 
-  onClose, 
-  onSave, 
-  projectes, 
-  editingEsdeveniment 
+export default function CalendarEventModal({
+  onClose,
+  onSave,
+  projectes,
+  editingEsdeveniment,
+  categoriesCalendari = []
 }: CalendarEventModalProps) {
-  
+
   const [formData, setFormData] = useState(
-    editingEsdeveniment || {
-      id: '',
-      titol: '',
-      descripcio: '',
-      data: new Date().toISOString().split('T')[0],
-      projecte: '',
-      color: '#ec4899'
-    }
+    editingEsdeveniment
+      ? {
+          horaInici: '',
+          horaFi: '',
+          ubicacio: '',
+          enllac: '',
+          categoriaId: '',
+          ...editingEsdeveniment
+        }
+      : {
+          id: '',
+          titol: '',
+          descripcio: '',
+          data: new Date().toISOString().split('T')[0],
+          horaInici: '',
+          horaFi: '',
+          ubicacio: '',
+          enllac: '',
+          projecte: '',
+          color: '#ec4899',
+          categoriaId: ''
+        }
   );
+
+  // When a category is selected, auto-set color
+  const handleCategoriaChange = (categoriaId: string) => {
+    const cat = categoriesCalendari.find(c => c.id === categoriaId);
+    if (cat) {
+      setFormData({ ...formData, categoriaId, color: cat.color });
+    } else {
+      setFormData({ ...formData, categoriaId: '' });
+    }
+  };
+
+  const selectedCategoriaHasColor = !!formData.categoriaId && categoriesCalendari.some(c => c.id === formData.categoriaId);
 
   const handleSubmit = () => {
     if (!formData.titol || !formData.data) {
       alert('El títol i la data són obligatoris');
       return;
     }
-    
-    const esdevenimentAGuardar = editingEsdeveniment 
-      ? formData 
+
+    const esdevenimentAGuardar = editingEsdeveniment
+      ? formData
       : { ...formData, id: Date.now().toString() };
-    
+
     onSave(esdevenimentAGuardar);
   };
-
-  const colors = [
-    { color: '#ec4899', label: 'Rosa' },
-    { color: '#8b5cf6', label: 'Lila' },
-    { color: '#3b82f6', label: 'Blau' },
-    { color: '#10b981', label: 'Verd' },
-    { color: '#f59e0b', label: 'Taronja' },
-    { color: '#ef4444', label: 'Vermell' },
-    { color: '#6366f1', label: 'Índigo' },
-    { color: '#06b6d4', label: 'Cian' }
-  ];
 
   return (
     <div className="modal-overlay">
@@ -63,6 +80,7 @@ export default function CalendarEventModal({
         </div>
 
         <div className="modal-body">
+          {/* Títol */}
           <div className="form-group">
             <label>Títol *</label>
             <input
@@ -75,17 +93,19 @@ export default function CalendarEventModal({
             />
           </div>
 
+          {/* Descripció */}
           <div className="form-group">
             <label>Descripció</label>
             <textarea
               className="form-input"
               value={formData.descripcio}
               onChange={(e) => setFormData({ ...formData, descripcio: e.target.value })}
-              rows={4}
+              rows={3}
               placeholder="Detalls de l'esdeveniment..."
             />
           </div>
 
+          {/* Data */}
           <div className="form-group">
             <label>Data *</label>
             <input
@@ -97,6 +117,53 @@ export default function CalendarEventModal({
             />
           </div>
 
+          {/* Hora Inici / Hora Fi */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="form-group">
+              <label>Hora inici</label>
+              <input
+                type="time"
+                className="form-input"
+                value={formData.horaInici}
+                onChange={(e) => setFormData({ ...formData, horaInici: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label>Hora fi</label>
+              <input
+                type="time"
+                className="form-input"
+                value={formData.horaFi}
+                onChange={(e) => setFormData({ ...formData, horaFi: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Ubicació */}
+          <div className="form-group">
+            <label>Ubicació</label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.ubicacio}
+              onChange={(e) => setFormData({ ...formData, ubicacio: e.target.value })}
+              placeholder="Adreça o nom del lloc..."
+            />
+          </div>
+
+          {/* Enllaç */}
+          <div className="form-group">
+            <label>Enllaç (URL)</label>
+            <input
+              type="url"
+              className="form-input"
+              value={formData.enllac}
+              onChange={(e) => setFormData({ ...formData, enllac: e.target.value })}
+              placeholder="https://..."
+            />
+          </div>
+
+          {/* Vincular a projecte */}
           <div className="form-group">
             <label>Vincular a projecte (opcional)</label>
             <SearchableSelect
@@ -116,36 +183,59 @@ export default function CalendarEventModal({
             </small>
           </div>
 
+          {/* Categoria */}
+          {categoriesCalendari.length > 0 && (
+            <div className="form-group">
+              <label>Categoria (opcional)</label>
+              <select
+                className="form-input"
+                value={formData.categoriaId}
+                onChange={(e) => handleCategoriaChange(e.target.value)}
+              >
+                <option value="">Sense categoria (color manual)</option>
+                {categoriesCalendari.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.nom || '(sense nom)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Color */}
           <div className="form-group">
-            <label>Color</label>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {colors.map(({ color, label }) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, color })}
-                  style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '8px',
-                    background: color,
-                    border: formData.color === color ? '3px solid var(--color-text-primary)' : '2px solid var(--color-border)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.7rem',
-                    color: 'white',
-                    fontWeight: 600,
-                    transition: 'all 0.2s',
-                    transform: formData.color === color ? 'scale(1.1)' : 'scale(1)'
-                  }}
-                  title={label}
-                >
-                  {formData.color === color && '✓'}
-                </button>
-              ))}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Color
+              {selectedCategoriaHasColor && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', fontWeight: 400 }}>
+                  (definit per la categoria)
+                </span>
+              )}
+            </label>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              opacity: selectedCategoriaHasColor ? 0.4 : 1,
+              pointerEvents: selectedCategoriaHasColor ? 'none' : 'auto'
+            }}>
+              <input
+                type="color"
+                value={formData.color}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                style={{ width: '48px', height: '48px', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '2px' }}
+                title="Selecciona color"
+              />
+              <span style={{
+                padding: '0.4rem 1rem',
+                background: formData.color,
+                color: 'white',
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                fontWeight: 600
+              }}>
+                {formData.titol || 'Previsualització'}
+              </span>
             </div>
           </div>
         </div>

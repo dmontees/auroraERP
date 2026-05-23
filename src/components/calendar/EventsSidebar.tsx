@@ -9,23 +9,25 @@ interface EventsSidebarProps {
   onClose: () => void;
   onEdit: (esdeveniment: any) => void;
   onDelete: (id: string) => void;
+  onViewEvent: (event: CalendarEvent) => void;
 }
 
 export default function EventsSidebar({
   diaSeleccionat,
   esdeveniments,
-  esdevenimentsPersonalitzats,
   onClose,
-  onEdit,
-  onDelete
+  onViewEvent
 }: EventsSidebarProps) {
-  
+
   const formatData = (dataStr: string) => {
-    return new Date(dataStr).toLocaleDateString('ca-ES', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const parts = dataStr.split('-');
+    if (parts.length !== 3) return dataStr;
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return d.toLocaleDateString('ca-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
@@ -38,9 +40,9 @@ export default function EventsSidebar({
       maxHeight: '800px',
       overflowY: 'auto'
     }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '1.5rem'
       }}>
@@ -62,8 +64,8 @@ export default function EventsSidebar({
       </div>
 
       {esdeveniments.length === 0 ? (
-        <p style={{ 
-          textAlign: 'center', 
+        <p style={{
+          textAlign: 'center',
           color: 'var(--color-text-tertiary)',
           padding: '2rem'
         }}>
@@ -71,101 +73,72 @@ export default function EventsSidebar({
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {esdeveniments.map(event => {
-            const esPersonalitzat = event.tipus === 'esdeveniment-personalitzat';
-            const esdevenimentData = esPersonalitzat 
-              ? esdevenimentsPersonalitzats.find(e => `custom-${e.id}` === event.id)
-              : null;
-            
-            return (
-              <div
-                key={event.id}
-                style={{
-                  padding: '1rem',
-                  background: 'var(--color-bg-tertiary)',
-                  borderRadius: '8px',
-                  borderLeft: `4px solid ${event.color}`
-                }}
-              >
-                <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
+          {esdeveniments.map(event => (
+            <div
+              key={event.id}
+              onClick={() => onViewEvent(event)}
+              style={{
+                padding: '1rem',
+                background: 'var(--color-bg-tertiary)',
+                borderRadius: '8px',
+                borderLeft: `4px solid ${event.color}`,
+                cursor: 'pointer',
+                transition: 'opacity 0.15s'
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
+            >
+              <div style={{
+                fontSize: '0.75rem',
+                color: 'var(--color-text-tertiary)',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                marginBottom: '0.5rem'
+              }}>
+                {event.tipusDescriptiu}
+              </div>
+
+              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
+                {event.titol}
+              </div>
+
+              {event.subtitol && (
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: 'var(--color-text-secondary)',
                   marginBottom: '0.5rem'
                 }}>
-                  <div style={{ 
-                    fontSize: '0.75rem',
-                    color: 'var(--color-text-tertiary)',
-                    textTransform: 'uppercase',
-                    fontWeight: 600
-                  }}>
-                    {event.tipusDescriptiu}
-                  </div>
-                  
-                  {esPersonalitzat && esdevenimentData && (
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => onEdit(esdevenimentData)}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: '4px',
-                          padding: '0.25rem 0.5rem',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          color: 'var(--color-text-secondary)'
-                        }}
-                        title="Editar"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => onDelete(esdevenimentData.id)}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid #ef4444',
-                          borderRadius: '4px',
-                          padding: '0.25rem 0.5rem',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          color: '#ef4444'
-                        }}
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  )}
+                  {event.subtitol}
                 </div>
-                
-                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
-                  {event.titol}
+              )}
+
+              {(event.horaInici || event.horaFi) && (
+                <div style={{
+                  fontSize: '0.8rem',
+                  color: 'var(--color-text-tertiary)',
+                  marginBottom: '0.25rem'
+                }}>
+                  {event.horaInici && event.horaFi
+                    ? `${event.horaInici} – ${event.horaFi}`
+                    : event.horaInici || event.horaFi}
                 </div>
-                {event.subtitol && (
-                  <div style={{ 
-                    fontSize: '0.85rem', 
-                    color: 'var(--color-text-secondary)',
-                    marginBottom: '0.5rem'
-                  }}>
-                    {event.subtitol}
-                  </div>
-                )}
-                {event.estat && (
-                  <div style={{
-                    fontSize: '0.75rem',
-                    padding: '0.25rem 0.5rem',
-                    background: 'var(--color-bg-secondary)',
-                    borderRadius: '4px',
-                    display: 'inline-block',
-                    textTransform: 'uppercase',
-                    fontWeight: 600
-                  }}>
-                    {event.estat}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              )}
+
+              {event.estat && (
+                <div style={{
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.5rem',
+                  background: 'var(--color-bg-secondary)',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  textTransform: 'uppercase',
+                  fontWeight: 600
+                }}>
+                  {event.estat}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -23,7 +23,10 @@ export default function ProjectesRendibilitat({
   
   // Calcular datos de cada proyecto
   const projectesAmbDades = projectes
-    .filter(p => p.dataInici && estaEnPeriode(p.dataInici, periode))
+    .filter(p => {
+      const dataRef = p.datesRodatge?.[0]?.data || p.dataInici;
+      return dataRef && estaEnPeriode(dataRef, periode);
+    })
     .map(p => {
       // Calcular despeses
       const recursosHumans = p.recursosHumans?.reduce((sum, r) => sum + (r.cost || 0), 0) || 0;
@@ -219,18 +222,24 @@ if (ingressos === 0 && p.ingresSenseIVA) {
                           borderRadius: '12px',
                           fontSize: '0.75rem',
                           fontWeight: 600,
-                          background: 
-                            p.estat === 'completat' ? '#d1fae5' :
-                            p.estat === 'en_curs' ? '#dbeafe' :
-                            p.estat === 'paused' ? '#fef3c7' : '#fee2e2',
+                          background:
+                            p.estat === 'acabat' || p.estat === 'facturat' ? '#d1fae5' :
+                            p.estat === 'rodatge' ? '#fee2e2' :
+                            p.estat === 'edicio' ? '#bfdbfe' :
+                            p.estat === 'revisio' ? '#3b82f6' :
+                            p.estat === 'esperant_feedback' ? '#f3f4f6' : '#fed7aa',
                           color:
-                            p.estat === 'completat' ? '#065f46' :
-                            p.estat === 'en_curs' ? '#1e40af' :
-                            p.estat === 'paused' ? '#92400e' : '#991b1b'
+                            p.estat === 'acabat' || p.estat === 'facturat' ? '#065f46' :
+                            p.estat === 'rodatge' ? '#991b1b' :
+                            p.estat === 'edicio' ? '#1e3a8a' :
+                            p.estat === 'revisio' ? '#ffffff' :
+                            p.estat === 'esperant_feedback' ? '#374151' : '#9a3412'
                         }}>
-                          {p.estat === 'completat' ? '✓' : 
-                           p.estat === 'en_curs' ? '⋯' :
-                           p.estat === 'paused' ? '⏸' : '✕'}
+                          {p.estat === 'acabat' || p.estat === 'facturat' ? '✓' :
+                           p.estat === 'rodatge' ? '🎬' :
+                           p.estat === 'edicio' ? '✂️' :
+                           p.estat === 'revisio' ? '↩' :
+                           p.estat === 'esperant_feedback' ? '⏳' : '⋯'}
                         </span>
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>

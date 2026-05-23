@@ -9,8 +9,8 @@ export default function UpdateNotification() {
 
   useEffect(() => {
     // Solo en Electron
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      const api = (window as any).electronAPI;
+    if (typeof window !== 'undefined' && (window as any).electron) {
+      const api = (window as any).electron;
 
       api.onUpdateAvailable((info: any) => {
         setUpdateInfo(info);
@@ -85,7 +85,7 @@ export default function UpdateNotification() {
             Més tard
           </button>
           <button
-            onClick={() => (window as any).electronAPI.installUpdate()}
+            onClick={() => (window as any).electron.installUpdate()}
             className="btn-primary"
             style={{ flex: 1 }}
           >

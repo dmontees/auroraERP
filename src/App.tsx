@@ -17,6 +17,7 @@ import UpdateNotification from './components/common/UpdateNotification';
 import SettingsModal, { type CompanySettings } from './components/common/SettingsModal';
 import type { Client } from './types/client';
 import { migrateFacturesVendaTipus } from './utils/migrateFacturesVenda';
+import { migrateGastoAutonomoToObligacioFiscal } from './utils/migrateGastoAutonomo';
 import { storage } from './utils/storageManager';
 import './App.css';
 
@@ -57,8 +58,11 @@ function App() {
       
       // 2. Migrar tipos de facturas (añadir campo 'tipus')
       migrateFacturesVendaTipus();
+
+      // 3. Migrar GastoGeneral categoria 'autonomo' → ObligacioFiscal
+      migrateGastoAutonomoToObligacioFiscal();
       
-      // 3. Log de la ruta del store (solo en Electron)
+      // 4. Log de la ruta del store (solo en Electron)
       const storePath = storage.getStorePath();
       if (storePath) {
         console.log(`📁 Datos guardados en: ${storePath}`);
@@ -74,9 +78,9 @@ function App() {
   useEffect(() => {
     try {
       // Cargar settings
-      const savedSettings = localStorage.getItem('plateaErpSettings');
+      const savedSettings = storage.getSettings();
       if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+        setSettings(savedSettings);
       }
       
       // Cargar clientes
@@ -97,7 +101,7 @@ function App() {
       else if (section === 'projectes') type = 'projecte';
       else if (section === 'factures-venda') type = 'factura';
       
-      localStorage.setItem('plateaNavigateTo', JSON.stringify({ type, codi }));
+      storage.setNavigateTo({ type, codi });
     };
 
     window.addEventListener('navigate-to', handleNavigate as EventListener);
@@ -106,14 +110,14 @@ function App() {
 
   const saveSettings = (newSettings: CompanySettings) => {
     setSettings(newSettings);
-    localStorage.setItem('plateaErpSettings', JSON.stringify(newSettings));
+    storage.setSettings(newSettings);
   };
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, description: 'Resum general de l\'activitat' },
     { id: 'projectes', label: 'Projectes', icon: <Film size={20} />, description: 'Gestió de produccions audiovisuals' },
     { id: 'clients', label: 'Clients', icon: <Users size={20} />, description: 'Base de dades de clients' },
-    { id: 'proveidors', label: 'Proveïdors', icon: <Briefcase size={20} />, description: 'Gestió de col·laboradors i proveïdors' },
+    { id: 'proveidors', label: 'RRHH i Proveïdors', icon: <Briefcase size={20} />, description: 'Recursos humans, proveïdors i acreedors' },
     { id: 'pressupostos', label: 'Pressupostos', icon: <FileText size={20} />, description: 'Crear i gestionar pressupostos' },
     { id: 'factures-venda', label: 'Factures Venda', icon: <Receipt size={20} />, description: 'Factures emeses a clients' },
     { id: 'factures-compra', label: 'Factures Compra', icon: <ShoppingCart size={20} />, description: 'Factures rebudes de proveïdors' },
@@ -168,7 +172,7 @@ function App() {
           </div>
 
           <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v1.0.1</p>
+            <p className="footer-text">v1.2.0</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
           
@@ -179,14 +183,12 @@ function App() {
       </aside>
 
       <main className="main-content">
-        {activeSection !== 'dashboard' && (
-          <header className="content-header">
-            <div className="header-info">
-              <h2 className="section-title">{navItems.find(item => item.id === activeSection)?.label}</h2>
-              <p className="section-description">{navItems.find(item => item.id === activeSection)?.description}</p>
-            </div>
-          </header>
-        )}
+        <header className="content-header">
+          <div className="header-info">
+            <h2 className="section-title">{navItems.find(item => item.id === activeSection)?.label}</h2>
+            <p className="section-description">{navItems.find(item => item.id === activeSection)?.description}</p>
+          </div>
+        </header>
 
         <div className="content-body">
           {activeSection === 'dashboard' && <Dashboard />}

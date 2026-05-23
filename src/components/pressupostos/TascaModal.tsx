@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import type { TascaPressupost } from '../../types/pressupost';
 import { storage } from '../../utils/storageManager';
+import SearchableSelect from '../common/SearchableSelect';
 
 interface TascaModalProps {
   onClose: () => void;
@@ -149,20 +150,14 @@ export default function TascaModal({
               <label className="form-label">
                 Servei <span style={{ color: '#dc2626' }}>*</span>
               </label>
-              <select
+              <SearchableSelect
                 value={formData.servei}
-                onChange={(e) => setFormData(prev => ({ ...prev, servei: e.target.value }))}
-                className="form-input"
-              >
-                <option value="">Selecciona servei...</option>
-                {serveisDisponibles
+                onChange={(value) => setFormData(prev => ({ ...prev, servei: value }))}
+                options={serveisDisponibles
                   .filter((s: any) => !formData.categoria || s.categoria === formData.categoria)
-                  .map((serv: any) => (
-                    <option key={serv.codi} value={serv.codi}>
-                      {serv.descripcio}
-                    </option>
-                  ))}
-              </select>
+                  .map((s: any) => ({ value: s.codi, label: s.nom || s.descripcio }))}
+                placeholder="Selecciona servei..."
+              />
             </div>
 
             {/* Descripció */}
@@ -194,18 +189,12 @@ export default function TascaModal({
 
               <div>
                 <label className="form-label">Unitat</label>
-                <select
+                <SearchableSelect
                   value={formData.unitat}
-                  onChange={(e) => setFormData(prev => ({ ...prev, unitat: e.target.value }))}
-                  className="form-input"
-                >
-                  <option value="">-</option>
-                  {unitatsDisponibles.map((unit: any) => (
-                    <option key={unit.codi} value={unit.codi}>
-                      {unit.nom}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormData(prev => ({ ...prev, unitat: value }))}
+                  options={unitatsDisponibles.map((u: any) => ({ value: u.codi, label: u.nom }))}
+                  placeholder="Selecciona unitat..."
+                />
               </div>
             </div>
 

@@ -25,13 +25,17 @@ export default function PagamentsManager({
     referencia: ''
   });
 
+  const handlePagarPendent = () => {
+    setNouPagament({ ...nouPagament, import: Math.round(pendentPagament * 100) / 100 });
+  };
+
   const registrarPagament = () => {
     if (nouPagament.import <= 0) {
       alert('L\'import ha de ser superior a 0');
       return;
     }
 
-    if (nouPagament.import > pendentPagament) {
+    if (Math.round(nouPagament.import * 100) > Math.round(pendentPagament * 100)) {
       alert('L\'import no pot ser superior al pendent');
       return;
     }
@@ -120,7 +124,7 @@ export default function PagamentsManager({
         </div>
       )}
 
-      {pendentPagament > 0.01 && !disabled && (
+      {Math.round(pendentPagament * 100) > 0 && !disabled && (
         <div>
           <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', fontWeight: 600 }}>
             Registrar Nou Pagament
@@ -181,7 +185,7 @@ export default function PagamentsManager({
               type="button"
               onClick={registrarPagament}
               className="btn-primary"
-              style={{ 
+              style={{
                 padding: '0.5rem 1rem',
                 fontSize: '0.85rem',
                 display: 'flex',
@@ -193,6 +197,24 @@ export default function PagamentsManager({
               Registrar
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={handlePagarPendent}
+            className="btn-secondary"
+            style={{
+              marginTop: '0.75rem',
+              padding: '0.5rem 1rem',
+              fontSize: '0.85rem',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            💰 Pagar Tot el Pendent ({(Math.round(pendentPagament * 100) / 100).toFixed(2)}€)
+          </button>
         </div>
       )}
     </div>

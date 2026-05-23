@@ -157,16 +157,25 @@ export default function FacturaVendaTable({
                     {new Date(factura.dataFactura).toLocaleDateString('ca-ES')}
                   </td>
 
-                  <td 
-                    style={{ 
-                      padding: '0.75rem', 
-                      textAlign: 'right', 
+                  <td
+                    style={{
+                      padding: '0.75rem',
+                      textAlign: 'right',
                       fontWeight: 600,
                       color: factura.totalFactura < 0 ? '#dc2626' : 'inherit',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      position: 'relative'
                     }}
                     onClick={() => onEdit(factura)}
                   >
+                    {factura.avisFacturacio?.actiu && (
+                      <span
+                        title={factura.avisFacturacio.descripcio || 'Avís de facturació actiu'}
+                        style={{ position: 'absolute', top: '6px', right: '4px', fontSize: '0.8rem', lineHeight: 1, cursor: 'help' }}
+                      >
+                        ⚠️
+                      </span>
+                    )}
                     {(factura.totalFactura || 0).toLocaleString('ca-ES', { minimumFractionDigits: 2 })}€
                   </td>
 

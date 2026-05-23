@@ -72,7 +72,8 @@ const dataFi = new Date(periode.dataFi);
 const mesesEnPeriode = Math.max(1, Math.round((dataFi.getTime() - dataInici.getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
 const beneficiMitjaMensual = beneficiActual / mesesEnPeriode;
 
-const projectesActius = projectes.filter(p => p.estat === 'en_curs').length;
+const ESTATS_ACTIUS = ['rodatge', 'edicio', 'esperant_feedback', 'revisio'];
+const projectesActius = projectes.filter(p => ESTATS_ACTIUS.includes(p.estat)).length;
   
   // Calcular métricas período anterior (si comparamos)
   let variacioIngressos, variacioDespeses, variacioBenefici, variacioMarge;
@@ -499,24 +500,34 @@ const projectesActius = projectes.filter(p => p.estat === 'en_curs').length;
     <GraficDonut
       dades={[
         {
-          label: 'En curs',
-          valor: projectes.filter(p => p.estat === 'en_curs').length,
+          label: 'Rodatge',
+          valor: projectes.filter(p => p.estat === 'rodatge').length,
+          color: '#ef4444'
+        },
+        {
+          label: 'Edició',
+          valor: projectes.filter(p => p.estat === 'edicio').length,
           color: '#3b82f6'
         },
         {
-          label: 'Completats',
-          valor: projectes.filter(p => p.estat === 'completat').length,
+          label: 'Esperant Feedback',
+          valor: projectes.filter(p => p.estat === 'esperant_feedback').length,
+          color: '#9ca3af'
+        },
+        {
+          label: 'Revisió',
+          valor: projectes.filter(p => p.estat === 'revisio').length,
+          color: '#6366f1'
+        },
+        {
+          label: 'Acabats',
+          valor: projectes.filter(p => p.estat === 'acabat').length,
           color: '#10b981'
         },
         {
-          label: 'Pausats',
-          valor: projectes.filter(p => p.estat === 'paused').length,
-          color: '#f59e0b'
-        },
-        {
-          label: 'Cancel·lats',
-          valor: projectes.filter(p => p.estat === 'cancelat').length,
-          color: '#ef4444'
+          label: 'Facturats',
+          valor: projectes.filter(p => p.estat === 'facturat').length,
+          color: '#059669'
         }
       ].filter(d => d.valor > 0)}
       formatValue={(v) => v.toString()}

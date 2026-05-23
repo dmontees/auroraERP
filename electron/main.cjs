@@ -27,7 +27,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '1.0.1',
+    version: '1.2.0',
     migrationCompleted: false
   },
   // Opcional: schema validation

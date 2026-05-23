@@ -30,6 +30,15 @@ export interface StoreSchema {
   cronometre: CronometreState | null;
   version: string;
   migrationCompleted?: boolean;
+  settings: {
+    nombre: string;
+    cif: string;
+    direccion: string;
+    telefono: string;
+    email: string;
+    logo: string | null;
+  } | null;
+  esdevenimentsPersonalitzats: any[];
 }
 
 // Mapeo de claves localStorage → electron-store
@@ -43,7 +52,9 @@ const STORAGE_KEYS = {
   navigateTo: 'plateaNavigateTo',
   parametres: 'plateaParametres',
   partsTreball: 'plateaPartsTreball',
-  cronometre: 'plateaCronometre'
+  cronometre: 'plateaCronometre',
+  settings: 'plateaErpSettings',
+  esdevenimentsPersonalitzats: 'plateaEsdevenimentsPersonalitzats'
 } as const;
 
 class StorageManager {
@@ -111,7 +122,9 @@ class StorageManager {
       pressupostos: [],
       partsTreball: [],
       cronometre: null,
-      navigateTo: null, // ← Añadido
+      navigateTo: null,
+      settings: null,
+      esdevenimentsPersonalitzats: [],
       parametres: {
         categories: [],
         serveis: [],
@@ -291,34 +304,83 @@ class StorageManager {
   migrateFromLocalStorage(): void {
     if (this.useElectronStore) {
       const migrated = this.electronStoreAPI.get('migrationCompleted');
-      if (migrated) {
-        console.log('ℹ️  Migración ya completada anteriormente');
-        return;
+      if (!migrated) {
+        console.log('🔄 Migrando datos de localStorage a electron-store...');
+
+        let migratedCount = 0;
+
+        Object.entries(STORAGE_KEYS).forEach(([storeKey, lsKey]) => {
+          const data = localStorage.getItem(lsKey);
+          if (data) {
+            try {
+              const parsed = JSON.parse(data);
+              this.set(storeKey as keyof StoreSchema, parsed);
+              console.log(`✅ Migrado: ${lsKey} → ${storeKey}`);
+              migratedCount++;
+            } catch (error) {
+              console.error(`❌ Error migrando ${lsKey}:`, error);
+            }
+          }
+        });
+
+        if (migratedCount > 0) {
+          this.electronStoreAPI.set('migrationCompleted', true);
+          console.log(`✅ Migración completada: ${migratedCount} entidades`);
+        }
       }
 
-      console.log('🔄 Migrando datos de localStorage a electron-store...');
-      
-      let migratedCount = 0;
-      
-      Object.entries(STORAGE_KEYS).forEach(([storeKey, lsKey]) => {
-        const data = localStorage.getItem(lsKey);
-        if (data) {
-          try {
-            const parsed = JSON.parse(data);
-            this.set(storeKey as keyof StoreSchema, parsed);
-            console.log(`✅ Migrado: ${lsKey} → ${storeKey}`);
-            migratedCount++;
-          } catch (error) {
-            console.error(`❌ Error migrando ${lsKey}:`, error);
-          }
-        }
-      });
+      // Migració v2: claus afegides posteriorment (settings i esdeveniments)
+      // S'executa independentment de migrationCompleted per cobrir usuaris que ja havien migrat
+      const migratedV2 = this.electronStoreAPI.get('migrationV2Completed');
+      if (!migratedV2) {
+        const v2Keys: Array<[keyof StoreSchema, string]> = [
+          ['settings', 'plateaErpSettings'],
+          ['esdevenimentsPersonalitzats', 'plateaEsdevenimentsPersonalitzats']
+        ];
 
-      if (migratedCount > 0) {
-        this.electronStoreAPI.set('migrationCompleted', true);
-        console.log(`✅ Migración completada: ${migratedCount} entidades`);
+        v2Keys.forEach(([storeKey, lsKey]) => {
+          const data = localStorage.getItem(lsKey);
+          if (data) {
+            try {
+              const current = this.get(storeKey);
+              const isEmpty = current === null || (Array.isArray(current) && current.length === 0);
+              if (isEmpty) {
+                this.set(storeKey, JSON.parse(data));
+                console.log(`✅ Migrat v2: ${lsKey} → ${storeKey}`);
+              }
+            } catch (error) {
+              console.error(`❌ Error migrando v2 ${lsKey}:`, error);
+            }
+          }
+        });
+
+        this.electronStoreAPI.set('migrationV2Completed', true);
       }
     }
+  }
+
+  // ============================================================================
+  // SETTINGS
+  // ============================================================================
+
+  getSettings(): StoreSchema['settings'] {
+    return this.get('settings');
+  }
+
+  setSettings(settings: StoreSchema['settings']): void {
+    this.set('settings', settings);
+  }
+
+  // ============================================================================
+  // ESDEVENIMENTS PERSONALITZATS
+  // ============================================================================
+
+  getEsdevenimentsPersonalitzats(): any[] {
+    return this.get('esdevenimentsPersonalitzats');
+  }
+
+  setEsdevenimentsPersonalitzats(events: any[]): void {
+    this.set('esdevenimentsPersonalitzats', events);
   }
 
   // ============================================================================
@@ -335,8 +397,16 @@ class StorageManager {
       pressupostos: this.getPressupostos(),
       parametres: this.getParametres(),
       partsTreball: this.getPartsTreball(),
-      cronometre: this.getCronometre()
+      cronometre: this.getCronometre(),
+      settings: this.getSettings(),
+      esdevenimentsPersonalitzats: this.getEsdevenimentsPersonalitzats()
     };
+  }
+
+  resetAll(): void {
+    (Object.keys(STORAGE_KEYS) as Array<keyof typeof STORAGE_KEYS>).forEach(key => {
+      this.delete(key as keyof StoreSchema);
+    });
   }
 
   getStorePath(): string | null {

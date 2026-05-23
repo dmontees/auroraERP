@@ -6,6 +6,7 @@ import DadesTab from './tabs/DadesTab';
 import FacturacioTab from './tabs/FacturacioTab';
 import HistorialTab from './tabs/HistorialTab';
 import DocumentsTab from './tabs/DocumentsTab';
+import SimulacioTab from './tabs/SimulacioTab';
 
 interface ProveidorModalProps {
   onClose: () => void;
@@ -13,7 +14,7 @@ interface ProveidorModalProps {
   onDelete?: (codi: string) => void;
   nextCode: string;
   editingProveidor?: Proveidor | null;
-  tipus: 'Proveïdor' | 'Acreedor';
+  tipus: 'Proveïdor' | 'Acreedor' | 'Treballador';
 }
 
 export default function ProveidorModal({
@@ -25,7 +26,7 @@ export default function ProveidorModal({
   tipus
 }: ProveidorModalProps) {
   
-  const [activeTab, setActiveTab] = useState<'dades' | 'facturacio' | 'historial' | 'documents'>('dades');
+  const [activeTab, setActiveTab] = useState<'dades' | 'facturacio' | 'simulacio' | 'historial' | 'documents'>('dades');
 
   const hook = useProveidor({
     initialProveidor: editingProveidor || null,
@@ -70,9 +71,12 @@ export default function ProveidorModal({
     onClose();
   };
 
+  const isTreballador = formData.tipus === 'Treballador';
+
   const tabs = [
     { id: 'dades' as const, label: 'Dades' },
-    { id: 'facturacio' as const, label: 'Facturació' },
+    ...(isTreballador ? [{ id: 'simulacio' as const, label: '🧮 Simulació' }] : []),
+    ...(!isTreballador ? [{ id: 'facturacio' as const, label: 'Facturació' }] : []),
     { id: 'historial' as const, label: 'Historial', disabled: !editingProveidor },
     { id: 'documents' as const, label: 'Documents' }
   ];
@@ -138,6 +142,7 @@ export default function ProveidorModal({
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
             {activeTab === 'dades' && <DadesTab hook={hook} />}
+            {activeTab === 'simulacio' && <SimulacioTab hook={hook} />}
             {activeTab === 'facturacio' && <FacturacioTab hook={hook} />}
             {activeTab === 'historial' && <HistorialTab hook={hook} />}
             {activeTab === 'documents' && <DocumentsTab hook={hook} />}

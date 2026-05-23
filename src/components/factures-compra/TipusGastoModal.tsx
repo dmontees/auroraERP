@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileText, CreditCard } from 'lucide-react';
+import { X, FileText, CreditCard, Landmark } from 'lucide-react';
 import type { TipusGasto } from '../../types/facturaCompra';
 
 interface TipusGastoModalProps {
@@ -124,12 +124,66 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
                 }}>
                   💳 Despesa General
                 </div>
-                <div style={{ 
-                  fontSize: '0.9rem', 
+                <div style={{
+                  fontSize: '0.9rem',
                   color: 'var(--color-text-secondary)',
                   lineHeight: '1.4'
                 }}>
-                  Quota d'autònom, assegurances, lloguer, subministraments, etc.
+                  Assegurances, rebuts i despeses amb document físic que no són factura formal
+                </div>
+              </div>
+            </button>
+            {/* Obligació Fiscal */}
+            <button
+              onClick={() => onSelect('obligacio-fiscal')}
+              style={{
+                padding: '1.5rem',
+                background: 'var(--color-bg-secondary)',
+                border: '2px solid var(--color-border)',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textAlign: 'left',
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'flex-start'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-accent-primary)';
+                e.currentTarget.style.background = 'var(--color-bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.background = 'var(--color-bg-secondary)';
+              }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: '#ede9fe',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Landmark size={24} color="#7c3aed" />
+              </div>
+              <div>
+                <div style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  marginBottom: '0.5rem',
+                  color: 'var(--color-text-primary)'
+                }}>
+                  🏛️ Obligació Fiscal
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--color-text-secondary)',
+                  lineHeight: '1.4'
+                }}>
+                  Quota autònom, IRPF trimestral, IVA Mod. 303, nòmines de treballadors...
                 </div>
               </div>
             </button>

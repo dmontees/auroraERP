@@ -8,7 +8,7 @@ import RectificativaModal from './RectificativaModal';
 import SearchableSelect from '../common/SearchableSelect';
 import { registrarFacturaDesvinculada } from '../../utils/projecteHistorial';
 import { useFacturesVenda } from './hooks/useFacturesVenda';
-import { exportarFacturesMes, exportarFacturesExcel, exportarFacturesXML } from './utils/facturaExport';
+import { exportarFacturesExcel, exportarFacturesXML } from './utils/facturaExport';
 import { generarFacturaRectificativa, validarCrearRectificativa } from './utils/facturaRectificativa';
 import { storage } from '../../utils/storageManager';
 
@@ -24,32 +24,22 @@ export default function FacturesVendaSection() {
   const [filterClient, setFilterClient] = useState('');
   const [filterMes, setFilterMes] = useState('');
 
-  const [mesExport, setMesExport] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
-
   // Escuchar navegación desde otras secciones
   useEffect(() => {
     if (factures.length === 0) return;
     
-    const navigateTo = localStorage.getItem('plateaNavigateTo');
+    const navigateTo = storage.getNavigateTo();
     if (navigateTo) {
-      try {
-        const data = JSON.parse(navigateTo);
-        if (data.type === 'factura' && data.codi) {
-          const factura = factures.find(f => f.codi === data.codi);
-          if (factura) {
-            setTimeout(() => {
-              setEditingFactura(factura);
-              setShowModal(true);
-            }, 100);
-          }
-          localStorage.removeItem('plateaNavigateTo');
+      if (navigateTo.type === 'factura' && navigateTo.codi) {
+        const factura = factures.find(f => f.codi === navigateTo.codi);
+        if (factura) {
+          setTimeout(() => {
+            setEditingFactura(factura);
+            setShowModal(true);
+          }, 100);
         }
-      } catch (e) {
-        // Ignorar errores
       }
+      storage.deleteNavigateTo();
     }
   }, [factures]);
 
@@ -83,7 +73,7 @@ export default function FacturesVendaSection() {
         
         const updatedProjecte = {
           ...projecteAmbHistorial,
-          estat: 'en_curs' as const,
+          estat: 'esperant_feedback' as const,
           facturaAssociada: undefined
         };
         
@@ -175,13 +165,7 @@ export default function FacturesVendaSection() {
   return (
     <div>
       {/* Stats Cards */}
-      <FacturaVendaStats 
-        factures={factures} 
-        clients={clients}
-        mesExport={mesExport}
-        setMesExport={setMesExport}
-        onExportarZip={() => exportarFacturesMes(mesExport, factures, clients)}
-      />
+      <FacturaVendaStats factures={factures} clients={clients} />
 
       {/* FILTROS Y ACCIONES */}
       <div style={{

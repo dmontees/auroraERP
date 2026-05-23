@@ -29,6 +29,7 @@ export interface FacturaVenta {
   accions: AccioFactura[];
   documentPDF?: string;
   documentPDFName?: string;
+  avisFacturacio?: { actiu: boolean; descripcio: string };
 }
 
 export type EstatFacturaVenta = 

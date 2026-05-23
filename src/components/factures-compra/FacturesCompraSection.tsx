@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { Download } from 'lucide-react';
 import type { TipusGasto, EstatGasto } from '../../types/facturaCompra';
-import { CATEGORIES_GASTO_GENERAL } from '../../types/facturaCompra';
+import { CATEGORIES_GASTO_GENERAL, SUBTIPUS_OBLIGACIO_FISCAL } from '../../types/facturaCompra';
 import SearchableSelect from '../common/SearchableSelect';
 import TipusGastoModal from './TipusGastoModal';
 import GastoGeneralModal from './GastoGeneralModal';
 import FacturaCompraModal from './FacturaCompraModal';
+import ObligacioFiscalModal from './ObligacioFiscalModal';
 import { useFacturesData } from './hooks/useFacturesData';
 import { useFacturesMetrics } from './hooks/useFacturesMetrics';
-import { exportarFacturesMes } from './utils/facturesExport';
+import { exportarFacturesTrimestre, exportarFacturesAny } from './utils/facturesExport';
 import { formatCurrency } from './utils/facturesCalculations';
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
 export default function FacturesCompraSection() {
   const { gastos, proveidors, projectes, saveGastos, deleteGasto } = useFacturesData();
+  const treballadors = proveidors.filter(p => p.tipus === 'Treballador');
   const metricas = useFacturesMetrics(gastos);
 
   const [showTipusModal, setShowTipusModal] = useState(false);
@@ -26,10 +28,19 @@ export default function FacturesCompraSection() {
   const [filterMes, setFilterMes] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('tots');
   const [filterProveidor, setFilterProveidor] = useState('');
-  const [mesExport, setMesExport] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [exportMode, setExportMode] = useState<'trimestre' | 'any'>('trimestre');
+  const [exportAny, setExportAny] = useState(() => String(new Date().getFullYear()));
+  const [exportQ, setExportQ] = useState<string>(() => {
+    const m = new Date().getMonth() + 1;
+    if (m <= 3) return 'Q1';
+    if (m <= 6) return 'Q2';
+    if (m <= 9) return 'Q3';
+    return 'Q4';
   });
+  const exportYears = Array.from(
+    { length: new Date().getFullYear() - 2020 + 2 },
+    (_, i) => String(2020 + i)
+  );
 
   const gastosFiltrats = gastos
     .filter(gasto => {
@@ -79,11 +90,10 @@ export default function FacturesCompraSection() {
 
   const getNextCode = (tipus: TipusGasto) => {
     const filtered = gastos.filter(g => g.tipus === tipus);
-    if (filtered.length === 0) {
-      return tipus === 'factura-compra' ? 'FAC-00001' : 'DG-00001';
-    }
-    const maxNum = Math.max(...filtered.map(g => parseInt(g.codi.split('-')[1])));
-    const prefix = tipus === 'factura-compra' ? 'FAC' : 'DG';
+    const prefix = tipus === 'factura-compra' ? 'FAC' : tipus === 'gasto-general' ? 'DG' : 'OF';
+    const defaultCode = `${prefix}-00001`;
+    if (filtered.length === 0) return defaultCode;
+    const maxNum = Math.max(...filtered.map(g => parseInt(g.codi.split('-')[1]) || 0));
     return `${prefix}-${String(maxNum + 1).padStart(5, '0')}`;
   };
 
@@ -143,36 +153,86 @@ export default function FacturesCompraSection() {
 
         <div style={{
           background: 'var(--color-bg-secondary)',
-          padding: '1.5rem',
+          padding: '1.25rem',
           borderRadius: '12px',
           border: '1px solid var(--color-border)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.75rem'
+          gap: '0.6rem'
         }}>
           <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-            📦 Exportar Mes
+            📦 Exportar Documents (ZIP)
           </div>
-          <input
-            type="month"
-            value={mesExport}
-            onChange={(e) => setMesExport(e.target.value)}
-            className="form-input"
-            style={{ fontSize: '0.85rem' }}
-          />
+
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', gap: '0.25rem' }}>
+            {(['trimestre', 'any'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setExportMode(mode)}
+                style={{
+                  flex: 1,
+                  padding: '0.3rem',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  background: exportMode === mode ? 'var(--color-accent-primary)' : 'var(--color-bg-tertiary)',
+                  color: exportMode === mode ? 'white' : 'var(--color-text-secondary)',
+                }}
+              >
+                {mode === 'trimestre' ? 'Trimestre' : 'Any'}
+              </button>
+            ))}
+          </div>
+
+          {/* Year + Quarter (inline quan trimestre) */}
+          <div style={{ display: 'grid', gridTemplateColumns: exportMode === 'trimestre' ? '1fr 1fr' : '1fr', gap: '0.4rem' }}>
+            <select
+              value={exportAny}
+              onChange={(e) => setExportAny(e.target.value)}
+              className="form-input"
+              style={{ fontSize: '0.85rem' }}
+            >
+              {exportYears.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+
+            {exportMode === 'trimestre' && (
+              <select
+                value={exportQ}
+                onChange={(e) => setExportQ(e.target.value)}
+                className="form-input"
+                style={{ fontSize: '0.85rem' }}
+              >
+                <option value="Q1">T1 (Gen–Mar)</option>
+                <option value="Q2">T2 (Abr–Jun)</option>
+                <option value="Q3">T3 (Jul–Set)</option>
+                <option value="Q4">T4 (Oct–Des)</option>
+              </select>
+            )}
+          </div>
+
           <button
             className="btn-secondary"
-            onClick={() => exportarFacturesMes(mesExport, gastos, proveidors)}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            onClick={() =>
+              exportMode === 'trimestre'
+                ? exportarFacturesTrimestre(exportAny, exportQ, gastos, proveidors)
+                : exportarFacturesAny(exportAny, gastos, proveidors)
+            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: '0.5rem',
               fontSize: '0.85rem',
-              padding: '0.5rem'
+              padding: '0.5rem',
+              justifyContent: 'center',
             }}
           >
             <Download size={16} />
-            ZIP
+            Descarregar ZIP
           </button>
         </div>
       </div>
@@ -189,11 +249,12 @@ export default function FacturesCompraSection() {
           value={filterTipus}
           onChange={(e) => setFilterTipus(e.target.value as any)}
           className="form-input"
-          style={{ width: '140px', fontSize: '0.85rem' }}
+          style={{ width: '175px', fontSize: '0.85rem' }}
         >
           <option value="tots">Tots els tipus</option>
           <option value="factura-compra">📄 Factures</option>
           <option value="gasto-general">💳 Despeses Generals</option>
+          <option value="obligacio-fiscal">🏛️ Obligacions Fiscals</option>
         </select>
 
         <select
@@ -286,15 +347,18 @@ export default function FacturesCompraSection() {
             ) : (
               gastosFiltrats.map((gasto) => {
                 let displayInfo = '-';
-                
+
                 if (gasto.tipus === 'factura-compra') {
                   const proveidor = proveidors.find(p => p.codi === gasto.proveidor);
                   displayInfo = proveidor?.nomComercial || '-';
-                } else {
+                } else if (gasto.tipus === 'gasto-general') {
                   const categoria = CATEGORIES_GASTO_GENERAL.find(c => c.codi === gasto.categoria);
                   displayInfo = categoria ? `${categoria.icon} ${categoria.nom}` : '-';
+                } else if (gasto.tipus === 'obligacio-fiscal') {
+                  const subtipusInfo = SUBTIPUS_OBLIGACIO_FISCAL.find(s => s.codi === gasto.subtipus);
+                  displayInfo = subtipusInfo ? `${subtipusInfo.icon} ${subtipusInfo.nom}${gasto.periode ? ` · ${gasto.periode}` : ''}` : '-';
                 }
-              
+
                 return (
                   <tr
                     key={gasto.codi}
@@ -303,7 +367,7 @@ export default function FacturesCompraSection() {
                     onClick={() => setEditingGasto(gasto)}
                   >
                     <td style={{ padding: '0.75rem' }}>
-                      {gasto.tipus === 'factura-compra' ? '📄' : '💳'}
+                      {gasto.tipus === 'factura-compra' ? '📄' : gasto.tipus === 'gasto-general' ? '💳' : '🏛️'}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       {getEstatIcon(gasto.estat)}
@@ -313,6 +377,11 @@ export default function FacturesCompraSection() {
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       {gasto.tipus === 'factura-compra' ? (gasto.numFacturaProveidor || '-') : '-'}
+                      {gasto.tipus === 'obligacio-fiscal' && gasto.treballadorNom ? (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)' }}>
+                          {gasto.treballadorNom}
+                        </span>
+                      ) : null}
                     </td>
                     <td style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
                       {displayInfo}
@@ -388,6 +457,28 @@ export default function FacturesCompraSection() {
           proveidors={proveidors}
           projectes={projectes}
           editingFactura={editingGasto?.tipus === 'factura-compra' ? editingGasto : null}
+        />
+      )}
+
+      {((showModal && tipusSeleccionat === 'obligacio-fiscal') || (editingGasto?.tipus === 'obligacio-fiscal')) && (
+        <ObligacioFiscalModal
+          onClose={() => {
+            setShowModal(false);
+            setTipusSeleccionat(null);
+            setEditingGasto(null);
+          }}
+          onSave={(of) => {
+            const existeix = gastos.some(g => g.codi === of.codi);
+            if (existeix) {
+              saveGastos(gastos.map(g => g.codi === of.codi ? of : g));
+            } else {
+              saveGastos([...gastos, of]);
+            }
+          }}
+          onDelete={deleteGasto}
+          nextCode={getNextCode('obligacio-fiscal')}
+          treballadors={treballadors}
+          editingGasto={editingGasto?.tipus === 'obligacio-fiscal' ? editingGasto : null}
         />
       )}
     </div>

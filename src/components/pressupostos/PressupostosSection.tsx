@@ -38,23 +38,18 @@ function PressupostosSection() {
   useEffect(() => {
     if (pressupostos.length === 0) return;
     
-    const navigateTo = localStorage.getItem('plateaNavigateTo');
+    const navigateTo = storage.getNavigateTo();
     if (navigateTo) {
-      try {
-        const data = JSON.parse(navigateTo);
-        if (data.type === 'pressupost' && data.codi) {
-          const pressupost = pressupostos.find(p => p.codi === data.codi);
-          if (pressupost) {
-            setTimeout(() => {
-              setEditingPressupost(pressupost);
-              setShowModal(true);
-            }, 100);
-          }
-          localStorage.removeItem('plateaNavigateTo');
+      if (navigateTo.type === 'pressupost' && navigateTo.codi) {
+        const pressupost = pressupostos.find(p => p.codi === navigateTo.codi);
+        if (pressupost) {
+          setTimeout(() => {
+            setEditingPressupost(pressupost);
+            setShowModal(true);
+          }, 100);
         }
-      } catch (e) {
-        // Silenciar error
       }
+      storage.deleteNavigateTo();
     }
   }, [pressupostos]);
 

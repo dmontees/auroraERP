@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 // Función para detectar si es un proyecto (no cliente, ni proveedor, etc.)
 function isProjecte(data: any): boolean {
@@ -16,9 +16,11 @@ function hasRealProjectData(data: any): boolean {
     data.recursosHumans?.length > 0 ||
     data.materials?.length > 0 ||
     data.tasques?.length > 0 ||
-    data.modalitat || 
+    data.modalitat ||
     data.servei ||
-    data.dataEntrega || 
+    data.dataEntrega ||
+    data.datesEntrega?.length > 0 ||
+    data.datesRodatge?.length > 0 ||
     data.dataFinalitzacio ||
     data.instruccionsClient || 
     data.instruccionsProveidors ||
@@ -83,83 +85,79 @@ function hasRealProveidorData(data: any): boolean {
  * @returns saveNow - Función para guardar inmediatamente
  */
 export function useAutoSave<T>(
-  formData: T, 
+  formData: T,
   onSave: (data: T) => void,
   delay: number = 500
 ) {
   const timeoutRef = useRef<NodeJS.Timeout>();
   const isFirstRender = useRef(true);
   const formDataRef = useRef(formData);
+  // Keep latest onSave in a ref so it never goes stale without being a dep
+  const onSaveRef = useRef(onSave);
 
-  // Actualizar ref con el último formData
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
 
-  // Función para guardar inmediatamente
-  const saveNow = () => {
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+
+  const saveNow = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    
+
     const data = formDataRef.current as any;
-    
-    // Validar según el tipo
+
     if (isProjecte(data) && !hasRealProjectData(data)) {
       console.log('⏭️ No se guarda: proyecto vacío');
       return;
     }
-    
     if (isClient(data) && !hasRealClientData(data)) {
       console.log('⏭️ No se guarda: cliente vacío');
       return;
     }
-    
     if (isProveidor(data) && !hasRealProveidorData(data)) {
       console.log('⏭️ No se guarda: proveedor vacío');
       return;
     }
-    
-    onSave(formDataRef.current);
-  };
+
+    onSaveRef.current(formDataRef.current);
+  }, []);
 
   useEffect(() => {
-    // No guardar en el primer render (cuando se abre el modal)
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
 
-    // Limpiar timeout anterior
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
     const data = formData as any;
-    
-    // Validar según el tipo
+
     if (isProjecte(data) && !hasRealProjectData(data)) {
       console.log('⏭️ Autosave cancelado: proyecto vacío');
       return;
     }
-    
     if (isClient(data) && !hasRealClientData(data)) {
       console.log('⏭️ Autosave cancelado: cliente vacío');
       return;
     }
 
-    // Guardar después del delay (debounce)
     timeoutRef.current = setTimeout(() => {
-      onSave(formData);
+      onSaveRef.current(formDataRef.current);
     }, delay);
 
-    // Cleanup
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [formData, onSave, delay]);
+  // onSave intentionally excluded — kept current via ref to break the re-render loop
+  }, [formData, delay]);
 
   return { saveNow };
 }

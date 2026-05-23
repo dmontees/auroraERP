@@ -40,7 +40,7 @@ export default function CobrosManager({
     }
 
     // Validación 2: Import <= Pendent
-    if (nouPagament.import > pendentCobrar) {
+    if (Math.round(nouPagament.import * 100) > Math.round(pendentCobrar * 100)) {
       alert(`L'import no pot ser superior al pendent (${pendentCobrar.toFixed(2)}€)`);
       return;
     }
@@ -59,7 +59,7 @@ export default function CobrosManager({
   const handleCobrarPendent = () => {
     setNouPagament({
       ...nouPagament,
-      import: pendentCobrar
+      import: Math.round(pendentCobrar * 100) / 100
     });
   };
 
@@ -182,7 +182,7 @@ export default function CobrosManager({
       )}
 
       {/* Registrar nuevo pago */}
-      {pendentCobrar > 0.01 && !disabled && (
+      {Math.round(pendentCobrar * 100) > 0 && !disabled && (
         <div>
           <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.75rem' }}>
             Registrar Nou Pagament

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { FacturaVenta, PagamentClient, AccioFactura } from '../../../types/facturaVenta';
+import type { FacturaVenta, PagamentClient, AccioFactura, EstatFacturaVenta } from '../../../types/facturaVenta';
 import CobrosManager from '../shared/CobrosManager';
 
 interface Props {
@@ -16,7 +16,18 @@ export default function PagamentTab({
   setFormData,
   totals
 }: Props) {
-  
+
+  const calcularNouEstat = (nouTotalPagat: number): EstatFacturaVenta => {
+    if (formData.estat === 'cancelled') return 'cancelled';
+    if (totals.totalFactura <= 0) return formData.estat;
+    const pendent = totals.totalFactura - nouTotalPagat;
+    if (pendent <= 0.01) return 'pagada';
+    if (nouTotalPagat > 0) return 'pagada-parcial';
+    // All payments removed: revert from payment states to enviada
+    if (formData.estat === 'pagada' || formData.estat === 'pagada-parcial') return 'enviada';
+    return formData.estat;
+  };
+
   const handleAfegirPagament = (nouPagament: Omit<PagamentClient, 'codi'>) => {
     const pagament: PagamentClient = {
       codi: `PAG-${String(formData.pagaments.length + 1).padStart(5, '0')}`,
@@ -29,13 +40,14 @@ export default function PagamentTab({
       automatic: true
     };
 
-    // Calcular nuevo total pagado
     const nouTotalPagat = formData.totalPagat + nouPagament.import;
+    const nouEstat = calcularNouEstat(nouTotalPagat);
 
     setFormData({
       ...formData,
       pagaments: [...formData.pagaments, pagament],
       totalPagat: nouTotalPagat,
+      estat: nouEstat,
       accions: [...formData.accions, novaAccioAuto]
     });
   };
@@ -46,13 +58,14 @@ export default function PagamentTab({
 
     if (!confirm('Estàs segur que vols eliminar aquest pagament?')) return;
 
-    // Calcular nuevo total pagado
-    const nouTotalPagat = formData.totalPagat - pagament.import;
+    const nouTotalPagat = Math.max(0, formData.totalPagat - pagament.import);
+    const nouEstat = calcularNouEstat(nouTotalPagat);
 
     setFormData({
       ...formData,
       pagaments: formData.pagaments.filter(p => p.codi !== codiPagament),
-      totalPagat: nouTotalPagat
+      totalPagat: nouTotalPagat,
+      estat: nouEstat
     });
   };
 

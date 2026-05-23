@@ -31,6 +31,31 @@ export interface MaterialProjecte {
   preuPlatea: number;
 }
 
+export interface DataRodatge {
+  id: string;
+  data: string;
+  hora?: string;
+  nota?: string;
+}
+
+export interface DataEntrega {
+  id: string;
+  data: string;
+  nota?: string;
+}
+
+export interface FeedbackProjecte {
+  dataEntrega?: string;
+  notaEntrega?: string;
+  dataFeedback?: string;
+  notesFeedback?: string;
+  notesRevisio?: string;
+  dataValidacio?: string;
+  validat: boolean;
+}
+
+export type EstatProjecte = 'esborrany' | 'planificat' | 'rodatge' | 'edicio' | 'esperant_feedback' | 'revisio' | 'acabat' | 'facturat';
+
 export interface HistorialEntry {
   id: string;
   data: string; // Fecha en formato ISO
@@ -45,21 +70,24 @@ export interface Projecte {
   client: string; // Referència a Client.codi
   pressupost?: string; // Referència a Pressupost.codi (opcional)
   factura?: string; // Referència futura
-  
+
   // Info general
   titol: string;
   descripcio: string;
   modalitat: string; // Referència a modalitat de paràmetres
   servei: string; // Referència a servei de paràmetres
   esDirect: boolean;
-  
-  // Dates
-  dataInici: string;
-  dataEntrega: string;
+
+  // Dates (legacy - optional for backward compat)
+  dataInici?: string;
+  dataEntrega?: string;
   dataFinalitzacio?: string;
-  
+  // Dates (new multi-date format)
+  datesRodatge?: DataRodatge[];
+  datesEntrega?: DataEntrega[];
+
   // Estat
-  estat: 'esborrany' | 'planificat' | 'en_curs' | 'post_produccio' | 'entregat' | 'facturat' | 'cancelat';
+  estat: EstatProjecte;
   
   // Financiero - despeses detallades
 recursosHumans: RecursHumaProjecte[];
@@ -89,6 +117,8 @@ materials: MaterialProjecte[];
   documents?: DocumentProjecte[];
   facturaAssociada?: string;  // Código de la factura
   historial?: HistorialEntry[];
+  feedback?: FeedbackProjecte;
+  avisFacturacio?: { actiu: boolean; descripcio: string };
 
   // Campos para proyectos importados
   esImportat?: boolean;

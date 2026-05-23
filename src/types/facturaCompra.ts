@@ -17,7 +17,15 @@ export interface Pagament {
 }
 
 export type EstatGasto = 'pendent' | 'pagada-parcial' | 'pagada' | 'vencuda';
-export type TipusGasto = 'factura-compra' | 'gasto-general';
+export type TipusGasto = 'factura-compra' | 'gasto-general' | 'obligacio-fiscal';
+
+export type SubtipusObligacioFiscal =
+  | 'cuota-autonomo'
+  | 'regularitzacio-ss'
+  | 'irpf-trimestral'
+  | 'irpf-anual'
+  | 'iva-trimestral'
+  | 'nomina-treballador';
 
 export interface GastoBase {
   codi: string;
@@ -58,9 +66,10 @@ export interface FacturaCompra extends GastoBase {
 }
 
 // GASTO GENERAL
-export type CategoriaGastoGeneral = 
-  | 'autonomo' 
-  | 'seguro' 
+export type CategoriaGastoGeneral =
+  | 'autonomo'       // deprecated: use ObligacioFiscal 'cuota-autonomo' instead
+  | 'seguro'
+  | 'seguro-medic'
   | 'otros';
 
 export interface GastoGeneral extends GastoBase {
@@ -69,11 +78,43 @@ export interface GastoGeneral extends GastoBase {
   mesImputacion: string;           // YYYY-MM
 }
 
-export type Gasto = FacturaCompra | GastoGeneral;
+// OBLIGACIÓ FISCAL
+export interface ObligacioFiscal extends GastoBase {
+  tipus: 'obligacio-fiscal';
+  subtipus: SubtipusObligacioFiscal;
+  periode: string;              // 'YYYY-MM' per mensual, 'YYYY-QN' per trimestral
+  // nomina-treballador only:
+  treballadorCodi?: string;
+  treballadorNom?: string;
+  diesTreballats?: number;
+  salariDiariBrut?: number;
+  salariTotalBrut?: number;
+  ssEmpresa?: number;
+  ssTreballador?: number;
+  irpfRetingut?: number;
+  salariNet?: number;
+  costTotalEmpresa?: number;
+  // iva-trimestral only:
+  ivaRepercutitCalculat?: number;
+  ivaSuportatCalculat?: number;
+  ivaNetCalculat?: number;
+  ivaRegistratGestor?: number;
+}
 
-// Configuración de categorías
+export type Gasto = FacturaCompra | GastoGeneral | ObligacioFiscal;
+
+// Configuració de categories
 export const CATEGORIES_GASTO_GENERAL = [
-  { codi: 'autonomo', nom: 'Quota Autònom / Seguretat Social', icon: '👤' },
-  { codi: 'seguro', nom: 'Assegurances (recibos)', icon: '🛡️' },
-  { codi: 'otros', nom: 'Altres Despeses sense Factura', icon: '📄' }
+  { codi: 'seguro',       nom: 'Assegurances (rebuts)',         icon: '🛡️' },
+  { codi: 'seguro-medic', nom: 'Assegurança Mèdica Privada',   icon: '🏥' },
+  { codi: 'otros',        nom: 'Altres Despeses amb Rebut',     icon: '📄' },
+] as const;
+
+export const SUBTIPUS_OBLIGACIO_FISCAL = [
+  { codi: 'cuota-autonomo',     nom: 'Quota Autònom (RETA)',           icon: '👤' },
+  { codi: 'regularitzacio-ss',  nom: 'Regularització anual SS',        icon: '📊' },
+  { codi: 'irpf-trimestral',    nom: 'IRPF Trimestral (Mod. 130)',     icon: '📋' },
+  { codi: 'irpf-anual',         nom: 'Liquidació Anual IRPF (Renda)',  icon: '📅' },
+  { codi: 'iva-trimestral',     nom: 'IVA Trimestral (Mod. 303)',      icon: '💶' },
+  { codi: 'nomina-treballador', nom: 'Nòmina Treballador',             icon: '👷' },
 ] as const;

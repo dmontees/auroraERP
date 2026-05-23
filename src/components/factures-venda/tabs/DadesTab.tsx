@@ -1,12 +1,14 @@
 import React from 'react';
 import type { FacturaVenta } from '../../../types/facturaVenta';
 import type { Client } from '../../../types/client';
+import type { Projecte } from '../../../types/projecte';
 import SearchableSelect from '../../common/SearchableSelect';
 
 interface Props {
   formData: FacturaVenta;
   setFormData: (data: FacturaVenta) => void;
   clients: Client[];
+  projectes: Projecte[];
   totals: {
     baseImposable: number;
     ivaImport: number;
@@ -17,16 +19,23 @@ interface Props {
   clientBlocked: boolean;
   tePagaments: boolean;
   warnings: string[];
+  onToggleAvis: () => void;
+  onUpdateAvisDescripcio: (desc: string) => void;
+  onProjecteSeleccionat: (codiProjecte: string | undefined) => void;
 }
 
 export default function DadesTab({
   formData,
   setFormData,
   clients,
+  projectes,
   totals,
   clientBlocked,
   tePagaments,
-  warnings
+  warnings,
+  onToggleAvis,
+  onUpdateAvisDescripcio,
+  onProjecteSeleccionat,
 }: Props) {
   
   return (
@@ -136,6 +145,22 @@ export default function DadesTab({
             disabled={tePagaments}
           />
         </div>
+
+        <div className="form-group">
+          <label>Projecte</label>
+          <SearchableSelect
+            value={formData.projecte || ''}
+            onChange={(value) => onProjecteSeleccionat(value || undefined)}
+            options={projectes
+              .filter(p => !formData.client || p.client === formData.client)
+              .map(p => ({
+                value: p.codi,
+                label: `${p.codi} – ${p.titol}${p.facturaAssociada ? ` (vinculat a ${p.facturaAssociada})` : ''}`
+              }))}
+            placeholder="Vincular projecte (opcional)..."
+            disabled={tePagaments}
+          />
+        </div>
       </div>
 
       {clientBlocked && (
@@ -150,6 +175,57 @@ export default function DadesTab({
           ⚠️ Selecciona un client per continuar
         </div>
       )}
+
+      {/* Avís de facturació */}
+      <div style={{
+        marginBottom: '1.5rem',
+        padding: '0.75rem 1rem',
+        borderRadius: '8px',
+        border: `1px solid ${formData.avisFacturacio?.actiu ? '#fbbf24' : 'var(--color-border)'}`,
+        background: formData.avisFacturacio?.actiu ? '#fffbeb' : 'var(--color-bg-tertiary)',
+        transition: 'all 0.2s'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>⚠️</span>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem', flex: 1, color: formData.avisFacturacio?.actiu ? '#92400e' : 'var(--color-text-secondary)' }}>
+            Avís de facturació
+          </span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
+            <div
+              onClick={onToggleAvis}
+              style={{
+                width: '40px', height: '22px', borderRadius: '11px',
+                background: formData.avisFacturacio?.actiu ? '#f59e0b' : '#d1d5db',
+                position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: '3px',
+                left: formData.avisFacturacio?.actiu ? '21px' : '3px',
+                width: '16px', height: '16px', borderRadius: '50%',
+                background: 'white', transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+              }} />
+            </div>
+            <span style={{ fontSize: '0.82rem', color: formData.avisFacturacio?.actiu ? '#92400e' : 'var(--color-text-tertiary)', fontWeight: 500 }}>
+              {formData.avisFacturacio?.actiu ? 'Actiu' : 'Inactiu'}
+            </span>
+          </label>
+        </div>
+        <input
+          type="text"
+          className="form-input"
+          value={formData.avisFacturacio?.descripcio || ''}
+          onChange={(e) => onUpdateAvisDescripcio(e.target.value)}
+          disabled={!formData.avisFacturacio?.actiu}
+          placeholder={formData.avisFacturacio?.actiu ? "Descriu l'avís (ex: afegir despeses d'aparcament)..." : 'Desactivat'}
+          style={{
+            marginTop: '0.6rem',
+            opacity: formData.avisFacturacio?.actiu ? 1 : 0.5,
+            cursor: formData.avisFacturacio?.actiu ? 'text' : 'not-allowed'
+          }}
+        />
+      </div>
 
       {/* Càlculs Fiscals */}
       <div style={{

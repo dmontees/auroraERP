@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { storage } from '../../utils/storageManager';
 import FiltresGlobals from './FiltresGlobals';
 import VisioGeneral from './tabs/VisioGeneral';
 import { getUltimsXMesos } from '../../utils/resultatCalculs';
@@ -13,6 +14,7 @@ import AnalisiClients from './tabs/AnalisiClients';
 import DespesesProveidors from './tabs/DespesesProveidors';
 import type { Proveidor } from '../../types/proveidor';
 import TemporalTendencies from './tabs/TemporalTendencies';
+import FiscalTab from './tabs/FiscalTab';
 import { ExportModal } from './ExportModal';
 import type { ExportConfig } from './types';
 import { Download } from 'lucide-react';
@@ -35,7 +37,7 @@ export default function ResultatsSection() {
   const [compararAmb, setCompararAmb] = useState('periode-anterior');
 
   // Estado de pestaña activa
-  const [activeTab, setActiveTab] = useState<'visio' | 'financera' | 'projectes' | 'clients' | 'despeses' | 'temporal'>('visio');
+  const [activeTab, setActiveTab] = useState<'visio' | 'financera' | 'projectes' | 'clients' | 'despeses' | 'temporal' | 'fiscal'>('visio');
 
     // Estado de proveedores
   const [proveidors, setProveidors] = useState<Proveidor[]>([]);
@@ -45,11 +47,11 @@ export default function ResultatsSection() {
   // Cargar datos
   useEffect(() => {
     const loadData = () => {
-      setFacturesVenda(JSON.parse(localStorage.getItem('plateaFacturesVenda') || '[]'));
-      setGastos(JSON.parse(localStorage.getItem('plateaGastos') || '[]'));
-      setProjectes(JSON.parse(localStorage.getItem('plateaProjectes') || '[]'));
-      setClients(JSON.parse(localStorage.getItem('plateaClients') || '[]'));
-      setProveidors(JSON.parse(localStorage.getItem('plateaProveidors') || '[]'));
+      setFacturesVenda(storage.getFacturesVenda());
+      setGastos(storage.getFacturesCompra());
+      setProjectes(storage.getProjectes());
+      setClients(storage.getClients());
+      setProveidors(storage.getProveidors());
     };
     loadData();
   }, []);
@@ -87,24 +89,12 @@ export default function ResultatsSection() {
       maxWidth: '1600px', 
       margin: '0 auto' 
     }}>
-      {/* Header con botón exportar */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '1rem'
-      }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
-          📊 Resultats
-        </h1>
+      {/* Botó exportar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
         <button
           onClick={() => setShowExportModal(true)}
           className="btn-primary"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <Download size={18} />
           Descarregar Informe
@@ -140,7 +130,8 @@ export default function ResultatsSection() {
     { id: 'projectes', label: 'Projectes' },
     { id: 'clients', label: 'Clients' },
     { id: 'despeses', label: 'Despeses' },
-    { id: 'temporal', label: 'Tendències' }
+    { id: 'temporal', label: 'Tendències' },
+    { id: 'fiscal', label: 'Fiscal 🧾' }
   ].map(tab => (
     <button
       key={tab.id}
@@ -219,7 +210,15 @@ export default function ResultatsSection() {
         />
       )}
 
-      {!['visio', 'financera', 'projectes', 'clients', 'despeses', 'temporal'].includes(activeTab) && (
+      {activeTab === 'fiscal' && (
+        <FiscalTab
+          facturesVenda={facturesVenda}
+          gastos={gastos}
+          any={new Date(periode.dataInici).getFullYear()}
+        />
+      )}
+
+      {!['visio', 'financera', 'projectes', 'clients', 'despeses', 'temporal', 'fiscal'].includes(activeTab) && (
         <div style={{
           background: 'var(--color-bg-secondary)',
           padding: '3rem',

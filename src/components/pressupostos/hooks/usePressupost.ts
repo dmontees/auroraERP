@@ -59,8 +59,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
     setProveidors(storage.getProveidors());
     setParametres(storage.getParametres());
     
-    const savedProjectes = localStorage.getItem('plateaProjectes');
-    if (savedProjectes) setProjectes(JSON.parse(savedProjectes));
+    setProjectes(storage.getProjectes());
   }, []);
 
   const selectedClient = clients.find(c => c.codi === formData.client);
@@ -72,26 +71,23 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
   // ============================================================================
   
   useEffect(() => {
-    const parametresGuardats = localStorage.getItem('plateaParametres');
-    if (parametresGuardats) {
-      const parametres = JSON.parse(parametresGuardats);
-      const tipusPeuPagina = parametres.tipusPlantilles?.find((t: any) => t.nom === 'Peu de pàgina de pressupost');
-      
-      if (tipusPeuPagina) {
-        const plantillesDefecte = (parametres.plantilles || [])
+    const parametresData = storage.getParametres();
+    const tipusPeuPagina = (parametresData as any).tipusPlantilles?.find((t: any) => t.nom === 'Peu de pàgina de pressupost');
+
+    if (tipusPeuPagina) {
+      const plantillesDefecte = (parametresData.plantilles || [])
+        .filter((p: any) => p.tipusPlantilla === tipusPeuPagina.codi && p.perDefecte)
+        .map((p: any) => p.codi);
+
+      setPlantillesSeleccionades(plantillesDefecte);
+
+      if (!initialPressupost) {
+        const textDefecte = (parametresData.plantilles || [])
           .filter((p: any) => p.tipusPlantilla === tipusPeuPagina.codi && p.perDefecte)
-          .map((p: any) => p.codi);
-        
-        setPlantillesSeleccionades(plantillesDefecte);
-        
-        if (!initialPressupost) {
-          const textDefecte = (parametres.plantilles || [])
-            .filter((p: any) => p.tipusPlantilla === tipusPeuPagina.codi && p.perDefecte)
-            .map((p: any) => `• ${p.text}`)
-            .join('\n');
-          
-          setFormData(prev => ({ ...prev, notesAPeu: textDefecte }));
-        }
+          .map((p: any) => `• ${p.text}`)
+          .join('\n');
+
+        setFormData(prev => ({ ...prev, notesAPeu: textDefecte }));
       }
     }
   }, [initialPressupost]);
@@ -229,30 +225,46 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
   const actualitzarRecursHuma = useCallback((id: string, field: keyof RecursHumaPressupost, value: any) => {
     const nousRecursos = formData.recursosHumans.map(r => {
       if (r.id !== id) return r;
-      
+
       const updated = { ...r, [field]: value };
-      
+
       if (field === 'servei' && parametres) {
         const serveiData = parametres.serveis.find((s: any) => s.codi === value);
         if (serveiData) {
           updated.categoria = serveiData.categoria;
         }
       }
-      
-      if ((field === 'proveidor' || field === 'servei' || field === 'unitat') && updated.servei && updated.unitat && updated.proveidor) {
-        const tarifaAuto = buscarTarifaProveidor(updated.proveidor, updated.servei, updated.unitat);
-        if (tarifaAuto !== null) {
-          updated.tarifa = tarifaAuto;
+
+      if (field === 'proveidor') {
+        const trb = proveidors.find(p => p.codi === value && p.tipus === 'Treballador');
+        if (trb) {
+          updated.tarifa = (trb.salariDiari || 0) * (1 + (trb.percentatgeSSEmpresa ?? 30.2) / 100);
+          const jornada = parametres?.unitats.find((u: any) => u.nom.toLowerCase().includes('jornada'));
+          if (jornada) updated.unitat = jornada.codi;
+          if (trb.serveisAssociats?.length) {
+            updated.servei = trb.serveisAssociats[0];
+            const serveiData = parametres?.serveis.find((s: any) => s.codi === trb.serveisAssociats![0]);
+            if (serveiData) updated.categoria = serveiData.categoria;
+          }
+        } else if (updated.servei && updated.unitat) {
+          const tarifaAuto = buscarTarifaProveidor(value, updated.servei, updated.unitat);
+          if (tarifaAuto !== null) updated.tarifa = tarifaAuto;
+        }
+      } else if ((field === 'servei' || field === 'unitat') && updated.servei && updated.unitat && updated.proveidor) {
+        const trb = proveidors.find(p => p.codi === updated.proveidor && p.tipus === 'Treballador');
+        if (!trb) {
+          const tarifaAuto = buscarTarifaProveidor(updated.proveidor, updated.servei, updated.unitat);
+          if (tarifaAuto !== null) updated.tarifa = tarifaAuto;
         }
       }
-      
+
       updated.importe = updated.quantitat * updated.tarifa;
-      
+
       return updated;
     });
-    
+
     setFormData(prev => ({ ...prev, recursosHumans: nousRecursos }));
-  }, [formData.recursosHumans, parametres, buscarTarifaProveidor]);
+  }, [formData.recursosHumans, parametres, proveidors, buscarTarifaProveidor]);
 
   const eliminarRecursHuma = useCallback((id: string) => {
     setFormData(prev => ({ ...prev, recursosHumans: prev.recursosHumans.filter(r => r.id !== id) }));
@@ -420,8 +432,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
   
     const dataAcceptacio = new Date().toISOString().split('T')[0];
   
-    const savedProjectes = localStorage.getItem('plateaProjectes');
-    const projectesActuals = savedProjectes ? JSON.parse(savedProjectes) : [];
+    const projectesActuals = storage.getProjectes();
   
     const maxNum = projectesActuals.length === 0 
       ? 0 
@@ -439,7 +450,11 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
       servei: (formData as any).tipusProducció || '',
       esDirect: (formData as any).esDirect || false,
       dataInici: new Date().toISOString().split('T')[0],
-      dataEntrega: (formData as any).dataLliurament || new Date().toISOString().split('T')[0],
+      dataEntrega: (formData as any).dataLliurament || '',
+      datesRodatge: [],
+      datesEntrega: (formData as any).dataLliurament
+        ? [{ id: `ent-${Date.now()}`, data: (formData as any).dataLliurament, nota: '' }]
+        : [],
       dataFinalitzacio: undefined,
       estat: 'planificat',
       recursosHumans: formData.recursosHumans.map((r, index) => ({
@@ -485,7 +500,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
     const nouProjecteAmbHistorial = registrarCreacioProjecte(nouProjecte as any, formData.codi);
 
     const novosProjectes = [...projectesActuals, nouProjecteAmbHistorial];
-    localStorage.setItem('plateaProjectes', JSON.stringify(novosProjectes));
+    storage.setProjectes(novosProjectes);
   
     const pressupostActualitzat = { 
       ...formData, 
@@ -495,12 +510,11 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
 
     setFormData(pressupostActualitzat);
 
-    const savedPressupostos = localStorage.getItem('plateaPressupostos');
-    const pressupostosActuals = savedPressupostos ? JSON.parse(savedPressupostos) : [];
-    const pressupostosActualitzats = pressupostosActuals.map((p: Pressupost) => 
+    const pressupostosActuals = storage.getPressupostos();
+    const pressupostosActualitzats = pressupostosActuals.map((p: Pressupost) =>
       p.codi === formData.codi ? pressupostActualitzat : p
     );
-    localStorage.setItem('plateaPressupostos', JSON.stringify(pressupostosActualitzats));
+    storage.setPressupostos(pressupostosActualitzats);
 
     alert(`Projecte ${nouCodiProjecte} creat correctament!\n\nEl pressupost s'ha bloquejat automàticament.\n\nPots trobar el projecte al mòdul de Projectes.`);
     

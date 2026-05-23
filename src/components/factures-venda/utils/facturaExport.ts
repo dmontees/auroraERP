@@ -4,39 +4,62 @@ import * as XLSX from 'xlsx';
 import type { FacturaVenta } from '../../../types/facturaVenta';
 import type { Client } from '../../../types/client';
 
-// Export ZIP mensual de PDFs
-export async function exportarFacturesMes(
-  mesExport: string,
+const QUARTER_MONTHS: Record<string, string[]> = {
+  Q1: ['01', '02', '03'],
+  Q2: ['04', '05', '06'],
+  Q3: ['07', '08', '09'],
+  Q4: ['10', '11', '12'],
+};
+
+function buildZipVendes(factures: FacturaVenta[], clients: Client[]) {
+  const zip = new JSZip();
+  factures.forEach(f => {
+    const client = clients.find(c => c.codi === f.client);
+    const filename = `${f.codi}_${client?.nomComercial || client?.nomFiscal || 'client'}.pdf`;
+    const base64Data = f.documentPDF!.split(',')[1];
+    zip.file(filename, base64Data, { base64: true });
+  });
+  return zip;
+}
+
+export async function exportarFacturesVendaTrimestre(
+  any: string,
+  trimestre: string,
   factures: FacturaVenta[],
   clients: Client[]
 ) {
-  const facturesDelMes = factures.filter(f => {
-    const mesFactura = f.dataFactura.substring(0, 7);
-    return mesFactura === mesExport && f.documentPDF;
+  const months = QUARTER_MONTHS[trimestre];
+  const filtrades = factures.filter(f => {
+    if (!f.documentPDF) return false;
+    const [fAny, fMes] = f.dataFactura.substring(0, 7).split('-');
+    return fAny === any && months.includes(fMes);
   });
 
-  if (facturesDelMes.length === 0) {
-    alert('No hi ha factures amb PDF per aquest mes');
+  if (filtrades.length === 0) {
+    alert(`No hi ha factures de venda amb PDF per ${trimestre} ${any}`);
     return;
   }
 
-  const zip = new JSZip();
-
-  facturesDelMes.forEach(factura => {
-    const client = clients.find(c => c.codi === factura.client);
-    const filename = `${factura.codi}_${client?.nomComercial || client?.nomFiscal || 'client'}.pdf`;
-    const base64Data = factura.documentPDF!.split(',')[1];
-    zip.file(filename, base64Data, { base64: true });
-  });
-
+  const zip = buildZipVendes(filtrades, clients);
   const content = await zip.generateAsync({ type: 'blob' });
-  const [any, mes] = mesExport.split('-');
-  const mesNom = new Date(parseInt(any), parseInt(mes) - 1).toLocaleString('ca', { 
-    month: 'long', 
-    year: 'numeric' 
-  });
-  
-  saveAs(content, `Factures_vendes_${mesNom}.zip`);
+  saveAs(content, `Factures_vendes_${any}-${trimestre}.zip`);
+}
+
+export async function exportarFacturesVendaAny(
+  any: string,
+  factures: FacturaVenta[],
+  clients: Client[]
+) {
+  const filtrades = factures.filter(f => f.documentPDF && f.dataFactura.startsWith(any));
+
+  if (filtrades.length === 0) {
+    alert(`No hi ha factures de venda amb PDF per l'any ${any}`);
+    return;
+  }
+
+  const zip = buildZipVendes(filtrades, clients);
+  const content = await zip.generateAsync({ type: 'blob' });
+  saveAs(content, `Factures_vendes_${any}.zip`);
 }
 
 // Export Excel de facturas filtradas

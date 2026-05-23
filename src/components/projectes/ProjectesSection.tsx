@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Download, Plus, LayoutGrid, List } from 'lucide-react';
+import { Search, Download, Plus, LayoutGrid, List } from 'lucide-react';
 import type { Projecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import type { Parametres } from '../../types/parametres';
 import ProjecteModal from './ProjecteModal';
+import { storage } from '../../utils/storageManager';
+import { exportarProjectesExcel } from './utils/exportProjectes';
 
 function ProjectesSection() {
   // Estados principales
@@ -22,25 +24,49 @@ function ProjectesSection() {
   const [filterModalitat, setFilterModalitat] = useState<string>('');
   const [filterServei, setFilterServei] = useState<string>('');
   const [nomesDirectes, setNomesDirectes] = useState(false);
-  const [amagarArxivats, setAmagarArxivats] = useState(true);
+  const [mostrarActius, setMostrarActius] = useState(true);
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
 
-// Cargar datos desde localStorage
+  // Filtro de período
+  const currentYear = new Date().getFullYear();
+  const [filterPeriode, setFilterPeriode] = useState<string>('aquest_any');
+  const [filterDesde, setFilterDesde] = useState<string>(`${currentYear}-01-01`);
+  const [filterFins, setFilterFins] = useState<string>(`${currentYear}-12-31`);
+
+  const aplicarPeriode = (periode: string) => {
+    const avui = new Date();
+    const any = avui.getFullYear();
+    const mes = avui.getMonth();
+    switch (periode) {
+      case 'ultims_3_mesos':
+        setFilterDesde(new Date(any, mes - 3, 1).toISOString().split('T')[0]);
+        setFilterFins(avui.toISOString().split('T')[0]);
+        break;
+      case 'ultims_6_mesos':
+        setFilterDesde(new Date(any, mes - 6, 1).toISOString().split('T')[0]);
+        setFilterFins(avui.toISOString().split('T')[0]);
+        break;
+      case 'ultims_12_mesos':
+        setFilterDesde(new Date(any, mes - 12, 1).toISOString().split('T')[0]);
+        setFilterFins(avui.toISOString().split('T')[0]);
+        break;
+      case 'aquest_any':
+        setFilterDesde(`${any}-01-01`);
+        setFilterFins(`${any}-12-31`);
+        break;
+      case 'any_anterior':
+        setFilterDesde(`${any - 1}-01-01`);
+        setFilterFins(`${any - 1}-12-31`);
+        break;
+    }
+  };
+
+// Cargar datos
 useEffect(() => {
   const loadData = () => {
-    const savedProjectes = localStorage.getItem('plateaProjectes');
-    if (savedProjectes) {
-      setProjectes(JSON.parse(savedProjectes));
-    }
-
-    const savedClients = localStorage.getItem('plateaClients');
-    if (savedClients) {
-      setClients(JSON.parse(savedClients));
-    }
-
-    const savedParametres = localStorage.getItem('plateaParametres');
-    if (savedParametres) {
-      setParametres(JSON.parse(savedParametres));
-    }
+    setProjectes(storage.getProjectes());
+    setClients(storage.getClients());
+    setParametres(storage.getParametres() as Parametres);
   };
 
   // Cargar al inicio
@@ -66,48 +92,32 @@ useEffect(() => {
     return;
   }
   
-  const navigateTo = localStorage.getItem('plateaNavigateTo');
-  
+  const navigateTo = storage.getNavigateTo();
+
   if (navigateTo) {
-    try {
-      const data = JSON.parse(navigateTo);
-      
-      if (data.type === 'projecte' && data.codi) {
-        
-        // Buscar el proyecto
-        const projecte = projectes.find(p => p.codi === data.codi);
-        
-        if (projecte) {
-          // Pequeño delay para asegurar que la sección está montada
-          setTimeout(() => {
-            setEditingProjecte(projecte);
-            setShowModal(true);
-          }, 100);
-        } else {
-        }
-        // Limpiar
-        localStorage.removeItem('plateaNavigateTo');
-      } else {
+    if (navigateTo.type === 'projecte' && navigateTo.codi) {
+      const projecte = projectes.find(p => p.codi === navigateTo.codi);
+      if (projecte) {
+        setTimeout(() => {
+          setEditingProjecte(projecte);
+          setShowModal(true);
+        }, 100);
       }
-    } catch (e) {
     }
-  } else {
+    storage.deleteNavigateTo();
   }
 }, [projectes]);
 
-// Guardar projectes en localStorage
+// Guardar projectes
 const saveProjectes = (newProjectes: Projecte[]) => {
   setProjectes(newProjectes);
-  localStorage.setItem('plateaProjectes', JSON.stringify(newProjectes));
-  
-  // Verificar INMEDIATAMENTE después
-  const verificar = localStorage.getItem('plateaProjectes');
+  storage.setProjectes(newProjectes);
 };
 
 // Crear factura desde proyecto
 const crearFacturaDesdeProjecte = (projecte: Projecte) => {
   // Generar código de factura
-  const facturesVenda = JSON.parse(localStorage.getItem('plateaFacturesVenda') || '[]');
+  const facturesVenda = storage.getFacturesVenda();
   const maxNum = facturesVenda.length === 0 ? 234 : Math.max(...facturesVenda.map((f: any) => parseInt(f.codi.split('-')[1])));
   const codiFactura = `FAV-${String(maxNum + 1).padStart(5, '0')}`;
 
@@ -178,11 +188,14 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
         descripcio: `Factura creada des del projecte ${projecte.codi}`,
         automatic: true
       }
-    ]
+    ],
+    avisFacturacio: projecte.avisFacturacio
+      ? { ...projecte.avisFacturacio }
+      : undefined
   };
 
   // Guardar factura
-  localStorage.setItem('plateaFacturesVenda', JSON.stringify([...facturesVenda, novaFactura]));
+  storage.setFacturesVenda([...facturesVenda, novaFactura]);
 
   // Actualizar proyecto: añadir factura asociada y cambiar estado
   const projectesActualitzats = projectes.map(p => 
@@ -216,225 +229,206 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
     const avui = new Date();
     avui.setHours(0, 0, 0, 0);
 
-    const enCurs = projectes.filter(p => 
-      (p.estat === 'en_curs' || p.estat === 'post_produccio') && !p.arxivat
-    ).length;
+    const ESTATS_ACTIUS = ['rodatge', 'edicio', 'esperant_feedback', 'revisio'];
 
-    const planificats = projectes.filter(p => 
-      p.estat === 'planificat' && !p.arxivat
+    const projectesActius = projectes.filter(p =>
+      (ESTATS_ACTIUS.includes(p.estat) || p.estat === 'planificat') && !p.arxivat
     ).length;
 
     const endarrerits = projectes.filter(p => {
-      if (p.arxivat || p.estat === 'entregat' || p.estat === 'facturat') return false;
-      const dataEntrega = new Date(p.dataEntrega);
-      return dataEntrega < avui;
+      if (p.arxivat || p.estat === 'acabat' || p.estat === 'facturat') return false;
+      const primeraEntrega = p.datesEntrega?.[0]?.data || p.dataEntrega;
+      if (!primeraEntrega) return false;
+      return new Date(primeraEntrega) < avui;
     }).length;
 
-    // Próximas 3 entregas
-    const properes = projectes
-      .filter(p => !p.arxivat && p.estat !== 'entregat' && p.estat !== 'facturat')
-      .sort((a, b) => new Date(a.dataEntrega).getTime() - new Date(b.dataEntrega).getTime())
+    // Propers rodatges (totes les dates futures de rodatge)
+    const propersRodatges = projectes
+      .filter(p => p.estat !== 'acabat' && p.estat !== 'facturat' && !p.arxivat)
+      .flatMap(p => {
+        if (p.datesRodatge && p.datesRodatge.length > 0) {
+          return p.datesRodatge
+            .filter(d => d.data && new Date(d.data) >= avui)
+            .map(d => ({ titol: p.titol, data: d.data!, codi: p.codi }));
+        }
+        if (p.dataInici && new Date(p.dataInici) >= avui) {
+          return [{ titol: p.titol, data: p.dataInici, codi: p.codi }];
+        }
+        return [];
+      })
+      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
       .slice(0, 3);
 
-    return { enCurs, planificats, endarrerits, properes };
+    // Properes entreges (totes les dates d'entrega)
+    const properes = projectes
+      .filter(p => !p.arxivat && p.estat !== 'acabat' && p.estat !== 'facturat')
+      .flatMap(p => {
+        if (p.datesEntrega && p.datesEntrega.length > 0) {
+          return p.datesEntrega
+            .filter(d => d.data)
+            .map(d => ({ titol: p.titol, data: d.data!, codi: p.codi }));
+        }
+        if (p.dataEntrega) {
+          return [{ titol: p.titol, data: p.dataEntrega, codi: p.codi }];
+        }
+        return [];
+      })
+      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+      .slice(0, 3);
+
+    return { projectesActius, endarrerits, propersRodatges, properes };
   };
 
   const metriques = calcularMetriques();
 
-// Aplicar filtros y ordenar (más recientes primero)
+// Aplicar filtros y ordenar per codi (més recent primer)
 const projectesFiltrats = projectes
   .filter(p => {
-    // Amagar arxivats
-    if (amagarArxivats && p.arxivat) return false;
-    
+    // Mostrar actius (ocultar acabat i facturat)
+    if (mostrarActius && (p.estat === 'acabat' || p.estat === 'facturat')) return false;
+
     // Només directes
     if (nomesDirectes && !p.esDirect) return false;
-    
+
     // Filtro estat
     if (filterEstat && p.estat !== filterEstat) return false;
-    
+
     // Filtro modalitat
     if (filterModalitat && p.modalitat !== filterModalitat) return false;
-    
+
     // Filtro servei
     if (filterServei && p.servei !== filterServei) return false;
-    
+
+    // Filtro de període (usa la primera data de rodatge o entrega del projecte)
+    if (filterPeriode !== 'tots') {
+      const dataRef = p.datesRodatge?.[0]?.data || p.datesEntrega?.[0]?.data || p.dataInici || p.dataEntrega;
+      if (dataRef) {
+        if (filterDesde && dataRef < filterDesde) return false;
+        if (filterFins && dataRef > filterFins) return false;
+      }
+    }
+
     // Búsqueda
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       const client = clients.find(c => c.codi === p.client);
       const clientNom = (client?.nomComercial || client?.nomFiscal || '').toLowerCase();
-      
       return (
         p.codi.toLowerCase().includes(term) ||
         clientNom.includes(term) ||
         p.titol.toLowerCase().includes(term)
       );
     }
-    
+
     return true;
   })
   .sort((a, b) => {
-    // Ordenar por fecha de inicio descendente (más recientes primero)
-    const dateA = new Date(a.dataInici).getTime();
-    const dateB = new Date(b.dataInici).getTime();
-    return dateB - dateA;
+    // Ordenar per codi descendent (més recent primer)
+    const numA = parseInt(a.codi.split('-')[1] || '0');
+    const numB = parseInt(b.codi.split('-')[1] || '0');
+    return numB - numA;
   });
 
 // Colores de estado
 const estatColors: Record<string, { bg: string; text: string }> = {
-  esborrany: { bg: '#f3f4f6', text: '#6b7280' },
-  planificat: { bg: '#dbeafe', text: '#1e40af' },
-  en_curs: { bg: '#fef3c7', text: '#92400e' },
-  post_produccio: { bg: '#e0e7ff', text: '#4338ca' },
-  entregat: { bg: '#d1fae5', text: '#065f46' },
-  facturat: { bg: '#10b981', text: '#ffffff' },
-  cancelat: { bg: '#fee2e2', text: '#991b1b' }
+  esborrany:        { bg: '#fef3c7', text: '#92400e' },
+  planificat:       { bg: '#fed7aa', text: '#9a3412' },
+  rodatge:          { bg: '#fee2e2', text: '#991b1b' },
+  edicio:           { bg: '#bfdbfe', text: '#1e3a8a' },
+  esperant_feedback:{ bg: '#f3f4f6', text: '#374151' },
+  revisio:          { bg: '#3b82f6', text: '#ffffff' },
+  acabat:           { bg: '#d1fae5', text: '#065f46' },
+  facturat:         { bg: '#059669', text: '#ffffff' },
 };
 
 const estatLabels: Record<string, string> = {
   esborrany: 'Esborrany',
   planificat: 'Planificat',
-  en_curs: 'En curs',
-  post_produccio: 'Post producció',
-  entregat: 'Entregat',
+  rodatge: 'Rodatge',
+  edicio: 'Edició',
+  esperant_feedback: 'Esperant Feedback',
+  revisio: 'Revisió',
+  acabat: 'Acabat',
   facturat: 'Facturat',
-  cancelat: 'Cancel·lat'
 };
 
   return (
 <div style={{ marginBottom: '1.5rem' }}>
  
 {/* CARDS COMPACTES */}
-<div style={{ 
-  display: 'grid', 
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+<div style={{
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, 1fr)',
   gap: '1rem',
   marginBottom: '1.5rem'
 }}>
-  {/* Card 1: En curs */}
+  {/* Card 1: Projectes Actius */}
   <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ 
-      fontSize: '0.75rem', 
-      color: 'var(--color-text-tertiary)', 
-      marginBottom: '0.5rem',
-      textTransform: 'uppercase',
-      fontWeight: 600,
-      letterSpacing: '0.5px'
-    }}>
-      En curs
+    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
+      Projectes Actius
     </div>
-    <div style={{ 
-      fontSize: '2rem', 
-      fontWeight: 700, 
-      color: 'var(--color-accent-primary)',
-      lineHeight: 1
-    }}>
-      {metriques.enCurs}
+    <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-accent-primary)', lineHeight: 1 }}>
+      {metriques.projectesActius}
     </div>
   </div>
 
-  {/* Card 2: Planificats */}
+  {/* Card 2: Endarrerits */}
   <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ 
-      fontSize: '0.75rem', 
-      color: 'var(--color-text-tertiary)', 
-      marginBottom: '0.5rem',
-      textTransform: 'uppercase',
-      fontWeight: 600,
-      letterSpacing: '0.5px'
-    }}>
-      Planificats
-    </div>
-    <div style={{ 
-      fontSize: '2rem', 
-      fontWeight: 700, 
-      color: '#3b82f6',
-      lineHeight: 1
-    }}>
-      {metriques.planificats}
-    </div>
-  </div>
-
-  {/* Card 3: Endarrerits */}
-  <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ 
-      fontSize: '0.75rem', 
-      color: 'var(--color-text-tertiary)', 
-      marginBottom: '0.5rem',
-      textTransform: 'uppercase',
-      fontWeight: 600,
-      letterSpacing: '0.5px'
-    }}>
+    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
       Endarrerits
     </div>
-    <div style={{ 
-      fontSize: '2rem', 
-      fontWeight: 700, 
-      color: metriques.endarrerits > 0 ? '#ef4444' : '#10b981',
-      lineHeight: 1
-    }}>
+    <div style={{ fontSize: '2rem', fontWeight: 700, color: metriques.endarrerits > 0 ? '#ef4444' : '#10b981', lineHeight: 1 }}>
       {metriques.endarrerits}
     </div>
   </div>
 
-  {/* Card 4: Properes entregas */}
+  {/* Card 3: Propers Rodatges */}
   <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ 
-      fontSize: '0.75rem', 
-      color: 'var(--color-text-tertiary)', 
-      marginBottom: '0.5rem',
-      textTransform: 'uppercase',
-      fontWeight: 600,
-      letterSpacing: '0.5px'
-    }}>
-      Properes entregas
+    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
+      Propers Rodatges
+    </div>
+    {metriques.propersRodatges.length === 0 ? (
+      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic', paddingTop: '0.25rem' }}>Cap rodatge proper</div>
+    ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
+        {metriques.propersRodatges.map((r, i) => {
+          const d = new Date(r.data);
+          const diesRestants = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+          return (
+            <div key={i} style={{ fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+              <span style={{ fontWeight: 700, flexShrink: 0, color: diesRestants <= 3 ? '#ef4444' : 'var(--color-text-primary)' }}>
+                {d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
+              </span>
+              <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.titol}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+
+  {/* Card 4: Properes Entreges */}
+  <div className="placeholder-card" style={{ padding: '1rem' }}>
+    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
+      Properes Entreges
     </div>
     {metriques.properes.length === 0 ? (
-      <div style={{ 
-        fontSize: '0.85rem', 
-        color: 'var(--color-text-tertiary)',
-        fontStyle: 'italic',
-        paddingTop: '0.5rem'
-      }}>
-        Cap entrega propera
-      </div>
+      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic', paddingTop: '0.25rem' }}>Cap entrega propera</div>
     ) : (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-        {metriques.properes.map(p => {
-          const client = clients.find(c => c.codi === p.client);
-          const dataEntrega = new Date(p.dataEntrega);
-          const diesRestants = Math.ceil((dataEntrega.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
+        {metriques.properes.map((e, i) => {
+          const d = new Date(e.data);
+          const diesRestants = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
           return (
-            <div 
-              key={p.codi}
-              style={{ 
-                fontSize: '0.85rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
-            >
-              <span style={{ 
-                fontWeight: 600,
-                color: diesRestants < 0 ? '#ef4444' : diesRestants < 3 ? '#f59e0b' : 'var(--color-text-primary)',
-                flexShrink: 0
-              }}>
-                {dataEntrega.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
+            <div key={i} style={{ fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+              <span style={{ fontWeight: 700, flexShrink: 0, color: diesRestants < 0 ? '#ef4444' : diesRestants <= 3 ? '#f59e0b' : 'var(--color-text-primary)' }}>
+                {d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
               </span>
-              <span style={{ 
-                color: 'var(--color-text-secondary)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1,
-                textAlign: 'right'
-              }}>
-                {client?.nomComercial || client?.nomFiscal}
+              <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {e.titol}
               </span>
-              {diesRestants < 0 && <span>⚠️</span>}
             </div>
           );
         })}
@@ -495,8 +489,19 @@ const estatLabels: Record<string, string> = {
       </button>
     </div>
 
+    {/* Exportar Excel */}
+    <button
+      className="btn-secondary"
+      onClick={() => exportarProjectesExcel(projectesFiltrats, clients, parametres)}
+      title="Exportar a Excel"
+      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+    >
+      <Download size={18} />
+      Excel
+    </button>
+
     {/* Botón Nuevo Proyecto */}
-    <button 
+    <button
       className="btn-primary"
       onClick={() => {
         setEditingProjecte(null);
@@ -509,33 +514,67 @@ const estatLabels: Record<string, string> = {
     </button>
   </div>
 
-  {/* Segunda fila: Filtros avanzados */}
-  <div style={{ 
-    display: 'grid', 
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: '1rem'
-  }}>
-    {/* Filter Estat */}
+  {/* Fila 2: Tots els filtres */}
+  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+    <select
+      className="form-input"
+      value={filterPeriode}
+      onChange={(e) => {
+        setFilterPeriode(e.target.value);
+        if (e.target.value !== 'personalitzat' && e.target.value !== 'tots') {
+          aplicarPeriode(e.target.value);
+        }
+      }}
+      style={{ fontSize: '0.82rem', maxWidth: '150px' }}
+    >
+      <option value="tots">Tots els períodes</option>
+      <option value="ultims_3_mesos">Últims 3 mesos</option>
+      <option value="ultims_6_mesos">Últims 6 mesos</option>
+      <option value="ultims_12_mesos">Últims 12 mesos</option>
+      <option value="aquest_any">Aquest any</option>
+      <option value="any_anterior">Any anterior</option>
+      <option value="personalitzat">Personalitzat</option>
+    </select>
+    <input
+      type="date"
+      className="form-input"
+      value={filterDesde}
+      onChange={(e) => { setFilterDesde(e.target.value); setFilterPeriode('personalitzat'); }}
+      style={{ fontSize: '0.82rem', maxWidth: '135px' }}
+    />
+    <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.85rem', flexShrink: 0 }}>–</span>
+    <input
+      type="date"
+      className="form-input"
+      value={filterFins}
+      onChange={(e) => { setFilterFins(e.target.value); setFilterPeriode('personalitzat'); }}
+      style={{ fontSize: '0.82rem', maxWidth: '135px' }}
+    />
+
+    <div style={{ width: '1px', height: '24px', background: 'var(--color-border)', flexShrink: 0 }} />
+
     <select
       className="form-input"
       value={filterEstat}
       onChange={(e) => setFilterEstat(e.target.value)}
+      style={{ fontSize: '0.82rem', maxWidth: '155px' }}
     >
       <option value="">Tots els estats</option>
       <option value="esborrany">Esborrany</option>
       <option value="planificat">Planificat</option>
-      <option value="en_curs">En curs</option>
-      <option value="post_produccio">Post producció</option>
-      <option value="entregat">Entregat</option>
+      <option value="rodatge">Rodatge</option>
+      <option value="edicio">Edició</option>
+      <option value="esperant_feedback">Esperant Feedback</option>
+      <option value="revisio">Revisió</option>
+      <option value="acabat">Acabat</option>
       <option value="facturat">Facturat</option>
-      <option value="cancelat">Cancel·lat</option>
     </select>
 
-    {/* Filter Modalitat */}
     <select
       className="form-input"
       value={filterModalitat}
       onChange={(e) => setFilterModalitat(e.target.value)}
+      style={{ fontSize: '0.82rem', maxWidth: '150px' }}
     >
       <option value="">Totes les modalitats</option>
       {parametres?.modalitats?.map(m => (
@@ -543,38 +582,29 @@ const estatLabels: Record<string, string> = {
       ))}
     </select>
 
-{/* Filter Tipus Producció */}
-<select
-  className="form-input"
-  value={filterServei}
-  onChange={(e) => setFilterServei(e.target.value)}
->
-  <option value="">Tots els tipus</option>
-  {parametres?.tipusProduccio?.map(t => (
-    <option key={t.codi} value={t.codi}>{t.nom}</option>
-  ))}
-</select>
+    <select
+      className="form-input"
+      value={filterServei}
+      onChange={(e) => setFilterServei(e.target.value)}
+      style={{ fontSize: '0.82rem', maxWidth: '150px' }}
+    >
+      <option value="">Tots els tipus</option>
+      {parametres?.tipusProduccio?.map(t => (
+        <option key={t.codi} value={t.codi}>{t.nom}</option>
+      ))}
+    </select>
 
-    {/* Checkboxes */}
-    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={nomesDirectes}
-          onChange={(e) => setNomesDirectes(e.target.checked)}
-        />
-        <span style={{ fontSize: '0.9rem' }}>Només directes</span>
-      </label>
-      
-      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={amagarArxivats}
-          onChange={(e) => setAmagarArxivats(e.target.checked)}
-        />
-        <span style={{ fontSize: '0.9rem' }}>Amagar arxivats</span>
-      </label>
-    </div>
+    <div style={{ width: '1px', height: '24px', background: 'var(--color-border)', flexShrink: 0 }} />
+
+    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+      <input type="checkbox" checked={mostrarActius} onChange={(e) => setMostrarActius(e.target.checked)} />
+      <span style={{ fontSize: '0.82rem' }}>Mostrar actius</span>
+    </label>
+
+    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+      <input type="checkbox" checked={nomesDirectes} onChange={(e) => setNomesDirectes(e.target.checked)} />
+      <span style={{ fontSize: '0.82rem' }}>Només directes</span>
+    </label>
   </div>
 </div>
 
@@ -715,7 +745,10 @@ const estatLabels: Record<string, string> = {
         
         {/* Entrega */}
         <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>
-          {new Date(projecte.dataEntrega).toLocaleDateString('ca-ES')}
+          {(() => {
+            const data = projecte.datesEntrega?.[0]?.data || projecte.dataEntrega;
+            return data ? new Date(data).toLocaleDateString('ca-ES') : '-';
+          })()}
         </td>
         
         {/* Gastos */}
@@ -724,7 +757,15 @@ const estatLabels: Record<string, string> = {
         </td>
         
         {/* Ingressos */}
-        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 500 }}>
+        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 500, position: 'relative' }}>
+          {(projecte.avisFacturacio?.actiu) && (
+            <span
+              title={projecte.avisFacturacio.descripcio || 'Avís de facturació actiu'}
+              style={{ position: 'absolute', top: '6px', right: '4px', fontSize: '0.85rem', lineHeight: 1, cursor: 'help' }}
+            >
+              ⚠️
+            </span>
+          )}
           {ingressos.toFixed(2)}€
         </td>
         
@@ -748,225 +789,222 @@ const estatLabels: Record<string, string> = {
     <>
       {/* VISTA KANBAN */}
       <div style={{
-  display: 'flex', 
-  gap: '1rem', 
-  overflowX: 'auto', 
-  padding: '1rem 0',
-  minHeight: '500px'
-}}>
-{(['esborrany', 'planificat', 'en_curs', 'post_produccio', 'entregat', 'facturat', 'cancelat'] as const).map(estat => {
-      const projectesEstat = projectesFiltrats.filter(p => p.estat === estat);
-    
-      const estatInfo = {
-      'esborrany': { label: 'Esborrany', color: '#fbbf24', bg: '#fef3c7' },
-      'planificat': { label: 'Planificat', color: '#60a5fa', bg: '#dbeafe' },
-      'en_curs': { label: 'En curs', color: '#a78bfa', bg: '#ede9fe' },
-      'post_produccio': { label: 'Post Producció', color: '#f472b6', bg: '#fce7f3' },
-      'entregat': { label: 'Entregat', color: '#34d399', bg: '#d1fae5' },
-      'facturat': { label: 'Facturat', color: '#10b981', bg: '#d1fae5' },
-      'cancelat': { label: 'Cancel·lat', color: '#ef4444', bg: '#fee2e2' }
-    };
+        display: 'flex',
+        gap: '1rem',
+        overflowX: 'auto',
+        padding: '1rem 0',
+        minHeight: '500px',
+        alignItems: 'flex-start'
+      }}>
+        {(['planificat', 'rodatge', 'edicio', 'esperant_feedback', 'revisio', 'acabat', 'facturat'] as const).map(estat => {
+          const isCollapsed = collapsedColumns.has(estat);
+          const projectesEstat = projectesFiltrats.filter(p => p.estat === estat);
 
-    return (
-      <div
-        key={estat}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.currentTarget.style.background = 'var(--color-bg-tertiary)';
-        }}
-        onDragLeave={(e) => {
-          e.currentTarget.style.background = 'var(--color-bg-secondary)';
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.currentTarget.style.background = 'var(--color-bg-secondary)';
-          
-          const projecteCodi = e.dataTransfer.getData('projecteCodi');
-          const projecte = projectes.find(p => p.codi === projecteCodi);
-          
-          if (projecte && projecte.estat !== estat) {
-            const projecteActualitzat = { ...projecte, estat };
-            saveProjectes(projectes.map(p => p.codi === projecteCodi ? projecteActualitzat : p));
-          }
-        }}
-        style={{
-          minWidth: '280px',
-          background: 'var(--color-bg-secondary)',
-          borderRadius: '8px',
-          padding: '1rem',
-          border: '2px solid var(--color-border)',
-          transition: 'background 0.2s'
-        }}
-      >
-        {/* Header de la columna */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '1rem',
-          paddingBottom: '0.75rem',
-          borderBottom: '2px solid var(--color-border)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              background: estatInfo[estat].color
-            }} />
-            <h3 style={{ 
-              fontSize: '0.9rem', 
-              fontWeight: 600,
-              color: 'var(--color-text-primary)'
-            }}>
-              {estatInfo[estat].label}
-            </h3>
-          </div>
-          <span style={{
-            padding: '0.25rem 0.5rem',
-            borderRadius: '12px',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            background: estatInfo[estat].bg,
-            color: estatInfo[estat].color
-          }}>
-            {projectesEstat.length}
-          </span>
-        </div>
+          const estatInfo: Record<string, { label: string; color: string; bg: string; headerBg: string }> = {
+            'planificat':        { label: 'Planificat',        color: '#9a3412', bg: '#fed7aa', headerBg: '#ffedd5' },
+            'rodatge':           { label: 'Rodatge',           color: '#991b1b', bg: '#fee2e2', headerBg: '#fee2e2' },
+            'edicio':            { label: 'Edició',            color: '#1e3a8a', bg: '#bfdbfe', headerBg: '#dbeafe' },
+            'esperant_feedback': { label: 'Esperant Feedback', color: '#374151', bg: '#e5e7eb', headerBg: '#f3f4f6' },
+            'revisio':           { label: 'Revisió',           color: '#ffffff', bg: '#3b82f6', headerBg: '#3b82f6' },
+            'acabat':            { label: 'Acabat',            color: '#065f46', bg: '#d1fae5', headerBg: '#d1fae5' },
+            'facturat':          { label: 'Facturat',          color: '#ffffff', bg: '#059669', headerBg: '#059669' },
+          };
 
-        {/* Tarjetas de proyectos */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {projectesEstat.length === 0 ? (
-            <p style={{ 
-              textAlign: 'center', 
-              color: 'var(--color-text-tertiary)', 
-              fontSize: '0.85rem',
-              padding: '2rem 0'
-            }}>
-              No hi ha projectes
-            </p>
-          ) : (
-            projectesEstat.map(projecte => {
-              const client = clients.find(c => c.codi === projecte.client);
-              const gastos = projecte.recursosHumans.reduce((sum, r) => sum + r.cost, 0) + 
-                            projecte.materials.reduce((sum, m) => sum + m.preuProveidor, 0);
-              const ingressos = projecte.tasques.reduce((sum, t) => sum + t.importe, 0);
-              const benefici = ingressos - gastos;
-              const percentBenefici = ingressos > 0 ? (benefici / ingressos) * 100 : 0;
+          const info = estatInfo[estat];
 
-              return (
-                <div
-                  key={projecte.codi}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('projecteCodi', projecte.codi);
-                    e.currentTarget.style.opacity = '0.5';
-                  }}
-                  onDragEnd={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onClick={() => {
-                    setEditingProjecte(projecte);
-                    setShowModal(true);
-                  }}
-                  style={{
-                    background: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '6px',
-                    padding: '1rem',
-                    cursor: 'grab',
-                    transition: 'all 0.2s',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  {/* Beneficio en esquina superior derecha */}
+          return (
+            <div
+              key={estat}
+              onDragOver={(e) => {
+                if (!isCollapsed) {
+                  e.preventDefault();
+                  e.currentTarget.style.background = 'var(--color-bg-tertiary)';
+                }
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.background = 'var(--color-bg-secondary)';
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.background = 'var(--color-bg-secondary)';
+                const projecteCodi = e.dataTransfer.getData('projecteCodi');
+                const projecte = projectes.find(p => p.codi === projecteCodi);
+                if (projecte && projecte.estat !== estat) {
+                  saveProjectes(projectes.map(p => p.codi === projecteCodi ? { ...p, estat } : p));
+                }
+              }}
+              style={{
+                minWidth: isCollapsed ? '52px' : '280px',
+                maxWidth: isCollapsed ? '52px' : undefined,
+                background: 'var(--color-bg-secondary)',
+                borderRadius: '8px',
+                padding: isCollapsed ? '0.75rem 0.5rem' : '1rem',
+                border: '2px solid var(--color-border)',
+                transition: 'all 0.2s',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Header de la columna */}
+              {isCollapsed ? (
+                /* Collapsed: vertical label + count + toggle */
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setCollapsedColumns(prev => { const s = new Set(prev); s.delete(estat); return s; })}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-text-tertiary)', fontSize: '1rem', lineHeight: 1 }}
+                    title="Expandir"
+                  >
+                    ›
+                  </button>
                   <div style={{
-                    position: 'absolute',
-                    top: '0.5rem',
-                    right: '0.5rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: '0.125rem'
-                  }}>
-                    <span style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      color: benefici >= 0 ? '#10b981' : '#ef4444'
-                    }}>
-                      {benefici.toFixed(0)}€
-                    </span>
-                    <span style={{
-                      fontSize: '0.65rem',
-                      color: 'var(--color-text-tertiary)'
-                    }}>
-                      {percentBenefici.toFixed(1)}%
-                    </span>
-                  </div>
-
-                  {/* Código del proyecto */}
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: 'var(--color-text-tertiary)',
-                    marginBottom: '0.5rem',
-                    fontWeight: 500
-                  }}>
-                    {projecte.codi}
-                  </div>
-
-                  {/* Título del proyecto */}
-                  <h4 style={{
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    color: 'var(--color-text-primary)',
-                    marginBottom: '0.75rem',
-                    lineHeight: '1.3',
-                    paddingRight: '3rem'
-                  }}>
-                    {projecte.titol}
-                  </h4>
-
-                  {/* Cliente */}
-                  <div style={{
-                    fontSize: '0.8rem',
-                    color: 'var(--color-text-secondary)',
-                    marginBottom: '0.5rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}>
-                    <span style={{ opacity: 0.7 }}>👤</span>
-                    {client?.nomComercial || client?.nomFiscal || '-'}
-                  </div>
-
-                  {/* Fecha de entrega */}
-                  <div style={{
+                    writingMode: 'vertical-rl',
+                    textOrientation: 'mixed',
                     fontSize: '0.75rem',
-                    color: 'var(--color-text-tertiary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
+                    fontWeight: 600,
+                    color: 'var(--color-text-secondary)',
+                    userSelect: 'none',
+                    whiteSpace: 'nowrap',
+                    transform: 'rotate(180deg)',
+                    cursor: 'pointer'
+                  }}
+                    onClick={() => setCollapsedColumns(prev => { const s = new Set(prev); s.delete(estat); return s; })}
+                  >
+                    {info.label}
+                  </div>
+                  <span style={{
+                    padding: '0.2rem 0.35rem',
+                    borderRadius: '8px',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    background: info.bg,
+                    color: info.color,
+                    minWidth: '20px',
+                    textAlign: 'center'
                   }}>
-                    <span>📅</span>
-                    {new Date(projecte.dataEntrega).toLocaleDateString('ca-ES')}
+                    {projectesEstat.length}
+                  </span>
+                </div>
+              ) : (
+                /* Expanded header */
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '1rem',
+                  paddingBottom: '0.75rem',
+                  borderBottom: '2px solid var(--color-border)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: info.bg === '#f3f4f6' ? '#9ca3af' : info.bg, border: '2px solid ' + info.color, flexShrink: 0 }} />
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
+                      {info.label}
+                    </h3>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{
+                      padding: '0.2rem 0.45rem',
+                      borderRadius: '10px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: info.bg,
+                      color: info.color
+                    }}>
+                      {projectesEstat.length}
+                    </span>
+                    <button
+                      onClick={() => setCollapsedColumns(prev => { const s = new Set(prev); s.add(estat); return s; })}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem', color: 'var(--color-text-tertiary)', fontSize: '1rem', lineHeight: 1 }}
+                      title="Retreure"
+                    >
+                      ‹
+                    </button>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
+              )}
+
+              {/* Tarjetes de projectes (only when expanded) */}
+              {!isCollapsed && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {projectesEstat.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', fontSize: '0.85rem', padding: '2rem 0' }}>
+                      No hi ha projectes
+                    </p>
+                  ) : (
+                    projectesEstat.map(projecte => {
+                      const client = clients.find(c => c.codi === projecte.client);
+                      const gastos = projecte.recursosHumans.reduce((sum, r) => sum + r.cost, 0) +
+                                    projecte.materials.reduce((sum, m) => sum + m.preuProveidor, 0);
+                      const ingressos = projecte.tasques.reduce((sum, t) => sum + t.importe, 0);
+                      const benefici = ingressos - gastos;
+                      const percentBenefici = ingressos > 0 ? (benefici / ingressos) * 100 : 0;
+                      const dataEntrega = projecte.datesEntrega?.[0]?.data || projecte.dataEntrega;
+
+                      return (
+                        <div
+                          key={projecte.codi}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('projecteCodi', projecte.codi);
+                            e.currentTarget.style.opacity = '0.5';
+                          }}
+                          onDragEnd={(e) => { e.currentTarget.style.opacity = '1'; }}
+                          onClick={() => { setEditingProjecte(projecte); setShowModal(true); }}
+                          style={{
+                            background: 'var(--color-bg-primary)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: '6px',
+                            padding: '1rem',
+                            cursor: 'grab',
+                            transition: 'all 0.2s',
+                            position: 'relative'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = 'none';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }}
+                        >
+                          {/* Benefici cantonada superior dreta */}
+                          <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: benefici >= 0 ? '#10b981' : '#ef4444' }}>
+                              {benefici.toFixed(0)}€
+                            </span>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--color-text-tertiary)' }}>
+                              {percentBenefici.toFixed(1)}%
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-tertiary)', marginBottom: '0.4rem', fontWeight: 500 }}>
+                            {projecte.codi}
+                          </div>
+
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '0.6rem', lineHeight: '1.3', paddingRight: '3rem' }}>
+                            {projecte.titol}
+                          </h4>
+
+                          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <span style={{ opacity: 0.7 }}>👤</span>
+                            {client?.nomComercial || client?.nomFiscal || '-'}
+                          </div>
+
+                          {dataEntrega && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <span>📅</span>
+                              {new Date(dataEntrega).toLocaleDateString('ca-ES')}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-    );
-  })}
-  </div>
     </>
   )}
   
@@ -977,9 +1015,7 @@ const estatLabels: Record<string, string> = {
     onClose={() => {
       setShowModal(false);
       setEditingProjecte(null);
-      // Recargar proyectos desde localStorage
-      const saved = localStorage.getItem('plateaProjectes');
-      setProjectes(saved ? JSON.parse(saved) : []);
+      setProjectes(storage.getProjectes());
     }}
     onSave={(projecte) => {
       // Verificar si el proyecto ya existe (upsert)
@@ -997,10 +1033,7 @@ const estatLabels: Record<string, string> = {
     nextCode={getNextCode()}
     clients={clients}
     parametres={parametres}
-    proveidors={(() => {
-      const saved = localStorage.getItem('plateaProveidors');
-      return saved ? JSON.parse(saved) : [];
-    })()}
+    proveidors={storage.getProveidors()}
   />
 )}
     </div>

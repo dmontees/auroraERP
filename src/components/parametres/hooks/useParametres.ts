@@ -116,6 +116,13 @@ const DEFAULT_TIPUS_PRODUCCIO = [
   { codi: 'TP-00010', nom: 'Producció TV', esDefault: true }
 ];
 
+const DEFAULT_CATEGORIES_ACREEDOR = [
+  { codi: 'CATACREED-001', nom: 'Administració i legal', color: '#6366f1' },
+  { codi: 'CATACREED-002', nom: 'Aplicació', color: '#0ea5e9' },
+  { codi: 'CATACREED-003', nom: 'Gestió web/correu', color: '#10b981' },
+  { codi: 'CATACREED-004', nom: 'Plataforma', color: '#f59e0b' },
+];
+
 const DEFAULT_CATEGORIES_PROVEIDORS = [
   { codi: 'CATPROV-001', nom: 'Audio', color: '#3b82f6' },
   { codi: 'CATPROV-002', nom: 'Audio - clàssica', color: '#8b5cf6' },
@@ -126,6 +133,14 @@ const DEFAULT_CATEGORIES_PROVEIDORS = [
   { codi: 'CATPROV-007', nom: 'Suport tècnic', color: '#6366f1' },
   { codi: 'CATPROV-008', nom: 'Suport tècnic realització', color: '#ec4899' }
 ];
+
+export const DEFAULT_CONFIG_CALENDARI = {
+  rodatge:       { actiu: true,  color: '#ef4444' },
+  entrega:       { actiu: true,  color: '#f59e0b' },
+  facturesVenda: { actiu: false, color: '#3b82f6' },
+  facturesCompra:{ actiu: false, color: '#ef4444' },
+  pressupostos:  { actiu: false, color: '#6366f1' },
+};
 
 export function useParametres() {
   const [parametres, setParametres] = useState<Parametres>({
@@ -139,6 +154,7 @@ export function useParametres() {
     plantilles: DEFAULT_PLANTILLES,
     modalitats: DEFAULT_MODALITATS,
     categoriesProveidors: DEFAULT_CATEGORIES_PROVEIDORS,
+    categoriesAcreedor: DEFAULT_CATEGORIES_ACREEDOR,
     dadesEmpresa: {
       nomFiscal: '',
       nomComercial: '',
@@ -174,6 +190,7 @@ export function useParametres() {
         modalitats: DEFAULT_MODALITATS,
         tipusProduccio: DEFAULT_TIPUS_PRODUCCIO,
         categoriesProveidors: DEFAULT_CATEGORIES_PROVEIDORS,
+        categoriesAcreedor: DEFAULT_CATEGORIES_ACREEDOR,
         dadesEmpresa: parametres.dadesEmpresa
       };
       setParametres(initialData);
@@ -210,9 +227,14 @@ export function useParametres() {
       materials: data.materials || [],
       modalitats: data.modalitats && data.modalitats.length > 0 ? data.modalitats : DEFAULT_MODALITATS,
       tipusProduccio: data.tipusProduccio || DEFAULT_TIPUS_PRODUCCIO,
-      categoriesProveidors: data.categoriesProveidors && data.categoriesProveidors.length > 0 
-        ? data.categoriesProveidors 
-        : DEFAULT_CATEGORIES_PROVEIDORS
+      categoriesProveidors: data.categoriesProveidors && data.categoriesProveidors.length > 0
+        ? data.categoriesProveidors
+        : DEFAULT_CATEGORIES_PROVEIDORS,
+      categoriesAcreedor: data.categoriesAcreedor && data.categoriesAcreedor.length > 0
+        ? data.categoriesAcreedor
+        : DEFAULT_CATEGORIES_ACREEDOR,
+      configCalendari: data.configCalendari ?? DEFAULT_CONFIG_CALENDARI,
+      categoriesCalendari: data.categoriesCalendari ?? [],
     };
 
     setParametres(migratedData);
@@ -547,7 +569,11 @@ export function useParametres() {
 
   const afegirCategoriaProveidor = () => {
     const categories = parametres.categoriesProveidors || [];
-    const nouCodi = `CATPROV-${String(categories.length + 1).padStart(3, '0')}`;
+    const maxNum = categories.reduce((max: number, cat: any) => {
+      const m = cat.codi?.match(/CATPROV-(\d+)/);
+      return m ? Math.max(max, parseInt(m[1])) : max;
+    }, 0);
+    const nouCodi = `CATPROV-${String(maxNum + 1).padStart(3, '0')}`;
     const novaCategoria = {
       codi: nouCodi,
       nom: '',
@@ -594,6 +620,93 @@ export function useParametres() {
   const categoriaProveidorEnUs = (codi: string): boolean => {
     const proveidors = storage.getProveidors();
     return proveidors.some((p: any) => p.categories?.includes(codi));
+  };
+
+  // ============================================================================
+  // CATEGORIES ACREEDOR
+  // ============================================================================
+
+  const afegirCategoriaAcreedor = () => {
+    const categories = parametres.categoriesAcreedor || [];
+    const maxNum = categories.reduce((max: number, cat: any) => {
+      const m = cat.codi?.match(/CATACREED-(\d+)/);
+      return m ? Math.max(max, parseInt(m[1])) : max;
+    }, 0);
+    const nouCodi = `CATACREED-${String(maxNum + 1).padStart(3, '0')}`;
+    saveParametres({
+      ...parametres,
+      categoriesAcreedor: [...categories, { codi: nouCodi, nom: '', color: '#6366f1' }]
+    });
+  };
+
+  const actualitzarCategoriaAcreedor = (codi: string, field: string, value: any) => {
+    const categories = parametres.categoriesAcreedor || [];
+    saveParametres({
+      ...parametres,
+      categoriesAcreedor: categories.map((cat: any) =>
+        cat.codi === codi ? { ...cat, [field]: value } : cat
+      )
+    });
+  };
+
+  const eliminarCategoriaAcreedor = (codi: string) => {
+    const proveidors = storage.getProveidors();
+    if (proveidors.some((p: any) => p.categories?.includes(codi))) {
+      alert('No es pot eliminar aquesta categoria perquè està en ús per algun proveïdor/acreedor.');
+      return;
+    }
+    const categories = parametres.categoriesAcreedor || [];
+    saveParametres({
+      ...parametres,
+      categoriesAcreedor: categories.filter((cat: any) => cat.codi !== codi)
+    });
+  };
+
+  const categoriaAcreedorEnUs = (codi: string): boolean => {
+    const proveidors = storage.getProveidors();
+    return proveidors.some((p: any) => p.categories?.includes(codi));
+  };
+
+  // ============================================================================
+  // CATEGORIES CALENDARI
+  // ============================================================================
+
+  const afegirCategoriaCalendari = () => {
+    const categories = parametres.categoriesCalendari || [];
+    const id = `CATCAL-${Date.now()}`;
+    saveParametres({
+      ...parametres,
+      categoriesCalendari: [...categories, { id, nom: '', color: '#3b82f6' }]
+    });
+  };
+
+  const actualitzarCategoriaCalendari = (id: string, field: string, value: any) => {
+    const categories = parametres.categoriesCalendari || [];
+    saveParametres({
+      ...parametres,
+      categoriesCalendari: categories.map((cat: any) =>
+        cat.id === id ? { ...cat, [field]: value } : cat
+      )
+    });
+  };
+
+  const eliminarCategoriaCalendari = (id: string) => {
+    const categories = parametres.categoriesCalendari || [];
+    saveParametres({
+      ...parametres,
+      categoriesCalendari: categories.filter((cat: any) => cat.id !== id)
+    });
+  };
+
+  const actualitzarConfigCalendari = (key: string, field: string, value: any) => {
+    const config = parametres.configCalendari || DEFAULT_CONFIG_CALENDARI;
+    saveParametres({
+      ...parametres,
+      configCalendari: {
+        ...config,
+        [key]: { ...(config as any)[key], [field]: value }
+      }
+    });
   };
 
   // ============================================================================
@@ -666,6 +779,18 @@ export function useParametres() {
     afegirCategoriaProveidor,
     actualitzarCategoriaProveidor,
     eliminarCategoriaProveidor,
-    categoriaProveidorEnUs
+    categoriaProveidorEnUs,
+
+    // Categories acreedor
+    afegirCategoriaAcreedor,
+    actualitzarCategoriaAcreedor,
+    eliminarCategoriaAcreedor,
+    categoriaAcreedorEnUs,
+
+    // Categories i config calendari
+    afegirCategoriaCalendari,
+    actualitzarCategoriaCalendari,
+    eliminarCategoriaCalendari,
+    actualitzarConfigCalendari
   };
 }

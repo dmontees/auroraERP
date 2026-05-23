@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { storage } from '../../utils/storageManager';
 import { Settings, X, Film, Upload, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
@@ -241,17 +242,13 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
   };
 
   const handleExportBackup = () => {
-    const backup: any = { exportDate: new Date().toISOString() };
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('platea')) {
-        backup[key] = localStorage.getItem(key);
-      }
-    });
+    const data = storage.exportAll();
+    const backup = { exportDate: new Date().toISOString(), ...data };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `platea-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `aurora-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -264,12 +261,31 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
         try {
           const backup = JSON.parse(event.target?.result as string);
           let importedCount = 0;
-          Object.keys(backup).forEach(key => {
-            if (key.startsWith('platea')) {
-              localStorage.setItem(key, backup[key]);
-              importedCount++;
-            }
-          });
+
+          // Format nou (objectes ja parsejats)
+          if (backup.clients !== undefined) { storage.setClients(backup.clients); importedCount++; }
+          if (backup.proveidors !== undefined) { storage.setProveidors(backup.proveidors); importedCount++; }
+          if (backup.projectes !== undefined) { storage.setProjectes(backup.projectes); importedCount++; }
+          if (backup.facturesVenda !== undefined) { storage.setFacturesVenda(backup.facturesVenda); importedCount++; }
+          if (backup.facturesCompra !== undefined) { storage.setFacturesCompra(backup.facturesCompra); importedCount++; }
+          if (backup.pressupostos !== undefined) { storage.setPressupostos(backup.pressupostos); importedCount++; }
+          if (backup.parametres !== undefined) { storage.setParametres(backup.parametres); importedCount++; }
+          if (backup.partsTreball !== undefined) { storage.setPartsTreball(backup.partsTreball); importedCount++; }
+          if (backup.settings !== undefined) { storage.setSettings(backup.settings); importedCount++; }
+
+          // Format antic (strings JSON amb prefix platea, per compatibilitat)
+          if (!importedCount) {
+            if (backup.plateaClients) { storage.setClients(JSON.parse(backup.plateaClients)); importedCount++; }
+            if (backup.plateaProveidors) { storage.setProveidors(JSON.parse(backup.plateaProveidors)); importedCount++; }
+            if (backup.plateaProjectes) { storage.setProjectes(JSON.parse(backup.plateaProjectes)); importedCount++; }
+            if (backup.plateaFacturesVenda) { storage.setFacturesVenda(JSON.parse(backup.plateaFacturesVenda)); importedCount++; }
+            if (backup.plateaFacturesCompra) { storage.setFacturesCompra(JSON.parse(backup.plateaFacturesCompra)); importedCount++; }
+            if (backup.plateaPressupostos) { storage.setPressupostos(JSON.parse(backup.plateaPressupostos)); importedCount++; }
+            if (backup.plateaParametres) { storage.setParametres(JSON.parse(backup.plateaParametres)); importedCount++; }
+            if (backup.plateaPartsTreball) { storage.setPartsTreball(JSON.parse(backup.plateaPartsTreball)); importedCount++; }
+            if (backup.plateaErpSettings) { storage.setSettings(JSON.parse(backup.plateaErpSettings)); importedCount++; }
+          }
+
           alert(`✅ Còpia de seguretat importada correctament.\n\n${importedCount} mòduls restaurats.\n\nLa pàgina es recarregarà ara.`);
           window.location.reload();
         } catch (error) {
@@ -285,11 +301,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
     if (confirmFirst) {
       const confirmSecond = confirm('🚨 ÚLTIMA CONFIRMACIÓ: Aquesta acció NO es pot desfer.\n\nTotes les dades del programa s\'eliminaran permanentment.\n\nFes clic a OK per confirmar.');
       if (confirmSecond) {
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('platea')) {
-            localStorage.removeItem(key);
-          }
-        });
+        storage.resetAll();
         alert('✅ Programa restaurat. La pàgina es recarregarà ara.');
         window.location.reload();
       }
