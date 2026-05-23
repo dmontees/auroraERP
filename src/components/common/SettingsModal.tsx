@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { storage } from '../../utils/storageManager';
-import { Settings, X, Film, Upload, Trash2 } from 'lucide-react';
+import { Settings, X, Film, Upload, Trash2, RefreshCw, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   importCategories,
@@ -29,10 +29,35 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+type UpdateCheckState = 'idle' | 'checking' | 'up-to-date' | 'available';
+
 export default function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
   const [formData, setFormData] = useState<CompanySettings>(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentImportType, setCurrentImportType] = useState<string>('');
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>('idle');
+
+  useEffect(() => {
+    const onNotAvailable = () => {
+      setUpdateCheck('up-to-date');
+      setTimeout(() => setUpdateCheck('idle'), 4000);
+    };
+    const onAvailable = () => setUpdateCheck('available');
+
+    window.addEventListener('aurora:update-not-available', onNotAvailable);
+    window.addEventListener('aurora:update-available', onAvailable);
+    return () => {
+      window.removeEventListener('aurora:update-not-available', onNotAvailable);
+      window.removeEventListener('aurora:update-available', onAvailable);
+    };
+  }, []);
+
+  const handleCheckUpdates = () => {
+    const api = (window as any).electron;
+    if (!api) return;
+    setUpdateCheck('checking');
+    api.checkForUpdates();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -369,6 +394,41 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                 Per configurar les dades oficials de l'empresa (NIF, adreça, contacte, etc.), ves a <strong>Paràmetres → Dades Empresa</strong>
               </p>
             </div>
+
+            {/* Actualitzacions */}
+            {(window as any).electron && (
+              <div className="form-section">
+                <h3>🔄 Actualitzacions</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleCheckUpdates}
+                    disabled={updateCheck === 'checking'}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <RefreshCw size={16} style={updateCheck === 'checking' ? { animation: 'spin 1s linear infinite' } : {}} />
+                    Buscar actualitzacions disponibles
+                  </button>
+
+                  {updateCheck === 'checking' && (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                      Comprovant...
+                    </span>
+                  )}
+                  {updateCheck === 'up-to-date' && (
+                    <span style={{ fontSize: '0.85rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <CheckCircle size={15} /> Aurora està actualitzat
+                    </span>
+                  )}
+                  {updateCheck === 'available' && (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--color-accent-primary)' }}>
+                      Nova versió disponible — descarregant...
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Importar Dades */}
             <div className="form-section">

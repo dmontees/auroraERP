@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electron', {
   
   // Auto-updater
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   onUpdateAvailable: (callback) => {
     ipcRenderer.on('update-available', (_, data) => callback(data));
   },
@@ -53,11 +54,15 @@ contextBridge.exposeInMainWorld('electron', {
   onUpdateDownloaded: (callback) => {
     ipcRenderer.on('update-downloaded', (_, data) => callback(data));
   },
+  onUpdateNotAvailable: (callback) => {
+    ipcRenderer.on('update-not-available', () => callback());
+  },
   
   // Utilidades de store
   getStorePath: () => ipcRenderer.invoke('get-store-path'),
   exportAllData: () => ipcRenderer.invoke('export-all-data'),
-  importData: (data) => ipcRenderer.invoke('import-data', data)
+  importData: (data) => ipcRenderer.invoke('import-data', data),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });
 
 console.log('✅ Preload script cargado correctamente');

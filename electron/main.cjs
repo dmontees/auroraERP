@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
 
@@ -106,20 +107,70 @@ function createWindow() {
 
   // CONFIGURAR AUTO-UPDATER
   if (process.env.NODE_ENV !== 'development') {
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner: 'dmontees',
-      repo: 'auroraERP'
-    });
-
-    // Comprobar actualizaciones al arrancar
-    autoUpdater.checkForUpdatesAndNotify();
-
-    // Comprobar cada hora
-    setInterval(() => {
-      autoUpdater.checkForUpdates();
-    }, 3600000);
+    if (process.platform === 'darwin') {
+      // macOS: electron-updater requires code signing — use GitHub API instead
+      checkForUpdatesMac();
+      setInterval(checkForUpdatesMac, 3600000);
+    } else {
+      // Windows: electron-updater works without signing
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: 'dmontees',
+        repo: 'auroraERP'
+      });
+      autoUpdater.checkForUpdatesAndNotify();
+      setInterval(() => autoUpdater.checkForUpdates(), 3600000);
+    }
   }
+}
+
+// ============================================
+// ACTUALITZACIONS macOS (via GitHub API)
+// ============================================
+
+function isNewer(latest, current) {
+  const parse = v => v.split('.').map(Number);
+  const [la, lb, lc] = parse(latest);
+  const [ca, cb, cc] = parse(current);
+  if (la !== ca) return la > ca;
+  if (lb !== cb) return lb > cb;
+  return lc > cc;
+}
+
+function checkForUpdatesMac() {
+  const currentVersion = app.getVersion();
+  const options = {
+    hostname: 'api.github.com',
+    path: '/repos/dmontees/auroraERP/releases/latest',
+    headers: { 'User-Agent': 'Aurora-ERP-Updater' }
+  };
+
+  https.get(options, (res) => {
+    let body = '';
+    res.on('data', chunk => body += chunk);
+    res.on('end', () => {
+      try {
+        const release = JSON.parse(body);
+        const latestVersion = release.tag_name?.replace('v', '');
+        if (!latestVersion || !isNewer(latestVersion, currentVersion)) return;
+
+        const dmgAsset = release.assets?.find(a => a.name.endsWith('.dmg'));
+        const downloadUrl = dmgAsset?.browser_download_url || release.html_url;
+
+        console.log(`✅ Nova versió disponible: ${latestVersion}`);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-available', {
+            version: latestVersion,
+            downloadUrl
+          });
+        }
+      } catch (e) {
+        console.error('❌ Error parsejant resposta de GitHub:', e);
+      }
+    });
+  }).on('error', (e) => {
+    console.error('❌ Error comprovant actualitzacions (macOS):', e);
+  });
 }
 
 // ============================================
@@ -194,6 +245,9 @@ autoUpdater.on('update-available', (info) => {
 
 autoUpdater.on('update-not-available', () => {
   console.log('✅ Aurora està actualitzat');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-not-available');
+  }
 });
 
 autoUpdater.on('download-progress', (progress) => {
@@ -222,6 +276,18 @@ autoUpdater.on('error', (error) => {
 
 ipcMain.handle('install-update', () => {
   autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('check-for-updates', () => {
+  if (process.platform === 'darwin') {
+    checkForUpdatesMac();
+  } else {
+    autoUpdater.checkForUpdates();
+  }
+});
+
+ipcMain.handle('open-external', (_, url) => {
+  shell.openExternal(url);
 });
 
 ipcMain.handle('get-app-version', () => {
