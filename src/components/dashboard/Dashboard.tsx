@@ -66,7 +66,7 @@ export default function Dashboard() {
     const prefix = `${selectedYear}-${mes}`;
 
     const deFactures = facturesVenda
-      .filter(f => f.estat !== 'esborrany' && f.dataFactura?.startsWith(prefix))
+      .filter(f => !['borrador', 'cancelled'].includes(f.estat) && f.dataFactura?.startsWith(prefix))
       .reduce((sum, f) => sum + (f.baseImposable || 0), 0);
 
     const deImportats = projectes
@@ -75,7 +75,12 @@ export default function Dashboard() {
         const data = p.facturaHistorica?.data || p.dataFinalitzacio || p.dataInici || '';
         return data.startsWith(prefix);
       })
-      .reduce((sum, p) => sum + (p.benefici || 0), 0);
+      .reduce((sum, p) => {
+        const ingressos = (p.tasques || []).reduce((s, t) => s + (t.importe || 0), 0);
+        const despeses = (p.recursosHumans || []).reduce((s, r) => s + (r.cost || 0), 0)
+          + (p.materials || []).reduce((s, m) => s + (m.preuProveidor || 0), 0);
+        return sum + (ingressos - despeses);
+      }, 0);
 
     return deFactures + deImportats;
   });
@@ -106,7 +111,7 @@ export default function Dashboard() {
 
   // ── MEDIES ───────────────────────────────────────────────────────────────
   // Si any seleccionat = any en curs, dividir per mesos transcorreguts; si no, per 12
-  const mesosBase = selectedYear < nowYear ? 12 : (selectedYear > nowYear ? 1 : nowMonth);
+  const mesosBase = selectedYear < nowYear ? 12 : (selectedYear > nowYear ? 1 : Math.max(1, nowMonth - 1));
 
   const beneficiFiscal = totalFacturatAny - obligaciosFiscalsAny;
   const beneficiFiscalMitja = mesosBase > 0 ? beneficiFiscal / mesosBase : 0;
@@ -217,7 +222,7 @@ export default function Dashboard() {
             <div>
               <div style={{ fontSize: '1rem', fontWeight: 600 }}>Benefici brut de facturació per mes</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginTop: '0.2rem' }}>
-                Base imposable (sense IVA) de les factures emeses — no cal que estiguin cobrades
+                Ingressos bruts (sense IVA) de les factures emeses — no cal que estiguin cobrades
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -496,7 +501,7 @@ function GraficBarresBenefici({ data }: { data: number[] }) {
 
   const W = dims.width;
   const H = dims.height;
-  const PL = 52;
+  const PL = 80;
   const PR = 8;
   const PT = 20;
   const PB = 22;
@@ -520,7 +525,7 @@ function GraficBarresBenefici({ data }: { data: number[] }) {
                 strokeDasharray={pct === 0 ? undefined : '4 3'}
               />
               <text x={PL - 5} y={y + 3.5} textAnchor="end" fontSize="9.5" fill="var(--color-text-tertiary)">
-                {fmtK(maxVal * pct)}
+                {fmtEur(maxVal * pct)}
               </text>
             </g>
           );
@@ -540,7 +545,7 @@ function GraficBarresBenefici({ data }: { data: number[] }) {
               )}
               {val > 0 && barH > 12 && (
                 <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-text-secondary)">
-                  {fmtK(val)}
+                  {fmtEur(val)}
                 </text>
               )}
               <text x={x + bw / 2} y={H - 5} textAnchor="middle" fontSize="10" fill="var(--color-text-secondary)">

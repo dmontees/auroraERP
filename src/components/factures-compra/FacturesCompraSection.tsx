@@ -29,6 +29,7 @@ export default function FacturesCompraSection() {
   const [filterMes, setFilterMes] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('tots');
   const [filterProveidor, setFilterProveidor] = useState('');
+  const [filterTipusProveidor, setFilterTipusProveidor] = useState<'tots' | 'Proveïdor' | 'Acreedor'>('tots');
   const [exportMode, setExportMode] = useState<'trimestre' | 'any'>('trimestre');
   const [exportAny, setExportAny] = useState(() => String(new Date().getFullYear()));
   const [exportQ, setExportQ] = useState<string>(() => {
@@ -60,7 +61,13 @@ export default function FacturesCompraSection() {
           return false;
         }
       }
-      
+
+      if (filterTipusProveidor !== 'tots') {
+        if (gasto.tipus !== 'factura-compra') return false;
+        const prov = proveidors.find(p => p.codi === gasto.proveidor);
+        if (!prov || prov.tipus !== filterTipusProveidor) return false;
+      }
+
       return true;
     })
     .sort((a, b) => {
@@ -285,6 +292,17 @@ export default function FacturesCompraSection() {
           ))}
         </select>
 
+        <select
+          value={filterTipusProveidor}
+          onChange={(e) => setFilterTipusProveidor(e.target.value as any)}
+          className="form-input"
+          style={{ width: '175px', fontSize: '0.85rem' }}
+        >
+          <option value="tots">Totes les factures</option>
+          <option value="Proveïdor">📦 Factures Proveïdor</option>
+          <option value="Acreedor">🏢 Factures Acreedor</option>
+        </select>
+
         <div style={{ width: '160px' }}>
           <SearchableSelect
             value={filterProveidor}
@@ -334,6 +352,7 @@ export default function FacturesCompraSection() {
               <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Núm. Factura</th>
               <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Proveïdor/Categoria</th>
               <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Data</th>
+              <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Base Total</th>
               <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Total</th>
               <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Pendent</th>
             </tr>
@@ -341,7 +360,7 @@ export default function FacturesCompraSection() {
           <tbody>
             {gastosFiltrats.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-tertiary)' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-tertiary)' }}>
                   No hi ha factures o despeses. Fes clic a "Nova Factura / Despesa" per afegir-ne.
                 </td>
               </tr>
@@ -389,6 +408,9 @@ export default function FacturesCompraSection() {
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       {gasto.dataGasto}
+                    </td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                      {formatCurrency(gasto.baseImposable)}
                     </td>
                     <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>
                       {formatCurrency(gasto.totalGasto)}
