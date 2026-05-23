@@ -21,7 +21,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '1.2.2',
+    version: '1.2.3',
     migrationCompleted: false
   }
 });

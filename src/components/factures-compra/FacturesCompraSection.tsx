@@ -8,6 +8,7 @@ import GastoGeneralModal from './GastoGeneralModal';
 import FacturaCompraModal from './FacturaCompraModal';
 import ObligacioFiscalModal from './ObligacioFiscalModal';
 import { useFacturesData } from './hooks/useFacturesData';
+import { storage } from '../../utils/storageManager';
 import { useFacturesMetrics } from './hooks/useFacturesMetrics';
 import { exportarFacturesTrimestre, exportarFacturesAny } from './utils/facturesExport';
 import { formatCurrency } from './utils/facturesCalculations';
@@ -474,10 +475,31 @@ export default function FacturesCompraSection() {
             } else {
               saveGastos([...gastos, of]);
             }
+            // Save nomina PDF to worker's documents (once per record, identified by codi)
+            if (of.subtipus === 'nomina-treballador' && of.treballadorCodi && of.documentPDF) {
+              const worker = proveidors.find(p => p.codi === of.treballadorCodi);
+              if (worker) {
+                const docId = `nomina-${of.codi}`;
+                const alreadySaved = worker.documents?.some(d => d.id === docId);
+                if (!alreadySaved) {
+                  const newDoc = {
+                    id: docId,
+                    nom: of.documentPDFName || `Nòmina ${of.periode}`,
+                    tipus: 'contracte' as const,
+                    dataCarrega: new Date().toISOString().split('T')[0],
+                    urlFitxer: of.documentPDF
+                  };
+                  const updatedWorker = { ...worker, documents: [...(worker.documents || []), newDoc] };
+                  const updatedProveidors = proveidors.map(p => p.codi === worker.codi ? updatedWorker : p);
+                  storage.setProveidors(updatedProveidors);
+                }
+              }
+            }
           }}
           onDelete={deleteGasto}
           nextCode={getNextCode('obligacio-fiscal')}
           treballadors={treballadors}
+          projectes={projectes}
           editingGasto={editingGasto?.tipus === 'obligacio-fiscal' ? editingGasto : null}
         />
       )}

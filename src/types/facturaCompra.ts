@@ -95,6 +95,7 @@ export interface ObligacioFiscal extends GastoBase {
   irpfRetingut?: number;
   salariNet?: number;
   costTotalEmpresa?: number;
+  projecteCodi?: string;
   // iva-trimestral only:
   ivaRepercutitCalculat?: number;
   ivaSuportatCalculat?: number;

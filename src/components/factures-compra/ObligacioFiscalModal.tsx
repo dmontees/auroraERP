@@ -3,6 +3,7 @@ import { X, Trash2, Lock } from 'lucide-react';
 import type { ObligacioFiscal, SubtipusObligacioFiscal } from '../../types/facturaCompra';
 import { SUBTIPUS_OBLIGACIO_FISCAL } from '../../types/facturaCompra';
 import type { Proveidor } from '../../types/proveidor';
+import type { Projecte } from '../../types/projecte';
 import PagamentsManager from './shared/PagamentsManager';
 import PDFUploader from './shared/PDFUploader';
 import { usePagaments } from './hooks/usePagaments';
@@ -16,6 +17,7 @@ interface Props {
   editingGasto?: ObligacioFiscal | null;
   nextCode: string;
   treballadors: Proveidor[];
+  projectes: Projecte[];
 }
 
 function fmt(n: number) {
@@ -65,11 +67,13 @@ export default function ObligacioFiscalModal({
   onDelete,
   editingGasto,
   nextCode,
-  treballadors
+  treballadors,
+  projectes
 }: Props) {
   // Freeze the code and createdAt at open time
   const [codi] = useState(() => editingGasto?.codi || nextCode);
   const [createdAt] = useState(() => editingGasto?.createdAt || new Date().toISOString());
+  const [projecteCodi, setProjecteCodi] = useState(editingGasto?.projecteCodi || '');
 
   const [subtipus, setSubtipus] = useState<SubtipusObligacioFiscal>(
     editingGasto?.subtipus || 'cuota-autonomo'
@@ -218,6 +222,7 @@ export default function ObligacioFiscalModal({
         irpfRetingut,
         salariNet,
         costTotalEmpresa,
+        ...(projecteCodi && { projecteCodi }),
       }),
       ...(subtipus === 'iva-trimestral' && {
         ivaRegistratGestor,
@@ -233,7 +238,7 @@ export default function ObligacioFiscalModal({
     {
       subtipus, periode, data, concepte, notes, baseImposable,
       treballadorCodi, diesTreballats, salariDiariBrut,
-      ivaRegistratGestor, documentPDF, documentPDFName, pagaments,
+      ivaRegistratGestor, documentPDF, documentPDFName, pagaments, projecteCodi,
     },
     () => {
       const gasto = prepararGasto();
@@ -461,21 +466,42 @@ export default function ObligacioFiscalModal({
             }}>
               <h4 style={{ fontWeight: 600, marginBottom: '1rem' }}>👷 Detall Nòmina</h4>
 
-              <div className="form-group">
-                <label className="form-label">Treballador *</label>
-                <select
-                  className="form-input"
-                  value={treballadorCodi}
-                  onChange={(e) => setTreballadorCodi(e.target.value)}
-                  disabled={camposBloquejats}
-                >
-                  <option value="">— Selecciona treballador —</option>
-                  {treballadors.map(t => (
-                    <option key={t.codi} value={t.codi}>
-                      {t.nomComercial || t.nomFiscal} ({t.codi})
-                    </option>
-                  ))}
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Treballador *</label>
+                  <select
+                    className="form-input"
+                    value={treballadorCodi}
+                    onChange={(e) => setTreballadorCodi(e.target.value)}
+                    disabled={camposBloquejats}
+                  >
+                    <option value="">— Selecciona treballador —</option>
+                    {treballadors.map(t => (
+                      <option key={t.codi} value={t.codi}>
+                        {t.nomComercial || t.nomFiscal} ({t.codi})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Projecte associat</label>
+                  <select
+                    className="form-input"
+                    value={projecteCodi}
+                    onChange={(e) => setProjecteCodi(e.target.value)}
+                    disabled={camposBloquejats}
+                  >
+                    <option value="">— Cap projecte —</option>
+                    {projectes
+                      .filter(p => p.estat !== 'facturat')
+                      .map(p => (
+                        <option key={p.codi} value={p.codi}>
+                          {p.nom} ({p.codi})
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
