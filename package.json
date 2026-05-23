@@ -16,7 +16,7 @@
     "electron:build:win": "tsc && vite build && electron-builder --win --publish never"
   },
   "dependencies": {
-    "electron-store": "^11.0.2",
+    "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
     "file-saver": "^2.0.5",
     "jspdf": "^4.2.1",
