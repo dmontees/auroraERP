@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import auroraIcon from '../public/build/icon.png';
+import auroraIcon from '../build/icon.png';
 import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings } from 'lucide-react';
 import Dashboard from './components/dashboard/Dashboard';
 import ProjectesSection from './components/projectes/ProjectesSection';
