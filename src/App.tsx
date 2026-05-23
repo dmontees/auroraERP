@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import auroraIcon from '../public/build/icon.png';
 import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings } from 'lucide-react';
 import Dashboard from './components/dashboard/Dashboard';
 import ProjectesSection from './components/projectes/ProjectesSection';
@@ -164,15 +165,15 @@ function App() {
 
         <div className="sidebar-footer">
           <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img 
-              src="/build/icon.png" 
-              alt="Aurora ERP" 
-              style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} 
+            <img
+              src={auroraIcon}
+              alt="Aurora ERP"
+              style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }}
             />
           </div>
 
           <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v1.2.3</p>
+            <p className="footer-text">v1.2.5</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
           
