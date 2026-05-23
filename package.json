@@ -1,7 +1,7 @@
 {
   "name": "Aurora-erp",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Dani Montes",

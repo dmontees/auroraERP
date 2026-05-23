@@ -172,7 +172,7 @@ function App() {
           </div>
 
           <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v1.2.1</p>
+            <p className="footer-text">v1.2.2</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
           
