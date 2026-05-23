@@ -21,7 +21,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '1.2.4',
+    version: '1.2.5',
     migrationCompleted: false
   }
 });
@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Auto-updater
   installUpdate: () => ipcRenderer.invoke('install-update'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  getPendingUpdate: () => ipcRenderer.invoke('get-pending-update'),
   onUpdateAvailable: (callback) => {
     ipcRenderer.on('update-available', (_, data) => callback(data));
   },

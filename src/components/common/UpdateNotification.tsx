@@ -17,6 +17,15 @@ export default function UpdateNotification() {
     const api = typeof window !== 'undefined' ? (window as any).electron : null;
     if (!api) return;
 
+    // Consulta si l'update ja havia estat trobat abans que el component muntés
+    api.getPendingUpdate?.().then((info: UpdateInfo | null) => {
+      if (info) {
+        setUpdateInfo(info);
+        setState(info.downloadUrl ? 'manual' : 'downloading');
+        window.dispatchEvent(new CustomEvent('aurora:update-available', { detail: info }));
+      }
+    });
+
     api.onUpdateAvailable((info: UpdateInfo) => {
       setUpdateInfo(info);
       setState(info.downloadUrl ? 'manual' : 'downloading');

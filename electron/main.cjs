@@ -7,6 +7,7 @@ const Store = require('electron-store');
 
 let backupInterval = null;
 let mainWindow = null;
+let pendingUpdateInfo = null; // cache per si el renderer no estava llest quan va arribar l'event
 
 // Inicializar electron-store
 const store = new Store({
@@ -105,20 +106,22 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // CONFIGURAR AUTO-UPDATER — comprova només a l'arrencada
+  // CONFIGURAR AUTO-UPDATER — comprova a l'arrencada, després que React hagi muntat
   if (process.env.NODE_ENV !== 'development') {
-    if (process.platform === 'darwin') {
-      // macOS: electron-updater requires code signing — use GitHub API instead
-      checkForUpdatesMac();
-    } else {
-      // Windows: electron-updater works without signing
-      autoUpdater.setFeedURL({
-        provider: 'github',
-        owner: 'dmontees',
-        repo: 'auroraERP'
-      });
-      autoUpdater.checkForUpdatesAndNotify();
-    }
+    mainWindow.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        if (process.platform === 'darwin') {
+          checkForUpdatesMac();
+        } else {
+          autoUpdater.setFeedURL({
+            provider: 'github',
+            owner: 'dmontees',
+            repo: 'auroraERP'
+          });
+          autoUpdater.checkForUpdatesAndNotify();
+        }
+      }, 3000); // marge perquè els useEffect de React es registrin
+    });
   }
 }
 
@@ -162,11 +165,9 @@ function checkForUpdatesMac() {
         const downloadUrl = dmgAsset?.browser_download_url || release.html_url;
 
         console.log(`✅ Nova versió disponible: ${latestVersion}`);
+        pendingUpdateInfo = { version: latestVersion, downloadUrl };
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('update-available', {
-            version: latestVersion,
-            downloadUrl
-          });
+          mainWindow.webContents.send('update-available', pendingUpdateInfo);
         }
       } catch (e) {
         console.error('❌ Error parsejant resposta de GitHub:', e);
@@ -284,6 +285,8 @@ autoUpdater.on('error', (error) => {
 ipcMain.handle('install-update', () => {
   autoUpdater.quitAndInstall();
 });
+
+ipcMain.handle('get-pending-update', () => pendingUpdateInfo);
 
 ipcMain.handle('check-for-updates', () => {
   if (process.platform === 'darwin') {
