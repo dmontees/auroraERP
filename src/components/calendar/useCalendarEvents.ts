@@ -14,6 +14,7 @@ export interface CalendarEvent {
   titol: string;
   subtitol?: string;
   data: string;
+  dataFi?: string;
   color: string;
   estat?: string;
   projecteCodi?: string;
@@ -23,6 +24,11 @@ export interface CalendarEvent {
   enllac?: string;
   categoriaId?: string;
   customEventId?: string;
+  // Rang de dates
+  rangeId?: string;
+  isRangeStart?: boolean;
+  isRangeMiddle?: boolean;
+  isRangeEnd?: boolean;
 }
 
 interface ConfigCalendariEntry {
@@ -252,6 +258,12 @@ export function useCalendarEvents({
     }
 
     // ESDEVENIMENTS PERSONALITZATS
+    const nextDateStr = (d: string): string => {
+      const [y, m, day] = d.split('-').map(Number);
+      const dt = new Date(y, m - 1, day + 1);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
     esdevenimentsPersonalitzats.forEach(e => {
       let subtitol = e.descripcio;
       if (e.projecte) {
@@ -267,13 +279,11 @@ export function useCalendarEvents({
         if (cat) color = cat.color;
       }
 
-      events.push({
-        id: `custom-${e.id}`,
-        tipus: 'esdeveniment-personalitzat',
+      const base = {
+        tipus: 'esdeveniment-personalitzat' as const,
         tipusDescriptiu: '📌 Esdeveniment personalitzat',
         titol: e.titol,
-        subtitol: subtitol,
-        data: e.data,
+        subtitol,
         color,
         projecteCodi: e.projecte,
         horaInici: e.horaInici,
@@ -281,8 +291,32 @@ export function useCalendarEvents({
         ubicacio: e.ubicacio,
         enllac: e.enllac,
         categoriaId: e.categoriaId,
-        customEventId: e.id
-      });
+        customEventId: e.id,
+      };
+
+      if (e.dataFi && e.dataFi > e.data) {
+        // Rang de dates: genera un event per cada dia
+        let current = e.data;
+        let i = 0;
+        while (current <= e.dataFi) {
+          const isStart = i === 0;
+          const isEnd = current === e.dataFi;
+          events.push({
+            ...base,
+            id: `custom-${e.id}-${current}`,
+            data: current,
+            dataFi: e.dataFi,
+            rangeId: e.id,
+            isRangeStart: isStart,
+            isRangeMiddle: !isStart && !isEnd,
+            isRangeEnd: isEnd,
+          });
+          current = nextDateStr(current);
+          i++;
+        }
+      } else {
+        events.push({ ...base, id: `custom-${e.id}`, data: e.data });
+      }
     });
 
     return events;

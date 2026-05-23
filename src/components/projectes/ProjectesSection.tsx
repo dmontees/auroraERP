@@ -261,7 +261,7 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
 
     // Properes entreges (totes les dates d'entrega)
     const properes = projectes
-      .filter(p => !p.arxivat && p.estat !== 'acabat' && p.estat !== 'facturat')
+      .filter(p => !p.arxivat && p.estat !== 'esperant_feedback' && p.estat !== 'revisio' && p.estat !== 'acabat' && p.estat !== 'facturat')
       .flatMap(p => {
         if (p.datesEntrega && p.datesEntrega.length > 0) {
           return p.datesEntrega

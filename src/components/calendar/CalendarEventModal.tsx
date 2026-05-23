@@ -34,6 +34,7 @@ export default function CalendarEventModal({
           titol: '',
           descripcio: '',
           data: new Date().toISOString().split('T')[0],
+          dataFi: '',
           horaInici: '',
           horaFi: '',
           ubicacio: '',
@@ -108,13 +109,57 @@ export default function CalendarEventModal({
           {/* Data */}
           <div className="form-group">
             <label>Data *</label>
-            <input
-              type="date"
-              className="form-input"
-              value={formData.data}
-              onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-              required
-            />
+            <div style={{ display: 'grid', gridTemplateColumns: formData.dataFi !== undefined && formData.dataFi !== '' ? '1fr 1fr' : '1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginBottom: '0.25rem' }}>
+                  {formData.dataFi !== '' ? 'Inici' : 'Data'}
+                </div>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.data}
+                  onChange={(e) => {
+                    const nova = e.target.value;
+                    setFormData({
+                      ...formData,
+                      data: nova,
+                      dataFi: formData.dataFi && formData.dataFi < nova ? nova : formData.dataFi
+                    });
+                  }}
+                  required
+                />
+              </div>
+              {formData.dataFi !== '' ? (
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginBottom: '0.25rem' }}>Fi</div>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={formData.dataFi}
+                    min={formData.data}
+                    onChange={(e) => setFormData({ ...formData, dataFi: e.target.value })}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}
+                  onClick={() => setFormData({ ...formData, dataFi: formData.data })}
+                >
+                  + Rang de dates
+                </button>
+              )}
+            </div>
+            {formData.dataFi !== '' && (
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--color-text-tertiary)', fontSize: '0.75rem', cursor: 'pointer', marginTop: '0.25rem', padding: 0 }}
+                onClick={() => setFormData({ ...formData, dataFi: '' })}
+              >
+                ✕ Eliminar rang (event d'un sol dia)
+              </button>
+            )}
           </div>
 
           {/* Hora Inici / Hora Fi */}
