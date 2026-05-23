@@ -274,14 +274,18 @@ export function useCalendarEvents({
       }
 
       let color = e.color || '#ec4899';
+      let tipusDescriptiu = '📌 Esdeveniment personalitzat';
       if (e.categoriaId && categoriesCalendari) {
         const cat = categoriesCalendari.find((c: { id: string; nom: string; color: string }) => c.id === e.categoriaId);
-        if (cat) color = cat.color;
+        if (cat) {
+          color = cat.color;
+          tipusDescriptiu = cat.nom;
+        }
       }
 
       const base = {
         tipus: 'esdeveniment-personalitzat' as const,
-        tipusDescriptiu: '📌 Esdeveniment personalitzat',
+        tipusDescriptiu,
         titol: e.titol,
         subtitol,
         color,
