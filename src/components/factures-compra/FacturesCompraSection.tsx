@@ -63,14 +63,14 @@ export default function FacturesCompraSection() {
       return true;
     })
     .sort((a, b) => {
+      // Primary: creation timestamp (most recent first)
+      if (a.createdAt && b.createdAt) {
+        return b.createdAt.localeCompare(a.createdAt);
+      }
+      // Fallback for old records without createdAt: sort by date
       const dateA = new Date(a.dataGasto).getTime();
       const dateB = new Date(b.dataGasto).getTime();
-      
-      if (dateA !== dateB) return dateB - dateA;
-      
-      const numA = parseInt(a.codi.split('-')[1]);
-      const numB = parseInt(b.codi.split('-')[1]);
-      return numB - numA;
+      return dateB - dateA;
     });
 
   const seleccionarTipus = (tipus: TipusGasto) => {

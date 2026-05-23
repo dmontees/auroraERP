@@ -89,14 +89,13 @@ export default function PagamentsManager({
                       type="button"
                       onClick={() => handleEliminarPagament(pag.codi)}
                       className="btn-secondary"
-                      style={{ 
+                      style={{
                         padding: '0.25rem 0.5rem',
                         fontSize: '0.75rem',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.25rem'
                       }}
-                      disabled={disabled}
                     >
                       <Unlock size={12} />
                       Eliminar

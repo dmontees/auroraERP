@@ -54,6 +54,7 @@ export interface GastoBase {
   // Metadata
   concepte: string;
   notes?: string;
+  createdAt?: string;               // ISO timestamp, used for sort order
 }
 
 // FACTURA DE COMPRA

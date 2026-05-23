@@ -67,8 +67,9 @@ export default function ObligacioFiscalModal({
   nextCode,
   treballadors
 }: Props) {
-  // Freeze the code at open time so re-renders from parent don't change it
+  // Freeze the code and createdAt at open time
   const [codi] = useState(() => editingGasto?.codi || nextCode);
+  const [createdAt] = useState(() => editingGasto?.createdAt || new Date().toISOString());
 
   const [subtipus, setSubtipus] = useState<SubtipusObligacioFiscal>(
     editingGasto?.subtipus || 'cuota-autonomo'
@@ -187,6 +188,7 @@ export default function ObligacioFiscalModal({
 
     return {
       codi,
+      createdAt,
       tipus: 'obligacio-fiscal',
       subtipus,
       periode,

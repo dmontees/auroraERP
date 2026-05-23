@@ -69,7 +69,8 @@ export default function FacturaCompraModal({
       concepte: editingFactura.concepte,
       documentPDF: editingFactura.documentPDF,
       documentPDFName: editingFactura.documentPDFName,
-      notes: editingFactura.notes
+      notes: editingFactura.notes,
+      createdAt: editingFactura.createdAt
     } : {
       codi: nextCode,
       tipus: 'factura-compra',
@@ -84,7 +85,8 @@ export default function FacturaCompraModal({
       concepte: '',
       documentPDF: undefined,
       documentPDFName: undefined,
-      notes: ''
+      notes: '',
+      createdAt: new Date().toISOString()
     }
   );
 

@@ -42,7 +42,8 @@ export default function GastoGeneralModal({
       irpfImport: editingGasto.irpfImport,
       notes: editingGasto.notes,
       documentPDF: editingGasto.documentPDF,
-      documentPDFName: editingGasto.documentPDFName
+      documentPDFName: editingGasto.documentPDFName,
+      createdAt: editingGasto.createdAt
     } : {
       codi: codiFixed,
       tipus: 'gasto-general',
@@ -60,7 +61,8 @@ export default function GastoGeneralModal({
       irpfImport: 0,
       notes: '',
       documentPDF: undefined,
-      documentPDFName: undefined
+      documentPDFName: undefined,
+      createdAt: new Date().toISOString()
     }
   );
 
