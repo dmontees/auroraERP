@@ -209,3 +209,18 @@ Each section typically includes:
 | tsconfig.app.json | TypeScript options |
 | package.json | Electron builder configuration |
 
+## Release & Distribution Constraints
+
+### electron-store version
+- **Must stay at `^8.x`** — v9+ is ESM-only and breaks `require()` in `main.cjs` and `preload.js`, which are CommonJS. Do not upgrade without converting those files to use dynamic `import()`.
+
+### Mac build architecture
+- **Build x64 only** (`"arch": ["x64"]`) for the Mac DMG. Do not use `arm64` or `universal`.
+- Reason: arm64 builds from GitHub Actions (without an Apple Developer certificate) are blocked by macOS Tahoe (26) with "app is damaged" — the CSC workaround does not help. x64 builds work on all Macs including Apple Silicon via Rosetta 2, with only the standard "unidentified developer" prompt that users can bypass from System Settings > Privacy & Security.
+- `universal` builds also fail due to a bug in `@electron/universal` (bundled with electron-builder 24.x) that mismatches LICENSE files between archs.
+
+### GitHub Actions workflow
+- Requires `permissions: contents: write` at workflow level for GITHUB_TOKEN to create releases.
+- Use `npm install` (not `npm ci`) — `package-lock.json` is in `.gitignore`.
+- Set `CSC_IDENTITY_AUTO_DISCOVERY: "false"` on the Mac build step to prevent the runner from applying an invalid ad-hoc signature.
+
