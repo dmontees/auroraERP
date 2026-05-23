@@ -215,6 +215,24 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                             {new Date(doc.dataCarrega).toLocaleDateString('ca-ES')}
                             {doc.mida && ` • ${formatFileSize(doc.mida)}`}
                           </div>
+                          {doc.projecteCodi && (
+                            <div style={{ marginTop: '0.25rem' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                background: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '4px',
+                                padding: '0.1rem 0.4rem',
+                              }}>
+                                📁 {doc.projecteNom || doc.projecteCodi}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -231,19 +249,21 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                           >
                             <Download size={16} />
                           </button>
-                          <button
-                            onClick={() => eliminarDocument(doc.id)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#dc2626',
-                              cursor: 'pointer',
-                              padding: '0.25rem'
-                            }}
-                            title="Eliminar"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {!doc.id.startsWith('nomina-') && (
+                            <button
+                              onClick={() => eliminarDocument(doc.id)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#dc2626',
+                                cursor: 'pointer',
+                                padding: '0.25rem'
+                              }}
+                              title="Eliminar"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

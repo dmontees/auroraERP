@@ -396,7 +396,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
             </div>
 
             {/* Actualitzacions */}
-            {(window as any).electron && (
+            {navigator.userAgent.includes('Electron') && (
               <div className="form-section">
                 <h3>🔄 Actualitzacions</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>

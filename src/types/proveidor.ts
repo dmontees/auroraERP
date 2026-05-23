@@ -11,6 +11,8 @@ export interface DocumentProveidor {
   dataCarrega: string;
   urlFitxer: string; // Base64 o ruta
   mida?: number; // bytes
+  projecteCodi?: string;
+  projecteNom?: string;
 }
 
 export interface Tarifa {

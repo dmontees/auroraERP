@@ -105,12 +105,11 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // CONFIGURAR AUTO-UPDATER
+  // CONFIGURAR AUTO-UPDATER — comprova només a l'arrencada
   if (process.env.NODE_ENV !== 'development') {
     if (process.platform === 'darwin') {
       // macOS: electron-updater requires code signing — use GitHub API instead
       checkForUpdatesMac();
-      setInterval(checkForUpdatesMac, 3600000);
     } else {
       // Windows: electron-updater works without signing
       autoUpdater.setFeedURL({
@@ -119,7 +118,6 @@ function createWindow() {
         repo: 'auroraERP'
       });
       autoUpdater.checkForUpdatesAndNotify();
-      setInterval(() => autoUpdater.checkForUpdates(), 3600000);
     }
   }
 }
@@ -152,7 +150,13 @@ function checkForUpdatesMac() {
       try {
         const release = JSON.parse(body);
         const latestVersion = release.tag_name?.replace('v', '');
-        if (!latestVersion || !isNewer(latestVersion, currentVersion)) return;
+        if (!latestVersion || !isNewer(latestVersion, currentVersion)) {
+          console.log('✅ Aurora està actualitzat');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('update-not-available');
+          }
+          return;
+        }
 
         const dmgAsset = release.assets?.find(a => a.name.endsWith('.dmg'));
         const downloadUrl = dmgAsset?.browser_download_url || release.html_url;
@@ -166,6 +170,9 @@ function checkForUpdatesMac() {
         }
       } catch (e) {
         console.error('❌ Error parsejant resposta de GitHub:', e);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-not-available');
+        }
       }
     });
   }).on('error', (e) => {

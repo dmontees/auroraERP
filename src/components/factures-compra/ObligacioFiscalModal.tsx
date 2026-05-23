@@ -5,6 +5,7 @@ import { SUBTIPUS_OBLIGACIO_FISCAL } from '../../types/facturaCompra';
 import type { Proveidor } from '../../types/proveidor';
 import type { Projecte } from '../../types/projecte';
 import PagamentsManager from './shared/PagamentsManager';
+import SearchableSelect from '../common/SearchableSelect';
 import PDFUploader from './shared/PDFUploader';
 import { usePagaments } from './hooks/usePagaments';
 import { determinarEstat } from './utils/facturesCalculations';
@@ -181,7 +182,7 @@ export default function ObligacioFiscalModal({
 
   const subtipusInfo = SUBTIPUS_OBLIGACIO_FISCAL.find(s => s.codi === subtipus);
 
-  const needsPDF = subtipus === 'cuota-autonomo' || subtipus === 'regularitzacio-ss';
+  const needsPDF = subtipus === 'cuota-autonomo' || subtipus === 'regularitzacio-ss' || subtipus === 'nomina-treballador';
 
   const prepararGasto = (): ObligacioFiscal | null => {
     if (!data || !periode) return null;
@@ -469,38 +470,33 @@ export default function ObligacioFiscalModal({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Treballador *</label>
-                  <select
-                    className="form-input"
+                  <SearchableSelect
                     value={treballadorCodi}
-                    onChange={(e) => setTreballadorCodi(e.target.value)}
+                    onChange={setTreballadorCodi}
+                    options={treballadors.map(t => ({
+                      value: t.codi,
+                      label: `${t.nomComercial || t.nomFiscal} (${t.codi})`,
+                    }))}
+                    placeholder="— Selecciona treballador —"
                     disabled={camposBloquejats}
-                  >
-                    <option value="">— Selecciona treballador —</option>
-                    {treballadors.map(t => (
-                      <option key={t.codi} value={t.codi}>
-                        {t.nomComercial || t.nomFiscal} ({t.codi})
-                      </option>
-                    ))}
-                  </select>
+                    required
+                  />
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Projecte associat</label>
-                  <select
-                    className="form-input"
+                  <SearchableSelect
                     value={projecteCodi}
-                    onChange={(e) => setProjecteCodi(e.target.value)}
-                    disabled={camposBloquejats}
-                  >
-                    <option value="">— Cap projecte —</option>
-                    {projectes
+                    onChange={setProjecteCodi}
+                    options={projectes
                       .filter(p => p.estat !== 'facturat')
-                      .map(p => (
-                        <option key={p.codi} value={p.codi}>
-                          {p.nom} ({p.codi})
-                        </option>
-                      ))}
-                  </select>
+                      .map(p => ({
+                        value: p.codi,
+                        label: `${p.titol} (${p.codi})`,
+                      }))}
+                    placeholder="— Cap projecte —"
+                    disabled={camposBloquejats}
+                  />
                 </div>
               </div>
 
@@ -566,6 +562,17 @@ export default function ObligacioFiscalModal({
               <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>
                 El cost total empresa ja consta a RRHH del projecte. Aquesta entrada registra els pagaments a efectuar.
               </p>
+
+              <div style={{ marginTop: '1rem' }}>
+                <PDFUploader
+                  documentPDF={documentPDF}
+                  fileName={documentPDFName}
+                  onUpload={handlePDFUpload}
+                  onDelete={handlePDFDelete}
+                  disabled={camposBloquejats}
+                  required
+                />
+              </div>
             </div>
           )}
 
@@ -631,7 +638,7 @@ export default function ObligacioFiscalModal({
             </div>
           )}
 
-          {/* PDF — obligatori per cuota-autonomo i regularitzacio-ss */}
+          {/* PDF — obligatori per cuota-autonomo i regularitzacio-ss (nomina-treballador té el seu propi uploader dins del bloc) */}
           {(subtipus === 'cuota-autonomo' || subtipus === 'regularitzacio-ss') && (
             <PDFUploader
               documentPDF={documentPDF}

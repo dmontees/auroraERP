@@ -475,24 +475,32 @@ export default function FacturesCompraSection() {
             } else {
               saveGastos([...gastos, of]);
             }
-            // Save nomina PDF to worker's documents (once per record, identified by codi)
+            // Sync nomina PDF to worker's documents (always update so project link stays current)
             if (of.subtipus === 'nomina-treballador' && of.treballadorCodi && of.documentPDF) {
               const worker = proveidors.find(p => p.codi === of.treballadorCodi);
               if (worker) {
                 const docId = `nomina-${of.codi}`;
-                const alreadySaved = worker.documents?.some(d => d.id === docId);
-                if (!alreadySaved) {
-                  const newDoc = {
-                    id: docId,
-                    nom: of.documentPDFName || `Nòmina ${of.periode}`,
-                    tipus: 'contracte' as const,
-                    dataCarrega: new Date().toISOString().split('T')[0],
-                    urlFitxer: of.documentPDF
-                  };
-                  const updatedWorker = { ...worker, documents: [...(worker.documents || []), newDoc] };
-                  const updatedProveidors = proveidors.map(p => p.codi === worker.codi ? updatedWorker : p);
-                  storage.setProveidors(updatedProveidors);
-                }
+                const linkedProject = of.projecteCodi
+                  ? projectes.find(p => p.codi === of.projecteCodi)
+                  : undefined;
+                const newDoc = {
+                  id: docId,
+                  nom: of.documentPDFName || `Nòmina ${of.periode}`,
+                  tipus: 'contracte' as const,
+                  dataCarrega: new Date().toISOString().split('T')[0],
+                  urlFitxer: of.documentPDF,
+                  ...(linkedProject && {
+                    projecteCodi: linkedProject.codi,
+                    projecteNom: linkedProject.titol,
+                  }),
+                };
+                const existingDocs = worker.documents || [];
+                const updatedDocs = existingDocs.some(d => d.id === docId)
+                  ? existingDocs.map(d => d.id === docId ? newDoc : d)
+                  : [...existingDocs, newDoc];
+                const updatedWorker = { ...worker, documents: updatedDocs };
+                const updatedProveidors = proveidors.map(p => p.codi === worker.codi ? updatedWorker : p);
+                storage.setProveidors(updatedProveidors);
               }
             }
           }}
