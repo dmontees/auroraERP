@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const https = require('https');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
 
@@ -140,30 +139,50 @@ function isNewer(latest, current) {
 
 function checkForUpdatesMac() {
   const currentVersion = app.getVersion();
-  const options = {
-    hostname: 'api.github.com',
-    path: '/repos/dmontees/auroraERP/releases/latest',
-    headers: { 'User-Agent': 'Aurora-ERP-Updater' }
+
+  const sendNotAvailable = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-not-available');
+    }
   };
 
-  https.get(options, (res) => {
-    let body = '';
-    res.on('data', chunk => body += chunk);
-    res.on('end', () => {
+  let body = '';
+  let settled = false;
+
+  // electron.net usa el stack de Chromium (proxy del sistema, certificats macOS)
+  const request = net.request({
+    method: 'GET',
+    url: 'https://api.github.com/repos/dmontees/auroraERP/releases/latest',
+    redirect: 'follow'
+  });
+  request.setHeader('User-Agent', 'Aurora-ERP-Updater');
+  request.setHeader('Accept', 'application/vnd.github.v3+json');
+
+  // Timeout de 15 s per si no hi ha resposta
+  const timer = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    console.error('❌ Timeout comprovant actualitzacions (macOS)');
+    request.abort();
+    sendNotAvailable();
+  }, 15000);
+
+  request.on('response', (response) => {
+    response.on('data', chunk => { body += chunk.toString(); });
+    response.on('end', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       try {
         const release = JSON.parse(body);
         const latestVersion = release.tag_name?.replace('v', '');
         if (!latestVersion || !isNewer(latestVersion, currentVersion)) {
           console.log('✅ Aurora està actualitzat');
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('update-not-available');
-          }
+          sendNotAvailable();
           return;
         }
-
         const dmgAsset = release.assets?.find(a => a.name.endsWith('.dmg'));
         const downloadUrl = dmgAsset?.browser_download_url || release.html_url;
-
         console.log(`✅ Nova versió disponible: ${latestVersion}`);
         pendingUpdateInfo = { version: latestVersion, downloadUrl };
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -171,14 +190,20 @@ function checkForUpdatesMac() {
         }
       } catch (e) {
         console.error('❌ Error parsejant resposta de GitHub:', e);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('update-not-available');
-        }
+        sendNotAvailable();
       }
     });
-  }).on('error', (e) => {
-    console.error('❌ Error comprovant actualitzacions (macOS):', e);
   });
+
+  request.on('error', (e) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    console.error('❌ Error comprovant actualitzacions (macOS):', e);
+    sendNotAvailable();
+  });
+
+  request.end();
 }
 
 // ============================================
