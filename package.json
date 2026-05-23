@@ -43,7 +43,8 @@
     "publish": {
       "provider": "github",
       "owner": "dmontees",
-      "repo": "auroraERP"
+      "repo": "auroraERP",
+      "draft": false
     },
     "files": [
       "dist/**/*",
