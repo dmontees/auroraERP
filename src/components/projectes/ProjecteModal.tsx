@@ -156,6 +156,7 @@ function ProjecteModal({
           JSON.stringify(updated.datesRodatge) !== JSON.stringify(data.datesRodatge) ||
           JSON.stringify(updated.datesEntrega) !== JSON.stringify(data.datesEntrega);
         if (hasDiff) {
+          setFormData(updated);
           const stored = storage.getProjectes();
           storage.setProjectes(stored.map((p: Projecte) => p.codi === updated.codi ? updated : p));
         }

@@ -170,7 +170,7 @@ export default function CalendarSection() {
           const updated = editingEsdeveniment
             ? stored.map((e: any) => e.id === updatedEvent.id ? updatedEvent : e)
             : [...stored, updatedEvent];
-          storage.setEsdevenimentsPersonalitzats(updated);
+          updateEsdevenimentsPersonalitzats(updated);
         }
       }).catch(console.error);
     }
