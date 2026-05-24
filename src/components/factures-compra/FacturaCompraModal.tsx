@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Lock } from 'lucide-react';
 import type { FacturaCompra } from '../../types/facturaCompra';
+import type { AlbaraCompra } from '../../types/albara';
 import type { Proveidor } from '../../types/proveidor';
 import type { Projecte } from '../../types/projecte';
 import SearchableSelect from '../common/SearchableSelect';
@@ -9,6 +10,7 @@ import PagamentsManager from './shared/PagamentsManager';
 import PDFUploader from './shared/PDFUploader';
 import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
+import { storage } from '../../utils/storageManager';
 
 interface FacturaCompraModalProps {
   onClose: () => void;
@@ -96,6 +98,44 @@ export default function FacturaCompraModal({
 
   const [pdfFileName, setPdfFileName] = useState<string>(editingFactura?.documentPDFName || '');
 
+  // Vinculació a projecte — pregunta obligatòria
+  const [vinculatProjecte, setVinculatProjecte] = useState<boolean | null>(() => {
+    if (!editingFactura) return null; // nova: sense resposta
+    if (editingFactura.esDesepsaGeneral) return false;
+    return editingFactura.projectes?.length > 0 ? true : false;
+  });
+  const [albaransLinked, setAlbaransLinked] = useState<AlbaraCompra[]>(() => {
+    if (editingFactura?.albaransVinculats?.length) {
+      return storage.getAlbaransCompra().filter(a => editingFactura.albaransVinculats!.includes(a.codi));
+    }
+    return [];
+  });
+  const [showAlbaransNotif, setShowAlbaransNotif] = useState(false);
+
+  const handleProjecteVinculatChange = (projecteCodi: string) => {
+    setFormData(prev => ({ ...prev, projectes: projecteCodi ? [projecteCodi] : [] }));
+    if (!projecteCodi || !formData.proveidor) { setAlbaransLinked([]); return; }
+    const pendents = storage.getAlbaransCompra().filter(a =>
+      a.proveidorCodi === formData.proveidor &&
+      a.projecteCodi === projecteCodi &&
+      a.estat === 'pendent-factura'
+    );
+    if (pendents.length > 0) {
+      setConceptes(pendents.map(a => ({
+        id: a.codi,
+        descripcio: a.tipusLinia === 'rrhh'
+          ? `${a.serveiNom || a.serveiCodi || ''} (${a.quantitat ?? ''} ${a.unitatNom || a.unitatCodi || ''})`
+          : `${a.materialNom || a.materialCodi || ''}`,
+        base: a.tipusLinia === 'rrhh' ? (a.cost || 0) : (a.preuProveidor || 0),
+      })));
+      setAlbaransLinked(pendents);
+      setShowAlbaransNotif(true);
+    } else {
+      setAlbaransLinked([]);
+      setShowAlbaransNotif(false);
+    }
+  };
+
   const esNova = !editingFactura;
   const [initialData] = useState(JSON.stringify({ formData, conceptes, pagaments }));
   const [haCambiat, setHaCambiat] = useState(false);
@@ -161,25 +201,45 @@ export default function FacturaCompraModal({
       return null;
     }
 
+    if (vinculatProjecte === null) {
+      return null;
+    }
+
     if (conceptes.some(c => !c.descripcio || c.base === 0)) {
       return null;
     }
 
     const estat = determinarEstat(totalFactura, totalPagat, formData.dataVenciment);
     const conceptesCombinats = conceptes.map(c => `${c.descripcio}: ${c.base.toFixed(2)}€`).join(' | ');
+    const esDesepsaGeneral = vinculatProjecte === false;
+    const projectesOut = vinculatProjecte ? formData.projectes : [];
 
     return {
       ...formData,
+      esDesepsaGeneral,
+      projectes: projectesOut,
+      albaransVinculats: albaransLinked.map(a => a.codi),
       concepte: conceptesCombinats,
       baseImposable: baseTotal,
       ivaImport,
       irpfImport,
       totalGasto: totalFactura,
-      pendentPagament: Math.max(0, pendentPagament),
+      pendentPagament: Math.round(Math.max(0, pendentPagament) * 100) / 100,
       estat,
       pagaments,
       totalPagat
     };
+  };
+
+  const syncAlbaransAfterSave = (factura: FacturaCompra) => {
+    if (!factura.albaransVinculats?.length) return;
+    const isPagat = factura.pendentPagament <= 0.01 && factura.totalPagat > 0;
+    const all = storage.getAlbaransCompra();
+    storage.setAlbaransCompra(all.map(a =>
+      factura.albaransVinculats!.includes(a.codi)
+        ? { ...a, facturaCodi: factura.codi, estat: isPagat ? 'pagat' : 'factura-vinculada' }
+        : a
+    ));
   };
 
   const { saveNow } = useAutoSave(
@@ -188,6 +248,7 @@ export default function FacturaCompraModal({
       const facturaCompleta = prepararFactura();
       if (facturaCompleta) {
         onSave(facturaCompleta);
+        syncAlbaransAfterSave(facturaCompleta);
       }
     }
   );
@@ -355,6 +416,90 @@ export default function FacturaCompraModal({
             </div>
           </div>
 
+          {/* Vinculació a projecte — pregunta obligatòria, BEFORE conceptes */}
+          <div style={{
+            marginTop: '1.5rem',
+            padding: '1rem 1.25rem',
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: '8px',
+            border: `1px solid ${vinculatProjecte === null && !camposBloquejats ? '#fbbf24' : 'var(--color-border)'}`
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+              Aquesta factura està vinculada a un projecte?
+              {vinculatProjecte === null && !camposBloquejats && (
+                <span style={{ marginLeft: '0.5rem', color: '#f59e0b', fontSize: '0.8rem' }}>— Requerida</span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              {(['Sí', 'No'] as const).map(opt => {
+                const val = opt === 'Sí';
+                const selected = vinculatProjecte === val;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={camposBloquejats}
+                    onClick={() => {
+                      setVinculatProjecte(val);
+                      if (!val) { setFormData(prev => ({ ...prev, projectes: [], esDesepsaGeneral: true })); setAlbaransLinked([]); setShowAlbaransNotif(false); }
+                      else { setFormData(prev => ({ ...prev, esDesepsaGeneral: false })); }
+                    }}
+                    style={{
+                      padding: '0.4rem 1.25rem', borderRadius: 6, fontWeight: 600, fontSize: '0.9rem', cursor: camposBloquejats ? 'not-allowed' : 'pointer',
+                      background: selected ? (val ? '#dbeafe' : '#fef3c7') : 'var(--color-bg-secondary)',
+                      border: `2px solid ${selected ? (val ? '#3b82f6' : '#f59e0b') : 'var(--color-border)'}`,
+                      color: selected ? (val ? '#1e40af' : '#92400e') : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+
+            {vinculatProjecte === true && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
+                  Projecte vinculat *
+                </label>
+                <SearchableSelect
+                  value={formData.projectes[0] || ''}
+                  onChange={handleProjecteVinculatChange}
+                  options={[
+                    { value: '', label: 'Selecciona un projecte...' },
+                    ...projectes.map(p => ({ value: p.codi, label: `${p.codi} - ${p.titol}` }))
+                  ]}
+                  placeholder="Buscar projecte per codi o nom..."
+                  disabled={camposBloquejats}
+                />
+                {showAlbaransNotif && albaransLinked.length > 0 && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, fontSize: '0.85rem' }}>
+                    <strong style={{ color: '#1e40af' }}>Albarans vinculats automàticament ({albaransLinked.length}):</strong>
+                    <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, color: '#1e3a8a' }}>
+                      {albaransLinked.map(a => (
+                        <li key={a.codi} style={{ marginBottom: '0.2rem' }}>
+                          {a.codi} — {a.tipusLinia === 'rrhh' ? `${a.serveiNom || a.serveiCodi} (${a.quantitat} ${a.unitatNom || a.unitatCodi})` : `${a.materialNom || a.materialCodi}`}
+                          {' '}<strong>{(a.tipusLinia === 'rrhh' ? (a.cost || 0) : (a.preuProveidor || 0)).toFixed(2)} €</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    <p style={{ margin: '0.5rem 0 0', color: '#64748b', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                      Els conceptes de la factura s'han pre-emplenat amb els imports dels albarans (importos estimats). Pots modificar-los.
+                    </p>
+                  </div>
+                )}
+                {vinculatProjecte === true && formData.projectes[0] && albaransLinked.length === 0 && !camposBloquejats && (
+                  <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>
+                    No s'han trobat albarans pendents d'aquest proveïdor per a aquest projecte.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Everything below is blocked until project question is answered */}
+          <div style={{ opacity: vinculatProjecte === null && !camposBloquejats ? 0.35 : 1, pointerEvents: vinculatProjecte === null && !camposBloquejats ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
+
           <div style={{
             background: 'var(--color-bg-tertiary)',
             padding: '1.5rem',
@@ -503,44 +648,6 @@ export default function FacturaCompraModal({
             </span>
           </div>
 
-          <div className="form-group" style={{ marginTop: '1.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="checkbox"
-                checked={formData.esDesepsaGeneral}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  esDesepsaGeneral: e.target.checked,
-                  projectes: e.target.checked ? [] : formData.projectes
-                })}
-                disabled={camposBloquejats}
-              />
-              Despesa general (no imputable a cap projecte)
-            </label>
-          </div>
-
-          {!formData.esDesepsaGeneral && (
-            <div className="form-group">
-              <label>Projecte Vinculat (opcional)</label>
-              <SearchableSelect
-                value={formData.projectes[0] || ''}
-                onChange={(value) => setFormData({ 
-                  ...formData, 
-                  projectes: value ? [value] : [] 
-                })}
-                options={[
-                  { value: '', label: 'Cap projecte' },
-                  ...projectes.map(p => ({
-                    value: p.codi,
-                    label: `${p.codi} - ${p.titol}`
-                  }))
-                ]}
-                placeholder="Buscar projecte per codi o nom..."
-                disabled={camposBloquejats}
-              />
-            </div>
-          )}
-
           <PagamentsManager
             pagaments={pagaments}
             pendentPagament={pendentPagament}
@@ -568,6 +675,8 @@ export default function FacturaCompraModal({
               disabled={camposBloquejats}
             />
           </div>
+
+          </div>{/* end blocking wrapper */}
         </div>
 
         <div className="modal-footer" style={{ flexShrink: 0 }}>

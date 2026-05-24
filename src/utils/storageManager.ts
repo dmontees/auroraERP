@@ -2,9 +2,10 @@ import type { Client } from '../types/client';
 import type { Proveidor } from '../types/proveidor';
 import type { Projecte } from '../types/projecte';
 import type { FacturaVenta } from '../types/facturaVenta';
-import type { FacturaCompra } from '../types/facturaCompra';
+import type { FacturaCompra, ObligacioFiscal } from '../types/facturaCompra';
 import type { Pressupost } from '../types/pressupost';
 import type { CronometreState, PartTreball } from '../types/partTreball';
+import type { AlbaraCompra } from '../types/albara';
 
 // Tipos para el store
 export interface StoreSchema {
@@ -14,6 +15,8 @@ export interface StoreSchema {
   facturesVenda: FacturaVenta[];
   facturesCompra: FacturaCompra[];
   pressupostos: Pressupost[];
+  obligacionsFiscals: ObligacioFiscal[];
+  albaransCompra: AlbaraCompra[];
   navigateTo?: { type: string; codi: string } | null;
   parametres: {
     dadesEmpresa?: any;
@@ -49,6 +52,8 @@ const STORAGE_KEYS = {
   facturesVenda: 'plateaFacturesVenda',
   facturesCompra: 'plateaFacturesCompra',
   pressupostos: 'plateaPressupostos',
+  obligacionsFiscals: 'plateaObligacionsFiscals',
+  albaransCompra: 'plateaAlbaransCompra',
   navigateTo: 'plateaNavigateTo',
   parametres: 'plateaParametres',
   partsTreball: 'plateaPartsTreball',
@@ -120,6 +125,8 @@ class StorageManager {
       facturesVenda: [],
       facturesCompra: [],
       pressupostos: [],
+      obligacionsFiscals: [],
+      albaransCompra: [],
       partsTreball: [],
       cronometre: null,
       navigateTo: null,
@@ -180,7 +187,166 @@ class StorageManager {
   // ============================================================================
 
   getFacturesCompra(): FacturaCompra[] {
-    return this.get('facturesCompra');
+    const data = (this.get('facturesCompra') as any[]) || [];
+    return data
+      .filter((g: any) => g.tipus !== 'obligacio-fiscal')
+      .map((g: any) => {
+        // Recalculate using integer cents to fix any floating-point residuals in stored data
+        const totalGastoCents = Math.round((g.totalGasto || 0) * 100);
+        const totalPagatCents = Math.round(
+          (g.pagaments || []).reduce((s: number, p: any) => s + (p.import || 0), 0) * 100
+        );
+        return {
+          ...g,
+          pendentPagament: Math.max(0, totalGastoCents - totalPagatCents) / 100,
+        };
+      });
+  }
+
+  getObligacionsFiscals(): ObligacioFiscal[] {
+    // Lazy V3 migration: move any OFs still in facturesCompra into obligacionsFiscals.
+    // Runs inline so it's timing-safe regardless of React effect order.
+    if (this.useElectronStore) {
+      if (!this.electronStoreAPI.get('migrationV3Completed')) {
+        const allFC = (this.electronStoreAPI.get('facturesCompra') || []) as any[];
+        const ofs = allFC.filter((g: any) => g.tipus === 'obligacio-fiscal');
+        if (ofs.length > 0) {
+          const existing = (this.electronStoreAPI.get('obligacionsFiscals') || []) as any[];
+          const merged = [...existing, ...ofs.filter((o: any) => !existing.some((e: any) => e.codi === o.codi))];
+          this.electronStoreAPI.set('obligacionsFiscals', merged);
+          this.electronStoreAPI.set('facturesCompra', allFC.filter((g: any) => g.tipus !== 'obligacio-fiscal'));
+        }
+        this.electronStoreAPI.set('migrationV3Completed', true);
+      }
+    } else {
+      const lsFlag = localStorage.getItem('plateaMigrationV3');
+      if (!lsFlag) {
+        const fcData = localStorage.getItem('plateaFacturesCompra');
+        if (fcData) {
+          try {
+            const allFC = JSON.parse(fcData) as any[];
+            const ofs = allFC.filter((g: any) => g.tipus === 'obligacio-fiscal');
+            if (ofs.length > 0) {
+              const existingData = localStorage.getItem('plateaObligacionsFiscals');
+              const existing = existingData ? JSON.parse(existingData) : [];
+              const merged = [...existing, ...ofs.filter((o: any) => !existing.some((e: any) => e.codi === o.codi))];
+              localStorage.setItem('plateaObligacionsFiscals', JSON.stringify(merged));
+              localStorage.setItem('plateaFacturesCompra', JSON.stringify(allFC.filter((g: any) => g.tipus !== 'obligacio-fiscal')));
+            }
+          } catch {
+            // malformed data — skip migration, don't corrupt anything
+          }
+        }
+        localStorage.setItem('plateaMigrationV3', 'true');
+      }
+    }
+    return (this.get('obligacionsFiscals') as any[]) || [];
+  }
+
+  setObligacionsFiscals(obs: ObligacioFiscal[]): void {
+    this.set('obligacionsFiscals', obs);
+  }
+
+  // ============================================================================
+  // ALBARANS DE COMPRA
+  // ============================================================================
+
+  getAlbaransCompra(): AlbaraCompra[] {
+    // V4 lazy migration: assign tdCodi to existing project expense lines and create albarans
+    const migrFlag = this.useElectronStore
+      ? this.electronStoreAPI.get('migrationV4Completed')
+      : localStorage.getItem('plateaMigrationV4');
+
+    if (!migrFlag) {
+      this._runV4Migration();
+    }
+
+    return (this.get('albaransCompra') as any[]) || [];
+  }
+
+  setAlbaransCompra(albarans: AlbaraCompra[]): void {
+    this.set('albaransCompra', albarans);
+  }
+
+  private _runV4Migration(): void {
+    const today = new Date().toISOString().split('T')[0];
+    const projects: Projecte[] = (this.get('projectes') as any[]) || [];
+    const existing: AlbaraCompra[] = (this.get('albaransCompra') as any[]) || [];
+
+    let tdMax = 0;
+    let alcMax = existing.length ? Math.max(...existing.map(a => parseInt(a.codi.replace('ALC-', ''), 10) || 0)) : 0;
+
+    // Find max tdCodi already assigned
+    for (const p of projects) {
+      for (const r of p.recursosHumans || []) {
+        if (r.tdCodi) { const n = parseInt(r.tdCodi.replace('TD-', ''), 10); if (!isNaN(n) && n > tdMax) tdMax = n; }
+      }
+      for (const m of p.materials || []) {
+        if (m.tdCodi) { const n = parseInt(m.tdCodi.replace('TD-', ''), 10); if (!isNaN(n) && n > tdMax) tdMax = n; }
+      }
+    }
+
+    const newAlbarans: AlbaraCompra[] = [...existing];
+    const updatedProjects: Projecte[] = projects.map(p => {
+      let changed = false;
+      const recursosHumans = (p.recursosHumans || []).map(r => {
+        if (!r.proveidor || r.tdCodi) return r;
+        tdMax++;
+        alcMax++;
+        const tdCodi = `TD-${String(tdMax).padStart(7, '0')}`;
+        const albara: AlbaraCompra = {
+          codi: `ALC-${String(alcMax).padStart(5, '0')}`,
+          tdCodi,
+          projecteCodi: p.codi,
+          proveidorCodi: r.proveidor,
+          dataCreacio: today,
+          estat: 'pendent-factura',
+          tipusLinia: 'rrhh',
+          serveiCodi: r.servei,
+          quantitat: r.quantitat,
+          unitatCodi: r.unitat,
+          preuProv: r.preu,
+          cost: r.cost,
+        };
+        newAlbarans.push(albara);
+        changed = true;
+        return { ...r, tdCodi };
+      });
+
+      const materials = (p.materials || []).map(m => {
+        if (!m.proveidor || m.tdCodi) return m;
+        tdMax++;
+        alcMax++;
+        const tdCodi = `TD-${String(tdMax).padStart(7, '0')}`;
+        const albara: AlbaraCompra = {
+          codi: `ALC-${String(alcMax).padStart(5, '0')}`,
+          tdCodi,
+          projecteCodi: p.codi,
+          proveidorCodi: m.proveidor,
+          dataCreacio: today,
+          estat: 'pendent-factura',
+          tipusLinia: 'material',
+          materialCodi: m.material,
+          grupCodi: m.grup,
+          preuProveidor: m.preuProveidor,
+        };
+        newAlbarans.push(albara);
+        changed = true;
+        return { ...m, tdCodi };
+      });
+
+      return changed ? { ...p, recursosHumans, materials } : p;
+    });
+
+    this.set('projectes', updatedProjects);
+    this.set('albaransCompra', newAlbarans);
+
+    if (this.useElectronStore) {
+      this.electronStoreAPI.set('migrationV4Completed', true);
+    } else {
+      localStorage.setItem('plateaMigrationV4', 'true');
+    }
+    console.log(`✅ Migrat v4: albarans creats per a línies de despesa existents`);
   }
 
   setFacturesCompra(factures: FacturaCompra[]): void {
@@ -356,6 +522,24 @@ class StorageManager {
 
         this.electronStoreAPI.set('migrationV2Completed', true);
       }
+
+      // Migració v3: moure ObligacioFiscal de facturesCompra a obligacionsFiscals
+      const migratedV3 = this.electronStoreAPI.get('migrationV3Completed');
+      if (!migratedV3) {
+        const allFactures = (this.electronStoreAPI.get('facturesCompra') || []) as any[];
+        const ofs = allFactures.filter((g: any) => g.tipus === 'obligacio-fiscal');
+        if (ofs.length > 0) {
+          const existingOFs = (this.electronStoreAPI.get('obligacionsFiscals') || []) as any[];
+          const mergedOFs = [
+            ...existingOFs,
+            ...ofs.filter((o: any) => !existingOFs.some((e: any) => e.codi === o.codi))
+          ];
+          this.electronStoreAPI.set('obligacionsFiscals', mergedOFs);
+          this.electronStoreAPI.set('facturesCompra', allFactures.filter((g: any) => g.tipus !== 'obligacio-fiscal'));
+          console.log(`✅ Migrat v3: ${ofs.length} obligacions fiscals a clau pròpia`);
+        }
+        this.electronStoreAPI.set('migrationV3Completed', true);
+      }
     }
   }
 
@@ -395,6 +579,7 @@ class StorageManager {
       facturesVenda: this.getFacturesVenda(),
       facturesCompra: this.getFacturesCompra(),
       pressupostos: this.getPressupostos(),
+      obligacionsFiscals: this.getObligacionsFiscals(),
       parametres: this.getParametres(),
       partsTreball: this.getPartsTreball(),
       cronometre: this.getCronometre(),

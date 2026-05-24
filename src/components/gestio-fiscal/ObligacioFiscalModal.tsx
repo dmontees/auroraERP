@@ -4,11 +4,11 @@ import type { ObligacioFiscal, SubtipusObligacioFiscal } from '../../types/factu
 import { SUBTIPUS_OBLIGACIO_FISCAL } from '../../types/facturaCompra';
 import type { Proveidor } from '../../types/proveidor';
 import type { Projecte } from '../../types/projecte';
-import PagamentsManager from './shared/PagamentsManager';
+import PagamentsManager from '../common/PagamentsManager';
 import SearchableSelect from '../common/SearchableSelect';
-import PDFUploader from './shared/PDFUploader';
-import { usePagaments } from './hooks/usePagaments';
-import { determinarEstat } from './utils/facturesCalculations';
+import PDFUploader from '../common/PDFUploader';
+import { usePagaments } from '../../hooks/usePagaments';
+import { determinarEstat } from '../factures-compra/utils/facturesCalculations';
 import { useAutoSave } from '../../hooks/useAutoSave';
 
 interface Props {
@@ -71,7 +71,6 @@ export default function ObligacioFiscalModal({
   treballadors,
   projectes
 }: Props) {
-  // Freeze the code and createdAt at open time
   const [codi] = useState(() => editingGasto?.codi || nextCode);
   const [createdAt] = useState(() => editingGasto?.createdAt || new Date().toISOString());
   const [projecteCodi, setProjecteCodi] = useState(editingGasto?.projecteCodi || '');
@@ -80,7 +79,6 @@ export default function ObligacioFiscalModal({
     editingGasto?.subtipus || 'cuota-autonomo'
   );
 
-  // Period sub-state — derived into a single `periode` string
   const init = parseExistingPeriode(editingGasto?.periode, editingGasto?.subtipus || 'cuota-autonomo');
   const [periodeAny, setPeriodeAny] = useState(init.periodeAny);
   const [periodeQ, setPeriodeQ] = useState(init.periodeQ);
@@ -93,17 +91,14 @@ export default function ObligacioFiscalModal({
   const [notes, setNotes] = useState(editingGasto?.notes || '');
   const [baseImposable, setBaseImposable] = useState(editingGasto?.baseImposable || 0);
 
-  // Nòmina treballador
   const [treballadorCodi, setTreballadorCodi] = useState(editingGasto?.treballadorCodi || '');
   const [diesTreballats, setDiesTreballats] = useState(editingGasto?.diesTreballats || 0);
   const [salariDiariBrut, setSalariDiariBrut] = useState(editingGasto?.salariDiariBrut || 0);
 
-  // IVA trimestral
   const [ivaRegistratGestor, setIvaRegistratGestor] = useState(
     editingGasto?.ivaRegistratGestor || 0
   );
 
-  // PDF (cuota-autonomo obligatori, regularitzacio-ss obligatori, altres opcional)
   const [documentPDF, setDocumentPDF] = useState<string | undefined>(editingGasto?.documentPDF);
   const [documentPDFName, setDocumentPDFName] = useState<string>(
     editingGasto?.documentPDFName || ''
@@ -113,7 +108,6 @@ export default function ObligacioFiscalModal({
     editingGasto?.pagaments || []
   );
 
-  // Derived periode string based on subtipus
   const periode = (() => {
     switch (subtipus) {
       case 'cuota-autonomo':
@@ -122,12 +116,11 @@ export default function ObligacioFiscalModal({
       case 'irpf-trimestral':
       case 'iva-trimestral':
         return `${periodeAny}-${periodeQ}`;
-      default: // irpf-anual, regularitzacio-ss
+      default:
         return periodeAny;
     }
   })();
 
-  // Change detection
   const esNou = !editingGasto;
   const [initialSnapshot] = useState(() => {
     if (editingGasto) {
@@ -138,7 +131,6 @@ export default function ObligacioFiscalModal({
         baseImposable: editingGasto.baseImposable || 0,
       });
     }
-    // New record: capture default derived periode so opening+closing without editing = no save
     const defaultSub: SubtipusObligacioFiscal = 'cuota-autonomo';
     return JSON.stringify({ subtipus: defaultSub, periode: defaultMes(), concepte: '', baseImposable: 0 });
   });
@@ -157,7 +149,6 @@ export default function ObligacioFiscalModal({
     }
   }, [treballadorCodi]);
 
-  // Càlculs nòmina
   const pctSSEmpresa = selectedTreballador?.percentatgeSSEmpresa ?? 30.2;
   const pctSSTreballador = selectedTreballador?.percentatgeSSTreballador ?? 6.35;
   const pctIRPF = selectedTreballador?.percentatgeIRPF ?? 15;
@@ -339,7 +330,6 @@ export default function ObligacioFiscalModal({
         </div>
 
         <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-          {/* Codi */}
           <div className="form-group">
             <label className="form-label">Codi</label>
             <input
@@ -351,7 +341,6 @@ export default function ObligacioFiscalModal({
             />
           </div>
 
-          {/* Subtipus */}
           <div className="form-group">
             <label className="form-label">Tipus d'obligació *</label>
             <select
@@ -368,7 +357,6 @@ export default function ObligacioFiscalModal({
             </select>
           </div>
 
-          {/* Periode — dynamic per subtipus */}
           <div className="form-group">
             <label className="form-label">
               {isMonthly ? 'Mes de referència *' : isQuarterly ? 'Trimestre de referència *' : 'Any de referència *'}
@@ -420,7 +408,6 @@ export default function ObligacioFiscalModal({
             )}
           </div>
 
-          {/* Data */}
           <div className="form-group">
             <label className="form-label">
               {subtipus === 'regularitzacio-ss'
@@ -443,7 +430,6 @@ export default function ObligacioFiscalModal({
             )}
           </div>
 
-          {/* Concepte */}
           <div className="form-group">
             <label className="form-label">Concepte</label>
             <input
@@ -456,7 +442,6 @@ export default function ObligacioFiscalModal({
             />
           </div>
 
-          {/* FORMULARI NÒMINA TREBALLADOR */}
           {subtipus === 'nomina-treballador' && (
             <div style={{
               background: 'var(--color-bg-secondary)',
@@ -576,7 +561,6 @@ export default function ObligacioFiscalModal({
             </div>
           )}
 
-          {/* FORMULARI IVA TRIMESTRAL */}
           {subtipus === 'iva-trimestral' && (
             <div style={{
               background: 'var(--color-bg-secondary)',
@@ -622,7 +606,6 @@ export default function ObligacioFiscalModal({
             </div>
           )}
 
-          {/* IMPORT per als altres subtipus */}
           {subtipus !== 'nomina-treballador' && subtipus !== 'iva-trimestral' && (
             <div className="form-group">
               <label className="form-label">Import (€) *</label>
@@ -638,7 +621,6 @@ export default function ObligacioFiscalModal({
             </div>
           )}
 
-          {/* PDF — obligatori per cuota-autonomo i regularitzacio-ss (nomina-treballador té el seu propi uploader dins del bloc) */}
           {(subtipus === 'cuota-autonomo' || subtipus === 'regularitzacio-ss') && (
             <PDFUploader
               documentPDF={documentPDF}
@@ -650,7 +632,6 @@ export default function ObligacioFiscalModal({
             />
           )}
 
-          {/* Resum total */}
           <div style={{
             background: 'var(--color-accent-primary)',
             color: 'white',
@@ -665,7 +646,6 @@ export default function ObligacioFiscalModal({
             <span style={{ fontWeight: 700, fontSize: '1.4rem' }}>{fmt(totalGasto)}</span>
           </div>
 
-          {/* Gestió de pagaments */}
           <PagamentsManager
             pagaments={pagaments}
             pendentPagament={pendentPagament}
@@ -674,7 +654,6 @@ export default function ObligacioFiscalModal({
             disabled={completamentPagada}
           />
 
-          {/* Notes */}
           <div className="form-group" style={{ marginTop: '1rem' }}>
             <label className="form-label">Notes</label>
             <textarea

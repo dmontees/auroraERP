@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { storage } from '../../utils/storageManager';
+import { getNextTdCodi, syncAlbaransForProject, checkEliminarLinia, deleteAlbaraForLinia } from '../../utils/albaraSync';
 import { X, Trash2, FileText } from 'lucide-react';
 import DocumentModal from './DocumentModal';
 import type { Projecte, TascaProjecte, RecursHumaProjecte, MaterialProjecte, DocumentProjecte } from '../../types/projecte';
@@ -32,6 +33,7 @@ import TasquesTab from './tabs/TasquesTab';
 import InstruccionsTab from './tabs/InstruccionsTab';
 import FeedbackTab from './tabs/FeedbackTab';
 import HistorialTab from './tabs/HistorialTab';
+import PagamentsProveidorsTab from './tabs/PagamentsProveidorsTab';
 
 // Modals
 import AfegirTascaModal from './modals/AfegirTascaModal';
@@ -82,7 +84,7 @@ function ProjecteModal({
   parametres,
   proveidors
 }: ProjecteModalProps) {
-  const [activeTab, setActiveTab] = useState<'dades' | 'despeses' | 'tasques' | 'instruccions' | 'feedback' | 'historial'>('dades');
+  const [activeTab, setActiveTab] = useState<'dades' | 'despeses' | 'tasques' | 'instruccions' | 'feedback' | 'historial' | 'pagaments'>('dades');
   const [recursCopiado, setRecursCopiado] = useState<string | null>(null);
   const [materialCopiado, setMaterialCopiado] = useState<string | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -142,7 +144,11 @@ function ProjecteModal({
     }
   }, [projecte]);
 
-  const { saveNow } = useAutoSave(formData, onSave);
+  const handleSaveWithSync = (data: Projecte) => {
+    onSave(data);
+    syncAlbaransForProject(data, parametres);
+  };
+  const { saveNow } = useAutoSave(formData, handleSaveWithSync);
   const estatAnteriorRef = useRef<string>(formData.estat);
 
   useEffect(() => {
@@ -272,6 +278,10 @@ function ProjecteModal({
         if (serveiData) updated.categoria = serveiData.categoria;
       }
       if (field === 'proveidor') {
+        // Assign tdCodi the first time a provider is set on this line
+        if (value && !updated.tdCodi) {
+          updated.tdCodi = getNextTdCodi(formData);
+        }
         const trb = proveidors.find(p => p.codi === value && p.tipus === 'Treballador');
         if (trb) {
           updated.preu = (trb.salariDiari || 0) * (1 + (trb.percentatgeSSEmpresa ?? 30.2) / 100);
@@ -295,6 +305,9 @@ function ProjecteModal({
   const eliminarRecursHuma = (id: string) => {
     const recursAEliminar = formData.recursosHumans.find(r => r.id === id);
     if (recursAEliminar) {
+      const bloqueig = checkEliminarLinia(recursAEliminar.tdCodi);
+      if (bloqueig) { alert(bloqueig); return; }
+      deleteAlbaraForLinia(recursAEliminar.tdCodi);
       const nomServei = parametres?.serveis.find(s => s.codi === recursAEliminar.servei)?.nom || recursAEliminar.servei;
       const projecteAmbHistorial = registrarGastoEliminat(formData, nomServei, recursAEliminar.cost);
       setFormData({ ...projecteAmbHistorial, recursosHumans: projecteAmbHistorial.recursosHumans.filter(r => r.id !== id) });
@@ -308,7 +321,9 @@ function ProjecteModal({
       alert('Has de seleccionar un servei i una unitat');
       return;
     }
-    const recursComplet = { ...nouRecursForm, cost: nouRecursForm.quantitat * nouRecursForm.preu };
+    const cost = nouRecursForm.quantitat * nouRecursForm.preu;
+    const tdCodi = nouRecursForm.proveidor ? getNextTdCodi(formData) : undefined;
+    const recursComplet = { ...nouRecursForm, cost, tdCodi };
     const nomServei = parametres?.serveis.find(s => s.codi === recursComplet.servei)?.nom || recursComplet.servei;
     const nomCategoria = parametres?.categories.find(c => c.codi === recursComplet.categoria)?.nom || recursComplet.categoria || 'Recurs humà';
     const projecteAmbHistorial = registrarGastoAfegit(formData, `${nomCategoria} - ${nomServei}`, recursComplet.cost);
@@ -357,11 +372,13 @@ function ProjecteModal({
       alert('Has de seleccionar un material');
       return;
     }
-    const materialData = parametres?.materials.find(m => m.codi === nouMaterialForm.material);
-    const nomMaterial = materialData?.material || nouMaterialForm.material;
-    const nomGrup = parametres?.grupsMaterials.find(g => g.codi === nouMaterialForm.grup)?.nom || nouMaterialForm.grup;
-    const projecteAmbHistorial = registrarGastoAfegit(formData, `${nomGrup} - ${nomMaterial}`, nouMaterialForm.preuProveidor);
-    setFormData({ ...projecteAmbHistorial, materials: [...projecteAmbHistorial.materials, nouMaterialForm] });
+    const tdCodi = nouMaterialForm.proveidor ? getNextTdCodi(formData) : undefined;
+    const materialAGuardar = { ...nouMaterialForm, tdCodi };
+    const materialData = parametres?.materials.find(m => m.codi === materialAGuardar.material);
+    const nomMaterial = materialData?.material || materialAGuardar.material;
+    const nomGrup = parametres?.grupsMaterials.find(g => g.codi === materialAGuardar.grup)?.nom || materialAGuardar.grup;
+    const projecteAmbHistorial = registrarGastoAfegit(formData, `${nomGrup} - ${nomMaterial}`, materialAGuardar.preuProveidor);
+    setFormData({ ...projecteAmbHistorial, materials: [...projecteAmbHistorial.materials, materialAGuardar] });
     setShowAfegirRecursModal(false);
   };
 
@@ -372,6 +389,9 @@ function ProjecteModal({
   const eliminarMaterial = (id: string) => {
     const materialAEliminar = formData.materials.find(m => m.id === id);
     if (materialAEliminar) {
+      const bloqueig = checkEliminarLinia(materialAEliminar.tdCodi);
+      if (bloqueig) { alert(bloqueig); return; }
+      deleteAlbaraForLinia(materialAEliminar.tdCodi);
       const projecteAmbHistorial = registrarGastoEliminat(formData, `${materialAEliminar.grup || 'Material'} - ${materialAEliminar.material || ''}`, materialAEliminar.preuProveidor);
       setFormData({ ...projecteAmbHistorial, materials: projecteAmbHistorial.materials.filter(m => m.id !== id) });
     } else {
@@ -624,7 +644,8 @@ function ProjecteModal({
     { id: 'tasques', label: 'Tasques' },
     { id: 'instruccions', label: 'Instruccions' },
     { id: 'feedback', label: 'Feedback' },
-    { id: 'historial', label: 'Historial' }
+    { id: 'historial', label: 'Historial' },
+    { id: 'pagaments', label: 'Pagaments Proveïdors' }
   ] as const;
 
   return (
@@ -855,6 +876,14 @@ function ProjecteModal({
               onEliminarDocument={eliminarDocument}
               onDescarregarDocument={descarregarDocument}
               onClose={onClose}
+            />
+          )}
+
+          {activeTab === 'pagaments' && (
+            <PagamentsProveidorsTab
+              projecteCodi={formData.codi}
+              proveidors={proveidors}
+              parametres={parametres}
             />
           )}
         </div>

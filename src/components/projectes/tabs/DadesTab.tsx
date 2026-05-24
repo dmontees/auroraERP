@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import type { Projecte, DataRodatge, DataEntrega } from '../../../types/projecte';
 import type { Client } from '../../../types/client';
 import type { Parametres } from '../../../types/parametres';
@@ -49,6 +49,13 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
     setFormData({
       ...formData,
       datesEntrega: datesEntrega.map(d => d.id === id ? { ...d, [field]: value } : d)
+    });
+  };
+
+  const toggleEntregada = (id: string) => {
+    setFormData({
+      ...formData,
+      datesEntrega: datesEntrega.map(d => d.id === id ? { ...d, entregada: !d.entregada } : d)
     });
   };
 
@@ -271,25 +278,40 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
             </p>
           ) : (
             datesEntrega.map((d) => (
-              <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 28px', gap: '0.4rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+              <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 28px 28px', gap: '0.4rem', marginBottom: '0.5rem', alignItems: 'center', opacity: d.entregada ? 0.6 : 1 }}>
                 <input
                   type="date"
                   className="form-input"
                   value={d.data}
                   onChange={(e) => updateDataEntrega(d.id, 'data', e.target.value)}
-                  disabled={esBloquejat}
-                  style={{ fontSize: '0.85rem', padding: '0.4rem 0.5rem' }}
+                  disabled={esBloquejat || !!d.entregada}
+                  style={{ fontSize: '0.85rem', padding: '0.4rem 0.5rem', textDecoration: d.entregada ? 'line-through' : 'none' }}
                 />
                 <input
                   type="text"
                   className="form-input"
                   value={d.nota || ''}
                   onChange={(e) => updateDataEntrega(d.id, 'nota', e.target.value)}
-                  disabled={esBloquejat}
+                  disabled={esBloquejat || !!d.entregada}
                   placeholder="Nota opcional..."
                   style={{ fontSize: '0.85rem', padding: '0.4rem 0.5rem' }}
                 />
-                {!esBloquejat && (
+                <button
+                  type="button"
+                  onClick={() => toggleEntregada(d.id)}
+                  title={d.entregada ? 'Marcar com a pendent' : 'Marcar com entregada'}
+                  style={{
+                    background: d.entregada ? '#10b981' : 'transparent',
+                    border: `1px solid ${d.entregada ? '#10b981' : 'var(--color-border)'}`,
+                    color: d.entregada ? 'white' : 'var(--color-text-tertiary)',
+                    cursor: 'pointer', borderRadius: '4px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '28px', height: '28px', padding: 0, flexShrink: 0
+                  }}
+                >
+                  <Check size={14} />
+                </button>
+                {!esBloquejat && !d.entregada && (
                   <button
                     type="button"
                     onClick={() => removeDataEntrega(d.id)}
@@ -302,6 +324,7 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
                     <X size={16} />
                   </button>
                 )}
+                {(esBloquejat || !!d.entregada) && <div />}
               </div>
             ))
           )}

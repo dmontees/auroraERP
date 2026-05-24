@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Download, Plus, LayoutGrid, List } from 'lucide-react';
 import type { Projecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import type { Parametres } from '../../types/parametres';
+import type { AlbaraCompra } from '../../types/albara';
 import ProjecteModal from './ProjecteModal';
 import { storage } from '../../utils/storageManager';
 import { exportarProjectesExcel } from './utils/exportProjectes';
@@ -12,6 +13,7 @@ function ProjectesSection() {
   const [projectes, setProjectes] = useState<Projecte[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [parametres, setParametres] = useState<Parametres | null>(null);
+  const [albarans, setAlbarans] = useState<AlbaraCompra[]>([]);
   
   // Estados UI
   const [vistaActual, setVistaActual] = useState<'taula' | 'kanban'>('taula');
@@ -67,6 +69,7 @@ useEffect(() => {
     setProjectes(storage.getProjectes());
     setClients(storage.getClients());
     setParametres(storage.getParametres() as Parametres);
+    setAlbarans(storage.getAlbaransCompra());
   };
 
   // Cargar al inicio
@@ -265,7 +268,7 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
       .flatMap(p => {
         if (p.datesEntrega && p.datesEntrega.length > 0) {
           return p.datesEntrega
-            .filter(d => d.data)
+            .filter(d => d.data && !d.entregada)
             .map(d => ({ titol: p.titol, data: d.data!, codi: p.codi }));
         }
         if (p.dataEntrega) {
@@ -637,6 +640,7 @@ const estatLabels: Record<string, string> = {
     <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Despeses</th>
     <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Ingressos</th>
     <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Benefici</th>
+    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Prov.</th>
   </tr>
 </thead>
 <tbody>
@@ -777,6 +781,24 @@ const estatLabels: Record<string, string> = {
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>
             {percentBenefici.toFixed(1)}%
           </div>
+        </td>
+
+        {/* Pagament Proveïdors */}
+        <td style={{ padding: '0.75rem', textAlign: 'center', width: '90px' }}>
+          {(() => {
+            const projAlbarans = albarans.filter(a => a.projecteCodi === projecte.codi);
+            const hasPendent = projAlbarans.some(a => a.estat === 'pendent-factura' || a.estat === 'factura-vinculada');
+            if (hasPendent) {
+              return (
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400e', background: '#fef3c7', padding: '0.2rem 0.5rem', borderRadius: 4 }}>
+                  Pendent
+                </span>
+              );
+            }
+            return (
+              <span style={{ fontSize: '1rem', color: '#10b981' }} title="Tot pagat o sense despeses de proveïdor">✓</span>
+            );
+          })()}
         </td>
       </tr>
     );

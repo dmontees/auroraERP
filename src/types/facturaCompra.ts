@@ -64,6 +64,7 @@ export interface FacturaCompra extends GastoBase {
   numFacturaProveidor: string;     // Número de factura del proveedor
   projectes: string[];             // Array de códigos de proyectos
   esDesepsaGeneral: boolean;       // Si no es imputable a proyecto
+  albaransVinculats?: string[];    // Codis ALC-XXXXX vinculats a aquesta factura
 }
 
 // GASTO GENERAL

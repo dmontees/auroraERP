@@ -11,6 +11,8 @@ const store = new Store({
     facturesVenda: [],
     facturesCompra: [],
     pressupostos: [],
+    obligacionsFiscals: [],
+    albaransCompra: [],
     parametres: {
       categories: [],
       serveis: [],
@@ -21,7 +23,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '1.2.7',
+    version: '1.3.0',
     migrationCompleted: false
   }
 });

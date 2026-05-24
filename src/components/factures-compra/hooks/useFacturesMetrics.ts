@@ -12,13 +12,14 @@ export function useFacturesMetrics(gastos: Gasto[]) {
     let pagatMes = 0;
 
     gastos.forEach(gasto => {
-      if (gasto.pendentPagament > 0) {
-        totalPendent += gasto.pendentPagament;
+      const pendent = Math.round(gasto.pendentPagament * 100) / 100;
+      if (pendent > 0) {
+        totalPendent += pendent;
       }
 
       if (gasto.estat === 'vencuda') {
         numVencudes++;
-        importVencudes += gasto.pendentPagament;
+        importVencudes += pendent;
       }
 
       gasto.pagaments.forEach(pag => {

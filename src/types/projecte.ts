@@ -12,6 +12,7 @@ export interface TascaProjecte {
 
 export interface RecursHumaProjecte {
   id: string;
+  tdCodi?: string; // TD-0000001 — codi de tasca despesa, assignat en crear si hi ha proveïdor
   categoria: string;
   servei: string;
   unitat: string;
@@ -24,6 +25,7 @@ export interface RecursHumaProjecte {
 
 export interface MaterialProjecte {
   id: string;
+  tdCodi?: string; // TD-0000001 — codi de tasca despesa, assignat en crear si hi ha proveïdor
   grup: string;
   material: string;
   proveidor: string;
@@ -42,6 +44,7 @@ export interface DataEntrega {
   id: string;
   data: string;
   nota?: string;
+  entregada?: boolean;
 }
 
 export interface FeedbackProjecte {

@@ -1,9 +1,10 @@
 import type { EstatGasto } from '../../../types/facturaCompra';
 
 export function calcularImpostos(base: number, ivaPercent: number, irpfPercent: number) {
-  const ivaImport = (base * ivaPercent) / 100;
-  const irpfImport = (base * irpfPercent) / 100;
-  const total = base + ivaImport - irpfImport;
+  // Work in integer cents to avoid floating-point residuals
+  const ivaImport = Math.round(base * ivaPercent) / 100;
+  const irpfImport = Math.round(base * irpfPercent) / 100;
+  const total = Math.round((base + ivaImport - irpfImport) * 100) / 100;
 
   return { ivaImport, irpfImport, total };
 }

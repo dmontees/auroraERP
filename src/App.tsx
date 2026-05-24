@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import auroraIcon from '../build/icon.png';
-import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings } from 'lucide-react';
+import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings, Scale } from 'lucide-react';
 import Dashboard from './components/dashboard/Dashboard';
 import ProjectesSection from './components/projectes/ProjectesSection';
 import ParametresSection from './components/parametres/ParametresPage';
@@ -11,6 +11,7 @@ import ClientsSection from './components/clients/ClientsSection';
 import ProveidorsSection from './components/proveidors/ProveidorsSection';
 import PressupostosSection from './components/pressupostos/PressupostosSection';
 import FacturesCompraSection from './components/factures-compra/FacturesCompraSection';
+import GestioFiscalSection from './components/gestio-fiscal/GestioFiscalSection';
 import FacturesVendaSection from './components/factures-venda/FacturesVendaSection';
 import CalendarSection from './components/calendar/CalendarSection';
 import ResultatsSection from './components/resultats/ResultatsSection';
@@ -18,12 +19,11 @@ import UpdateNotification from './components/common/UpdateNotification';
 import SettingsModal, { type CompanySettings } from './components/common/SettingsModal';
 import type { Client } from './types/client';
 import { migrateFacturesVendaTipus } from './utils/migrateFacturesVenda';
-import { migrateGastoAutonomoToObligacioFiscal } from './utils/migrateGastoAutonomo';
 import { storage } from './utils/storageManager';
 import './App.css';
 
-type Section = 'dashboard' | 'clients' | 'proveidors' | 'projectes' | 'pressupostos' | 
-               'factures-venda' | 'factures-compra' | 'resultats' | 
+type Section = 'dashboard' | 'clients' | 'proveidors' | 'projectes' | 'pressupostos' |
+               'factures-venda' | 'factures-compra' | 'gestio-fiscal' | 'resultats' |
                'parts-treball' | 'calendari' | 'parametres';
 
 interface NavItem {
@@ -60,10 +60,7 @@ function App() {
       // 2. Migrar tipos de facturas (añadir campo 'tipus')
       migrateFacturesVendaTipus();
 
-      // 3. Migrar GastoGeneral categoria 'autonomo' → ObligacioFiscal
-      migrateGastoAutonomoToObligacioFiscal();
-      
-      // 4. Log de la ruta del store (solo en Electron)
+      // 3. Log de la ruta del store (solo en Electron)
       const storePath = storage.getStorePath();
       if (storePath) {
         console.log(`📁 Datos guardados en: ${storePath}`);
@@ -122,6 +119,7 @@ function App() {
     { id: 'pressupostos', label: 'Pressupostos', icon: <FileText size={20} />, description: 'Crear i gestionar pressupostos' },
     { id: 'factures-venda', label: 'Factures Venda', icon: <Receipt size={20} />, description: 'Factures emeses a clients' },
     { id: 'factures-compra', label: 'Factures Compra', icon: <ShoppingCart size={20} />, description: 'Factures rebudes de proveïdors' },
+    { id: 'gestio-fiscal', label: 'Gestió Fiscal', icon: <Scale size={20} />, description: 'Obligacions fiscals: autònom, IRPF, IVA, nòmines' },
     { id: 'resultats', label: 'Resultats', icon: <TrendingUp size={20} />, description: 'Anàlisi financera i rendibilitat' },
     { id: 'parts-treball', label: 'Parts Treball', icon: <Clock size={20} />, description: 'Registre d\'hores i tasques' },
     { id: 'calendari', label: 'Calendari', icon: <CalendarIcon size={20} />, description: 'Visualitza esdeveniments i dates importants' },
@@ -173,7 +171,7 @@ function App() {
           </div>
 
           <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v1.2.7</p>
+            <p className="footer-text">v1.3.0</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
           
@@ -199,6 +197,7 @@ function App() {
           {activeSection === 'pressupostos' && <PressupostosSection />}
           {activeSection === 'factures-venda' && <FacturesVendaSection />}
           {activeSection === 'factures-compra' && <FacturesCompraSection />}
+          {activeSection === 'gestio-fiscal' && <GestioFiscalSection />}
           {activeSection === 'resultats' && <ResultatsSection />}
           {activeSection === 'calendari' && <CalendarSection />}
           {activeSection === 'parametres' && <ParametresSection />}

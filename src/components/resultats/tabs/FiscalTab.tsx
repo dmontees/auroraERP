@@ -5,6 +5,7 @@ import type { Gasto, ObligacioFiscal } from '../../../types/facturaCompra';
 interface Props {
   facturesVenda: FacturaVenta[];
   gastos: Gasto[];
+  obligacionsFiscals: ObligacioFiscal[];
   any: number;
 }
 
@@ -16,7 +17,7 @@ function inYear(dateStr: string, year: number) {
   return dateStr?.startsWith(String(year));
 }
 
-export default function FiscalTab({ facturesVenda, gastos, any: selectedYear }: Props) {
+export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, any: selectedYear }: Props) {
   const calculs = useMemo(() => {
     // ---- FACTURES VENDA de l'any ----
     const fvAny = facturesVenda.filter(f => inYear(f.dataFactura || '', selectedYear));
@@ -36,7 +37,7 @@ export default function FiscalTab({ facturesVenda, gastos, any: selectedYear }: 
     const rendimentNet = ingresosbruts - gastosOperatius;
 
     // ---- OBLIGACIONS FISCALS — filtrades per periode (any de referència, no data de pagament) ----
-    const obsAny = (gastos.filter(g => g.tipus === 'obligacio-fiscal') as ObligacioFiscal[])
+    const obsAny = obligacionsFiscals
       .filter(o => o.periode?.substring(0, 4) === String(selectedYear));
 
     const cuotaAutonomPagada = obsAny

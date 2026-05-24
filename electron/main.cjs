@@ -18,6 +18,8 @@ const store = new Store({
     facturesVenda: [],
     facturesCompra: [],
     pressupostos: [],
+    obligacionsFiscals: [],
+    albaransCompra: [],
     parametres: {
       categories: [],
       serveis: [],
@@ -28,7 +30,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '1.2.3',
+    version: '1.3.0',
     migrationCompleted: false
   },
   // Opcional: schema validation
@@ -301,6 +303,9 @@ autoUpdater.on('update-downloaded', (info) => {
 
 autoUpdater.on('error', (error) => {
   console.error('❌ Error en auto-updater:', error);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-not-available');
+  }
 });
 
 // ============================================
@@ -317,7 +322,17 @@ ipcMain.handle('check-for-updates', () => {
   if (process.platform === 'darwin') {
     checkForUpdatesMac();
   } else {
-    autoUpdater.checkForUpdates();
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'dmontees',
+      repo: 'auroraERP'
+    });
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('❌ Error en checkForUpdates manual:', err);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-not-available');
+      }
+    });
   }
 });
 

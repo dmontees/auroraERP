@@ -1,7 +1,9 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import type { Gasto } from '../../../types/facturaCompra';
+import type { Gasto, ObligacioFiscal } from '../../../types/facturaCompra';
 import type { Proveidor } from '../../../types/proveidor';
+
+const SUBTIPUS_SS = new Set(['cuota-autonomo', 'regularitzacio-ss']);
 
 const QUARTER_MONTHS: Record<string, string[]> = {
   Q1: ['01', '02', '03'],
@@ -65,38 +67,67 @@ function gastoPertanyAny(gasto: Gasto, any: string): boolean {
   return periodeAny(gasto) === any;
 }
 
-function buildZip(gastos: Gasto[], proveidors: Proveidor[]) {
+function safeName(s: string): string {
+  return s.replace(/[/\\:*?"<>|]/g, '_');
+}
+
+function buildZip(gastos: Gasto[], proveidors: Proveidor[], obligacionsSS: ObligacioFiscal[]) {
   const zip = new JSZip();
+
   gastos.forEach(gasto => {
     let filename: string;
     if (gasto.tipus === 'factura-compra') {
       const proveidor = proveidors.find(p => p.codi === gasto.proveidor);
       const numFactura = gasto.numFacturaProveidor || 'SN';
       const proveidorNom = proveidor?.nomComercial || 'Proveidor';
-      filename = `${gasto.codi}_${proveidorNom}_${numFactura}.pdf`;
+      filename = safeName(`${gasto.codi}_${proveidorNom}_${numFactura}.pdf`);
     } else {
-      filename = `${gasto.codi}_${gasto.concepte}.pdf`;
+      filename = safeName(`${gasto.codi}_${gasto.concepte}.pdf`);
     }
     const base64Data = gasto.documentPDF!.split(',')[1];
     zip.file(filename, base64Data, { base64: true });
   });
+
+  if (obligacionsSS.length > 0) {
+    const folder = zip.folder('Obligacions_SS')!;
+    obligacionsSS.forEach(o => {
+      const filename = safeName(`${o.codi}_${o.concepte}.pdf`);
+      const base64Data = o.documentPDF!.split(',')[1];
+      folder.file(filename, base64Data, { base64: true });
+    });
+  }
+
   return zip;
+}
+
+function filtrarObligacionsSS(
+  obligacionsFiscals: ObligacioFiscal[],
+  pertany: (o: ObligacioFiscal) => boolean
+): ObligacioFiscal[] {
+  return obligacionsFiscals.filter(
+    o => SUBTIPUS_SS.has(o.subtipus) && o.documentPDF && pertany(o)
+  );
 }
 
 export async function exportarFacturesTrimestre(
   any: string,
   trimestre: string,
   gastos: Gasto[],
-  proveidors: Proveidor[]
+  proveidors: Proveidor[],
+  obligacionsFiscals: ObligacioFiscal[] = []
 ) {
   const filtrats = gastos.filter(g => gastoPertanyTrimestre(g, any, trimestre));
+  const obsSS = filtrarObligacionsSS(
+    obligacionsFiscals,
+    o => gastoPertanyTrimestre(o as unknown as Gasto, any, trimestre)
+  );
 
-  if (filtrats.length === 0) {
+  if (filtrats.length === 0 && obsSS.length === 0) {
     alert(`No hi ha documents PDF per ${trimestre} ${any}`);
     return;
   }
 
-  const zip = buildZip(filtrats, proveidors);
+  const zip = buildZip(filtrats, proveidors, obsSS);
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, `Documents_${any}-${trimestre}.zip`);
 }
@@ -104,16 +135,21 @@ export async function exportarFacturesTrimestre(
 export async function exportarFacturesAny(
   any: string,
   gastos: Gasto[],
-  proveidors: Proveidor[]
+  proveidors: Proveidor[],
+  obligacionsFiscals: ObligacioFiscal[] = []
 ) {
   const filtrats = gastos.filter(g => gastoPertanyAny(g, any));
+  const obsSS = filtrarObligacionsSS(
+    obligacionsFiscals,
+    o => gastoPertanyAny(o as unknown as Gasto, any)
+  );
 
-  if (filtrats.length === 0) {
+  if (filtrats.length === 0 && obsSS.length === 0) {
     alert(`No hi ha documents PDF per l'any ${any}`);
     return;
   }
 
-  const zip = buildZip(filtrats, proveidors);
+  const zip = buildZip(filtrats, proveidors, obsSS);
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, `Documents_${any}.zip`);
 }

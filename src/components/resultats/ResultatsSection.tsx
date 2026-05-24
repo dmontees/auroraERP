@@ -5,7 +5,7 @@ import VisioGeneral from './tabs/VisioGeneral';
 import { getUltimsXMesos } from '../../utils/resultatCalculs';
 import type { Periode } from '../../utils/resultatCalculs';
 import type { FacturaVenta } from '../../types/facturaVenda';
-import type { Gasto } from '../../types/facturaCompra';
+import type { Gasto, ObligacioFiscal } from '../../types/facturaCompra';
 import type { Projecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import AnalisiFinancera from './tabs/AnalisiFinancera';
@@ -24,6 +24,7 @@ export default function ResultatsSection() {
   // Estados de datos
   const [facturesVenda, setFacturesVenda] = useState<FacturaVenta[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [obligacionsFiscals, setObligacionsFiscals] = useState<ObligacioFiscal[]>([]);
   const [projectes, setProjectes] = useState<Projecte[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
@@ -49,6 +50,7 @@ export default function ResultatsSection() {
     const loadData = () => {
       setFacturesVenda(storage.getFacturesVenda());
       setGastos(storage.getFacturesCompra());
+      setObligacionsFiscals(storage.getObligacionsFiscals());
       setProjectes(storage.getProjectes());
       setClients(storage.getClients());
       setProveidors(storage.getProveidors());
@@ -214,6 +216,7 @@ export default function ResultatsSection() {
         <FiscalTab
           facturesVenda={facturesVenda}
           gastos={gastos}
+          obligacionsFiscals={obligacionsFiscals}
           any={new Date(periode.dataInici).getFullYear()}
         />
       )}

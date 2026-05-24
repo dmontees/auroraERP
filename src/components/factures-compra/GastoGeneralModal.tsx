@@ -106,7 +106,7 @@ export default function GastoGeneralModal({
       ivaImport,
       irpfImport,
       totalGasto,
-      pendentPagament: Math.max(0, pendentPagament),
+      pendentPagament: Math.round(Math.max(0, pendentPagament) * 100) / 100,
       estat,
       pagaments,
       totalPagat

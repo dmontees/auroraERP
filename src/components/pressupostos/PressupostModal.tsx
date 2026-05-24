@@ -332,35 +332,29 @@ export default function PressupostModal({
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => {
-                    generarPDF('ca');
-                    setShowLanguageModal(false);
-                  }}
-                  style={{ justifyContent: 'center', fontSize: '1rem', padding: '1rem' }}
+                  onClick={() => { generarPDF('ca'); setShowLanguageModal(false); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
-                  🏴󠁥󠁳󠁣󠁴󠁿 Català
+                  <img src="/flag-ca.png" alt="Català" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  Català
                 </button>
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => {
-                    generarPDF('es');
-                    setShowLanguageModal(false);
-                  }}
-                  style={{ justifyContent: 'center', fontSize: '1rem', padding: '1rem' }}
+                  onClick={() => { generarPDF('es'); setShowLanguageModal(false); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
-                  🇪🇸 Castellano
+                  <img src="/flag-es.png" alt="Castellano" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  Castellano
                 </button>
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => {
-                    generarPDF('en');
-                    setShowLanguageModal(false);
-                  }}
-                  style={{ justifyContent: 'center', fontSize: '1rem', padding: '1rem' }}
+                  onClick={() => { generarPDF('en'); setShowLanguageModal(false); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
-                  🇬🇧 English
+                  <img src="/flag-en.png" alt="English" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  English
                 </button>
               </div>
             </div>

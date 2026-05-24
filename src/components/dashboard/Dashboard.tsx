@@ -27,6 +27,7 @@ function fmtEur2(n: number): string {
 export default function Dashboard() {
   const [facturesVenda, setFacturesVenda] = useState<FacturaVenta[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [obligacionsFiscals, setObligacionsFiscals] = useState<ObligacioFiscal[]>([]);
   const [projectes, setProjectes] = useState<Projecte[]>([]);
   const [pressupostos, setPressupostos] = useState<Pressupost[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -35,6 +36,7 @@ export default function Dashboard() {
   useEffect(() => {
     setFacturesVenda(storage.getFacturesVenda());
     setGastos(storage.getFacturesCompra());
+    setObligacionsFiscals(storage.getObligacionsFiscals());
     setProjectes(storage.getProjectes());
     setPressupostos(storage.getPressupostos());
     setClients(storage.getClients());
@@ -48,15 +50,27 @@ export default function Dashboard() {
     .filter(f => ['enviada', 'pagada-parcial', 'vencuda'].includes(f.estat))
     .reduce((sum, f) => sum + f.pendentCobrar, 0);
 
-  const pendentPagar = gastos
-    .filter(g => g.pendentPagament > 0)
-    .reduce((sum, g) => sum + g.pendentPagament, 0);
+  const pendentPagar = [
+    ...gastos.filter(g => g.pendentPagament > 0),
+    ...obligacionsFiscals.filter(o => (o.pendentPagament || 0) > 0)
+  ].reduce((sum, g) => sum + (g.pendentPagament || 0), 0);
 
   const facturesVencudes = facturesVenda.filter(f => f.estat === 'vencuda');
   const totalVencudes = facturesVencudes.reduce((sum, f) => sum + f.pendentCobrar, 0);
 
   const ESTATS_ACTIUS = ['rodatge', 'edicio', 'esperant_feedback', 'revisio'];
+  const ESTATS_URGENTS = ['rodatge', 'edicio'];
   const projectesActius = projectes.filter(p => ESTATS_ACTIUS.includes(p.estat)).length;
+
+  const getNextEntregaPendent = (p: typeof projectes[0]): string => {
+    if (p.datesEntrega && p.datesEntrega.length > 0) {
+      const pendents = p.datesEntrega
+        .filter(d => d.data && !d.entregada)
+        .sort((a, b) => a.data!.localeCompare(b.data!));
+      return pendents[0]?.data || '';
+    }
+    return p.dataEntrega || '';
+  };
 
   // ── GRÀFIC: benefici brut mensual de factures emeses + projectes importats ─
   // "Emeses" = qualsevol estat excepte esborrany
@@ -89,16 +103,12 @@ export default function Dashboard() {
 
   // ── OBLIGACIONS FISCALS de l'any (per periode) ───────────────────────────
   // Inclou: cuota-autonomo, irpf-trimestral, irpf-anual, regularitzacio-ss
-  const obligaciosFiscalsAny = gastos
-    .filter(g => g.tipus === 'obligacio-fiscal')
-    .filter(g => {
-      const ob = g as ObligacioFiscal;
-      return (
-        ob.periode?.substring(0, 4) === String(selectedYear) &&
-        ['cuota-autonomo', 'irpf-trimestral', 'irpf-anual', 'regularitzacio-ss'].includes(ob.subtipus)
-      );
-    })
-    .reduce((sum, g) => sum + (g.baseImposable || g.totalGasto || 0), 0);
+  const obligaciosFiscalsAny = obligacionsFiscals
+    .filter(o =>
+      o.periode?.substring(0, 4) === String(selectedYear) &&
+      ['cuota-autonomo', 'irpf-trimestral', 'irpf-anual', 'regularitzacio-ss'].includes(o.subtipus)
+    )
+    .reduce((sum, o) => sum + (o.baseImposable || o.totalGasto || 0), 0);
 
   // ── DESPESES ESTRUCTURALS de l'any (factures acreedor no vinculades a projecte) ──
   const despesesEstructuralsAny = gastos
@@ -119,18 +129,55 @@ export default function Dashboard() {
   const beneficiReal = beneficiFiscal - despesesEstructuralsAny;
   const beneficiRealMitja = mesosBase > 0 ? beneficiReal / mesosBase : 0;
 
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
+
   // ── TASQUES URGENTS ───────────────────────────────────────────────────────
-  const tascasUrgents = {
-    facturesVencudes: facturesVencudes.slice(0, 3),
-    projectesPropers: projectes
-      .filter(p => ESTATS_ACTIUS.includes(p.estat) && (p.datesEntrega?.[0]?.data || p.dataEntrega))
-      .sort((a, b) => {
-        const da = new Date(a.datesEntrega?.[0]?.data || a.dataEntrega || '').getTime();
-        const db = new Date(b.datesEntrega?.[0]?.data || b.dataEntrega || '').getTime();
-        return da - db;
+  const avuiTs = new Date();
+  avuiTs.setHours(0, 0, 0, 0);
+
+  type TascaUrgent = { id: string; titol: string; subtitol: string; data: string; tipus: 'factura' | 'rodatge' | 'entrega' };
+
+  const tascasUrgents: TascaUrgent[] = [
+    // Factures vençudes
+    ...facturesVencudes.map(f => {
+      const client = clients.find(c => c.codi === f.client);
+      return {
+        id: f.codi,
+        titol: f.codi,
+        subtitol: `${client?.nomComercial || client?.nomFiscal || '—'} · ${fmtEur2(f.pendentCobrar)}`,
+        data: f.dataVenciment,
+        tipus: 'factura' as const,
+      };
+    }),
+    // Propers rodatges
+    ...projectes
+      .filter(p => p.estat !== 'acabat' && p.estat !== 'facturat' && !p.arxivat)
+      .flatMap(p => {
+        if (p.datesRodatge && p.datesRodatge.length > 0) {
+          return p.datesRodatge
+            .filter(d => d.data && new Date(d.data) >= avuiTs)
+            .map(d => ({ id: `rod-${p.codi}-${d.id}`, titol: p.titol, subtitol: `Rodatge · ${formatDate(d.data!)}`, data: d.data!, tipus: 'rodatge' as const }));
+        }
+        if (p.dataInici && new Date(p.dataInici) >= avuiTs) {
+          return [{ id: `rod-${p.codi}`, titol: p.titol, subtitol: `Rodatge · ${formatDate(p.dataInici)}`, data: p.dataInici, tipus: 'rodatge' as const }];
+        }
+        return [];
+      }),
+    // Projectes per entregar
+    ...projectes
+      .filter(p => {
+        if (!ESTATS_URGENTS.includes(p.estat)) return false;
+        if (p.datesEntrega && p.datesEntrega.length > 0) return p.datesEntrega.some(d => d.data && !d.entregada);
+        return !!p.dataEntrega;
       })
-      .slice(0, 3),
-  };
+      .map(p => {
+        const data = getNextEntregaPendent(p);
+        return { id: `ent-${p.codi}`, titol: p.titol, subtitol: `Entrega · ${data ? formatDate(data) : '—'}`, data, tipus: 'entrega' as const };
+      }),
+  ]
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .slice(0, 4);
 
   // ── ACTIVITAT RECENT ──────────────────────────────────────────────────────
   const activitatRecent = [
@@ -147,9 +194,6 @@ export default function Dashboard() {
   ]
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 6);
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
 
   const colorBenefici = (n: number) => (n >= 0 ? '#10b981' : '#ef4444');
 
@@ -380,56 +424,25 @@ export default function Dashboard() {
         }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>⚡ Tasques Urgents</h3>
 
-          {tascasUrgents.facturesVencudes.length > 0 && (
-            <div style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#dc2626', marginBottom: '0.5rem' }}>
-                Factures vençudes ({facturesVencudes.length})
+          {tascasUrgents.map(t => {
+            const color = t.tipus === 'factura' ? '#dc2626' : t.tipus === 'rodatge' ? '#6366f1' : '#f59e0b';
+            const icon = t.tipus === 'factura' ? '🧾' : t.tipus === 'rodatge' ? '🎬' : '📦';
+            return (
+              <div key={t.id} style={{
+                padding: '0.5rem 0.75rem',
+                fontSize: '0.85rem',
+                borderLeft: `3px solid ${color}`,
+                marginBottom: '0.5rem',
+                background: 'var(--color-bg-tertiary)',
+                borderRadius: '0 4px 4px 0',
+              }}>
+                <div style={{ fontWeight: 600 }}>{icon} {t.titol}</div>
+                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>{t.subtitol}</div>
               </div>
-              {tascasUrgents.facturesVencudes.map(f => {
-                const client = clients.find(c => c.codi === f.client);
-                return (
-                  <div key={f.codi} style={{
-                    padding: '0.5rem 0.75rem',
-                    fontSize: '0.85rem',
-                    borderLeft: '3px solid #dc2626',
-                    marginBottom: '0.4rem',
-                    background: 'var(--color-bg-tertiary)',
-                    borderRadius: '0 4px 4px 0',
-                  }}>
-                    <div style={{ fontWeight: 600 }}>{f.codi}</div>
-                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>
-                      {client?.nomComercial || client?.nomFiscal} · {fmtEur2(f.pendentCobrar)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+            );
+          })}
 
-          {tascasUrgents.projectesPropers.length > 0 && (
-            <div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#f59e0b', marginBottom: '0.5rem' }}>
-                Projectes per entregar
-              </div>
-              {tascasUrgents.projectesPropers.map(p => (
-                <div key={p.codi} style={{
-                  padding: '0.5rem 0.75rem',
-                  fontSize: '0.85rem',
-                  borderLeft: '3px solid #f59e0b',
-                  marginBottom: '0.4rem',
-                  background: 'var(--color-bg-tertiary)',
-                  borderRadius: '0 4px 4px 0',
-                }}>
-                  <div style={{ fontWeight: 600 }}>{p.titol}</div>
-                  <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>
-                    Entrega: {p.dataEntrega ? formatDate(p.dataEntrega) : '—'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tascasUrgents.facturesVencudes.length === 0 && tascasUrgents.projectesPropers.length === 0 && (
+          {tascasUrgents.length === 0 && (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-tertiary)', fontSize: '0.9rem' }}>
               <CheckCircle size={32} style={{ margin: '0 auto 0.5rem', display: 'block', opacity: 0.4 }} />
               Tot al dia!
