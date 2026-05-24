@@ -91,6 +91,14 @@ export default function FacturaVendaModal({
         .filter(p => p.tipusPlantilla === 'TPL-00002' && p.perDefecte)
         .map(p => p.text)
         .join('\n\n'),
+      plantillesTextEs: plantilles
+        .filter(p => p.tipusPlantilla === 'TPL-00002' && p.perDefecte)
+        .map(p => (p as any).textEs || p.text)
+        .join('\n\n'),
+      plantillesTextEn: plantilles
+        .filter(p => p.tipusPlantilla === 'TPL-00002' && p.perDefecte)
+        .map(p => (p as any).textEn || p.text)
+        .join('\n\n'),
       accions: [
         {
           data: new Date().toISOString(),
@@ -118,7 +126,7 @@ export default function FacturaVendaModal({
     }
   );
 
-  // Auto-rellenar IVA y IRPF según cliente
+  // Auto-rellenar IVA y IRPF según cliente; limpiar proyecto si el cliente cambia
   useEffect(() => {
     if (formData.client && !editingFactura) {
       const client = clients.find(c => c.codi === formData.client);
@@ -131,11 +139,14 @@ export default function FacturaVendaModal({
         setFormData(prev => ({
           ...prev,
           ivaPercent,
-          irpfPercent: client.retencio || 0
+          irpfPercent: client.retencio || 0,
+          projecte: prev.projecte && projectes.find(p => p.codi === prev.projecte)?.client === formData.client
+            ? prev.projecte
+            : undefined
         }));
       }
     }
-  }, [formData.client, clients, editingFactura]);
+  }, [formData.client, clients, editingFactura]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-actualizar fecha vencimiento
   useEffect(() => {

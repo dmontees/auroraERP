@@ -41,8 +41,10 @@ export default function UnitatsTab({ hook }: UnitatsTabProps) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--color-border)', background: '#f9fafb' }}>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Codi</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '10%' }}>Codi</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom CA</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom ES</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom EN</th>
                 <th style={{ width: '50px' }}></th>
               </tr>
             </thead>
@@ -52,19 +54,39 @@ export default function UnitatsTab({ hook }: UnitatsTabProps) {
                   <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-tertiary)' }}>
                     {unitat.codi}
                   </td>
-                  <td style={{ padding: '0.75rem' }}>
+                  <td style={{ padding: '0.5rem' }}>
                     {unitatEnUs(unitat.codi) ? (
-                      unitat.nom
+                      <span style={{ fontSize: '0.9rem' }}>{unitat.nom}</span>
                     ) : (
                       <input
                         type="text"
                         className="form-input"
                         value={unitat.nom}
                         onChange={(e) => actualitzarUnitat(index, 'nom', e.target.value)}
-                        style={{ padding: '0.5rem' }}
-                        placeholder="Jornada completa, Hora, Càmera..."
+                        style={{ padding: '0.4rem 0.5rem' }}
+                        placeholder="Jornada, Hora..."
                       />
                     )}
+                  </td>
+                  <td style={{ padding: '0.5rem' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={unitat.nomEs || ''}
+                      onChange={(e) => actualitzarUnitat(index, 'nomEs', e.target.value)}
+                      style={{ padding: '0.4rem 0.5rem' }}
+                      placeholder="Castellano..."
+                    />
+                  </td>
+                  <td style={{ padding: '0.5rem' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={unitat.nomEn || ''}
+                      onChange={(e) => actualitzarUnitat(index, 'nomEn', e.target.value)}
+                      style={{ padding: '0.4rem 0.5rem' }}
+                      placeholder="English..."
+                    />
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                     {!unitatEnUs(unitat.codi) && (

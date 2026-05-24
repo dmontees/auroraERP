@@ -3,7 +3,7 @@ import { storage } from '../../../utils/storageManager';
 import type { AlbaraCompra } from '../../../types/albara';
 import type { Proveidor } from '../../../types/proveidor';
 import type { Parametres } from '../../../types/parametres';
-import type { FacturaCompra } from '../../../types/facturaCompra';
+import type { FacturaCompra, ObligacioFiscal } from '../../../types/facturaCompra';
 
 interface Props {
   projecteCodi: string;
@@ -33,16 +33,23 @@ function albaraImport(a: AlbaraCompra) {
   return a.tipusLinia === 'rrhh' ? (a.cost || 0) : (a.preuProveidor || 0);
 }
 
+const isNomina = (codi: string) => codi.startsWith('OF-');
+
 export default function PagamentsProveidorsTab({ projecteCodi, proveidors, parametres }: Props) {
-  const { pendents, vinculats, pagats, facturesVinculades } = useMemo(() => {
+  const { pendents, vinculats, pagats, facturesVinculades, nominesVinculades } = useMemo(() => {
     const albarans = storage.getAlbaransCompra().filter(a => a.projecteCodi === projecteCodi);
     const todesFactures = storage.getFacturesCompra() as FacturaCompra[];
+    const todesNomines = storage.getObligacionsFiscals().filter(
+      (n: any) => n.subtipus === 'nomina-treballador'
+    ) as ObligacioFiscal[];
 
-    // An albarà with a fully-paid linked invoice is treated as "pagat" regardless of its stored estat,
-    // to handle cases where syncAlbaransAfterSave didn't run or had rounding issues.
     const isEffectivamentPagat = (a: AlbaraCompra): boolean => {
       if (a.estat === 'pagat') return true;
       if (a.estat === 'factura-vinculada' && a.facturaCodi) {
+        if (isNomina(a.facturaCodi)) {
+          const n = todesNomines.find(n => n.codi === a.facturaCodi);
+          return !!n && Math.round((n.pendentPagament || 0) * 100) / 100 <= 0 && (n.totalPagat || 0) > 0;
+        }
         const f = todesFactures.find(f => f.codi === a.facturaCodi);
         return !!f && Math.round((f.pendentPagament || 0) * 100) / 100 <= 0 && (f.totalPagat || 0) > 0;
       }
@@ -53,18 +60,27 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
     const pagats = albarans.filter(a => isEffectivamentPagat(a));
     const vinculats = albarans.filter(a => a.estat === 'factura-vinculada' && !isEffectivamentPagat(a));
 
-    const facturaCodis = new Set([
+    const allLinkedCodis = new Set([
       ...vinculats.map(a => a.facturaCodi!),
       ...pagats.map(a => a.facturaCodi!),
     ].filter(Boolean));
-    const facturesVinculades = todesFactures.filter(f => facturaCodis.has(f.codi));
 
-    return { pendents, vinculats, pagats, facturesVinculades };
+    const facturasCodis = [...allLinkedCodis].filter(c => !isNomina(c));
+    const nominasCodis = [...allLinkedCodis].filter(isNomina);
+
+    const facturesVinculades = todesFactures.filter(f => facturasCodis.includes(f.codi));
+    const nominesVinculades = todesNomines.filter(n => nominasCodis.includes(n.codi));
+
+    return { pendents, vinculats, pagats, facturesVinculades, nominesVinculades };
   }, [projecteCodi]);
 
   const totalPendent =
     pendents.reduce((s, a) => s + albaraImport(a), 0) +
     vinculats.reduce((s, a) => {
+      if (a.facturaCodi && isNomina(a.facturaCodi)) {
+        const n = nominesVinculades.find(n => n.codi === a.facturaCodi);
+        return s + (n?.pendentPagament || 0);
+      }
       const f = facturesVinculades.find(f => f.codi === a.facturaCodi);
       return s + (f?.pendentPagament || 0) / (f?.albaransVinculats?.length || 1);
     }, 0);
@@ -129,21 +145,59 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
     );
   };
 
-  // Unique invoices for factura-vinculada albarans
+  const renderNominaRow = (n: ObligacioFiscal, estat: 'vinculada' | 'pagada') => (
+    <div key={n.codi} style={{
+      ...rowStyle,
+      gridTemplateColumns: '1fr 2fr 1fr 1fr',
+      background: estat === 'pagada' ? '#f0fdf4' : '#eff6ff',
+      marginBottom: 4,
+    }}>
+      <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-tertiary)' }}>{n.codi}</span>
+      <span>
+        <span style={{ fontWeight: 600 }}>{n.treballadorNom || n.treballadorCodi || '—'}</span>
+        <span style={{ color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>— Nòmina {n.periode}</span>
+      </span>
+      <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(n.totalGasto || 0)}</span>
+      <span style={{ textAlign: 'right', fontWeight: 600, color: estat === 'pagada' ? '#10b981' : '#f59e0b' }}>
+        {estat === 'pagada' ? 'Pagada' : `Pendent: ${fmt(n.pendentPagament || 0)}`}
+      </span>
+    </div>
+  );
+
+  // Deduplicate by document code, split by type
+  const vinculatsCodis = vinculats.map(a => a.facturaCodi!).filter(Boolean);
+  const pagatsCodis = pagats.map(a => a.facturaCodi!).filter(Boolean);
+
   const facturesVinculadesUniques = [...new Map(
-    vinculats.map(a => a.facturaCodi!).filter(Boolean).map(codi => {
+    vinculatsCodis.filter(c => !isNomina(c)).map(codi => {
       const f = facturesVinculades.find(f => f.codi === codi);
-      return [codi, f];
+      return [codi, f] as [string, FacturaCompra | undefined];
     }).filter(([, f]) => f)
   ).values()] as FacturaCompra[];
 
-  // Unique invoices for pagat albarans
+  const nominesVinculadesUniques = [...new Map(
+    vinculatsCodis.filter(isNomina).map(codi => {
+      const n = nominesVinculades.find(n => n.codi === codi);
+      return [codi, n] as [string, ObligacioFiscal | undefined];
+    }).filter(([, n]) => n)
+  ).values()] as ObligacioFiscal[];
+
   const facturesPagadesUniques = [...new Map(
-    pagats.map(a => a.facturaCodi!).filter(Boolean).map(codi => {
+    pagatsCodis.filter(c => !isNomina(c)).map(codi => {
       const f = facturesVinculades.find(f => f.codi === codi);
-      return [codi, f];
+      return [codi, f] as [string, FacturaCompra | undefined];
     }).filter(([, f]) => f)
   ).values()] as FacturaCompra[];
+
+  const nominesPagadesUniques = [...new Map(
+    pagatsCodis.filter(isNomina).map(codi => {
+      const n = nominesVinculades.find(n => n.codi === codi);
+      return [codi, n] as [string, ObligacioFiscal | undefined];
+    }).filter(([, n]) => n)
+  ).values()] as ObligacioFiscal[];
+
+  const totalVinculadesCount = facturesVinculadesUniques.length + nominesVinculadesUniques.length;
+  const totalPagadesCount = facturesPagadesUniques.length + nominesPagadesUniques.length;
 
   const noData = pendents.length === 0 && vinculats.length === 0 && pagats.length === 0;
 
@@ -169,20 +223,26 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
             </>
           )}
 
-          {/* Factures vinculades (pendent de pagar) */}
-          {sectionTitle('Factura o Nòmina vinculada — pendent de pagar', facturesVinculadesUniques.length, '#3b82f6')}
-          {facturesVinculadesUniques.length === 0 ? (
+          {/* Factures / Nòmines vinculades (pendent de pagar) */}
+          {sectionTitle('Factura o Nòmina vinculada — pendent de pagar', totalVinculadesCount, '#3b82f6')}
+          {totalVinculadesCount === 0 ? (
             <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.875rem', paddingLeft: '1rem' }}>Cap factura pendent</p>
           ) : (
-            facturesVinculadesUniques.map(f => renderFacturaRow(f, 'vinculada'))
+            <>
+              {facturesVinculadesUniques.map(f => renderFacturaRow(f, 'vinculada'))}
+              {nominesVinculadesUniques.map(n => renderNominaRow(n, 'vinculada'))}
+            </>
           )}
 
           {/* Pagades */}
-          {sectionTitle('Pagades', facturesPagadesUniques.length, '#10b981')}
-          {facturesPagadesUniques.length === 0 ? (
+          {sectionTitle('Pagades', totalPagadesCount, '#10b981')}
+          {totalPagadesCount === 0 ? (
             <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.875rem', paddingLeft: '1rem' }}>Cap factura pagada</p>
           ) : (
-            facturesPagadesUniques.map(f => renderFacturaRow(f, 'pagada'))
+            <>
+              {facturesPagadesUniques.map(f => renderFacturaRow(f, 'pagada'))}
+              {nominesPagadesUniques.map(n => renderNominaRow(n, 'pagada'))}
+            </>
           )}
 
           {/* Total pendent */}

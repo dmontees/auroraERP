@@ -9,6 +9,7 @@ import { useCalendarEvents } from './useCalendarEvents';
 import type { CalendarEvent } from './useCalendarEvents';
 import { afegirEntradaHistorial } from '../../utils/projecteHistorial';
 import { storage } from '../../utils/storageManager';
+import { syncCustomEventToGoogle, deleteGoogleEvent, isGoogleCalendarConnected } from '../../utils/googleCalendarSync';
 import type { Projecte } from '../../types/projecte';
 
 const DEFAULT_CONFIG_CALENDARI = {
@@ -160,6 +161,20 @@ export default function CalendarSection() {
     : [];
 
   const handleSaveEsdeveniment = (esdeveniment: any) => {
+    // Google Calendar sync (fire and forget)
+    if (isGoogleCalendarConnected()) {
+      syncCustomEventToGoogle(esdeveniment).then(googleEventId => {
+        if (googleEventId && googleEventId !== esdeveniment.googleEventId) {
+          const updatedEvent = { ...esdeveniment, googleEventId };
+          const stored = storage.getEsdevenimentsPersonalitzats();
+          const updated = editingEsdeveniment
+            ? stored.map((e: any) => e.id === updatedEvent.id ? updatedEvent : e)
+            : [...stored, updatedEvent];
+          storage.setEsdevenimentsPersonalitzats(updated);
+        }
+      }).catch(console.error);
+    }
+
     let nous;
     if (editingEsdeveniment) {
       nous = esdevenimentsPersonalitzats.map(e =>
@@ -201,6 +216,10 @@ export default function CalendarSection() {
   };
 
   const handleDeleteEsdeveniment = (id: string) => {
+    const event = esdevenimentsPersonalitzats.find(e => e.id === id);
+    if (event?.googleEventId && isGoogleCalendarConnected()) {
+      deleteGoogleEvent(event.googleEventId).catch(console.error);
+    }
     const nous = esdevenimentsPersonalitzats.filter(e => e.id !== id);
     updateEsdevenimentsPersonalitzats(nous);
   };

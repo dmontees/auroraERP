@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import LangToggle, { type Lang } from '../../common/LangToggle';
 
 interface EmpresaTabProps {
   hook: {
@@ -9,6 +10,7 @@ interface EmpresaTabProps {
 
 export default function EmpresaTab({ hook }: EmpresaTabProps) {
   const { parametres, saveParametres } = hook;
+  const [obsLang, setObsLang] = useState<Lang>('ca');
 
   return (
     <div style={{ maxWidth: '800px' }}>
@@ -224,18 +226,40 @@ export default function EmpresaTab({ hook }: EmpresaTabProps) {
       </div>
 
       <div className="form-group">
-        <label>Observacions per a factures (text per defecte)</label>
-        <textarea
-          className="form-input"
-          value={parametres.dadesEmpresa.observacionsFactura}
-          onChange={(e) => saveParametres({
-            ...parametres,
-            dadesEmpresa: { ...parametres.dadesEmpresa, observacionsFactura: e.target.value }
-          })}
-          rows={4}
-          placeholder="Text que apareixerà per defecte a les factures..."
-          style={{ resize: 'vertical' }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <label style={{ marginBottom: 0 }}>Observacions per a factures (text per defecte)</label>
+          <LangToggle value={obsLang} onChange={setObsLang} />
+        </div>
+        {obsLang === 'ca' && (
+          <textarea
+            className="form-input"
+            value={parametres.dadesEmpresa.observacionsFactura}
+            onChange={(e) => saveParametres({ ...parametres, dadesEmpresa: { ...parametres.dadesEmpresa, observacionsFactura: e.target.value } })}
+            rows={4}
+            placeholder="Text per defecte en català..."
+            style={{ resize: 'vertical' }}
+          />
+        )}
+        {obsLang === 'es' && (
+          <textarea
+            className="form-input"
+            value={parametres.dadesEmpresa.observacionsFacturaEs || ''}
+            onChange={(e) => saveParametres({ ...parametres, dadesEmpresa: { ...parametres.dadesEmpresa, observacionsFacturaEs: e.target.value } })}
+            rows={4}
+            placeholder="Texto por defecto en castellano..."
+            style={{ resize: 'vertical' }}
+          />
+        )}
+        {obsLang === 'en' && (
+          <textarea
+            className="form-input"
+            value={parametres.dadesEmpresa.observacionsFacturaEn || ''}
+            onChange={(e) => saveParametres({ ...parametres, dadesEmpresa: { ...parametres.dadesEmpresa, observacionsFacturaEn: e.target.value } })}
+            rows={4}
+            placeholder="Default text in English..."
+            style={{ resize: 'vertical' }}
+          />
+        )}
       </div>
     </div>
   );

@@ -65,7 +65,13 @@ contextBridge.exposeInMainWorld('electron', {
   getStorePath: () => ipcRenderer.invoke('get-store-path'),
   exportAllData: () => ipcRenderer.invoke('export-all-data'),
   importData: (data) => ipcRenderer.invoke('import-data', data),
-  openExternal: (url) => ipcRenderer.invoke('open-external', url)
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
+  // Google Calendar OAuth
+  startGoogleAuth: (clientId, clientSecret) =>
+    ipcRenderer.invoke('google-calendar-start-auth', { clientId, clientSecret }),
+  disconnectGoogle: () =>
+    ipcRenderer.invoke('google-calendar-disconnect')
 });
 
 console.log('✅ Preload script cargado correctamente');

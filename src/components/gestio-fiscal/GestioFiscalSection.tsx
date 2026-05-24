@@ -68,6 +68,17 @@ export default function GestioFiscalSection() {
   };
 
   const deleteObligacio = (codi: string) => {
+    const allAlbarans = storage.getAlbaransCompra();
+    const hasLinked = allAlbarans.some(a => a.facturaCodi === codi);
+    if (hasLinked) {
+      storage.setAlbaransCompra(
+        allAlbarans.map(a =>
+          a.facturaCodi === codi
+            ? { ...a, estat: 'pendent-factura' as const, facturaCodi: undefined }
+            : a
+        )
+      );
+    }
     const nouObligacions = obligacions.filter(o => o.codi !== codi);
     setObligacions(nouObligacions);
     storage.setObligacionsFiscals(nouObligacions);

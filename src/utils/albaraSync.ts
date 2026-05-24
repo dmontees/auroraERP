@@ -2,6 +2,7 @@ import type { Projecte, RecursHumaProjecte, MaterialProjecte } from '../types/pr
 import type { AlbaraCompra } from '../types/albara';
 import type { Parametres } from '../types/parametres';
 import type { Proveidor } from '../types/proveidor';
+import type { ObligacioFiscal } from '../types/facturaCompra';
 import { storage } from './storageManager';
 
 // ─── Generació de codis ──────────────────────────────────────────────────────
@@ -149,6 +150,27 @@ export function checkEliminarLinia(tdCodi: string | undefined): string | null {
     return `No es pot eliminar aquesta línia. Té un albarà (${albara.codi}) amb una factura vinculada (${albara.facturaCodi}).\n\nPrimer elimina o desvincola la factura de compra.`;
   }
   return null;
+}
+
+/**
+ * Sincronitza els albarans vinculats a una nòmina de treballador.
+ * Marca els albarans com 'factura-vinculada' o 'pagat' segons l'estat de pagament de la nòmina.
+ */
+export function syncAlbaransAfterNomina(nomina: ObligacioFiscal): void {
+  if (nomina.subtipus !== 'nomina-treballador') return;
+  if (!nomina.albaransVinculats || nomina.albaransVinculats.length === 0) return;
+  const albarans = storage.getAlbaransCompra();
+  const codis = nomina.albaransVinculats;
+  const isPagat =
+    Math.round((nomina.pendentPagament ?? 0) * 100) / 100 <= 0 &&
+    (nomina.totalPagat ?? 0) > 0;
+  storage.setAlbaransCompra(
+    albarans.map(a =>
+      codis.includes(a.codi)
+        ? { ...a, facturaCodi: nomina.codi, estat: isPagat ? 'pagat' : 'factura-vinculada' }
+        : a
+    )
+  );
 }
 
 /**

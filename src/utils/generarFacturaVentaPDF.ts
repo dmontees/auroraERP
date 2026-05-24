@@ -268,7 +268,14 @@ if (tasquesPlanes.length === 0) {
   
   categoriesOrdenades.forEach(categoriaCodi => {
     const categoria = parametresData?.categories?.find((c: any) => c.codi === categoriaCodi);
-    const categoriaNom = categoriaCodi === 'MATERIALS' ? 'MATERIALS' : (categoria?.nom || categoriaCodi).toUpperCase();
+    const categoriaBase = categoriaCodi === 'MATERIALS'
+      ? 'MATERIALS'
+      : idioma === 'es'
+        ? (categoria?.nomEs || categoria?.nom || categoriaCodi)
+        : idioma === 'en'
+          ? (categoria?.nomEn || categoria?.nom || categoriaCodi)
+          : (categoria?.nom || categoriaCodi);
+    const categoriaNom = categoriaBase.toUpperCase();
     const tasquesCategoria = tasquesPlanes.filter(t => t.categoria === categoriaCodi);
     
     tableData.push([{
@@ -285,6 +292,11 @@ if (tasquesPlanes.length === 0) {
     
     tasquesCategoria.forEach(tasca => {
       const unitat = parametresData?.unitats?.find((u: any) => u.codi === tasca.unitat);
+      const unitatNom = idioma === 'es'
+        ? (unitat?.nomEs || unitat?.nom || '-')
+        : idioma === 'en'
+          ? (unitat?.nomEn || unitat?.nom || '-')
+          : (unitat?.nom || '-');
       const concepte = tasca.descripcio || '-';
       const quantitat = tasca.quantitat || 0;
       const preu = tasca.preu || 0;
@@ -293,7 +305,7 @@ if (tasquesPlanes.length === 0) {
       tableData.push([
         concepte,
         quantitat.toString(),
-        categoriaCodi === 'MATERIALS' ? '-' : (unitat?.nom || '-'),
+        categoriaCodi === 'MATERIALS' ? '-' : unitatNom,
         `${preu.toFixed(2)}€`,
         `${import_.toFixed(2)}€`
       ]);
@@ -438,21 +450,31 @@ const finalTotales = yTotals;
 yPos = Math.max(finalRecuadro, finalTotales) + 5;
 
   // OBSERVACIONS (centrado)
-  if (parametresData?.dadesEmpresa?.observacionsFactura) {
+  const obsText = idioma === 'es'
+    ? (parametresData?.dadesEmpresa?.observacionsFacturaEs || parametresData?.dadesEmpresa?.observacionsFactura)
+    : idioma === 'en'
+      ? (parametresData?.dadesEmpresa?.observacionsFacturaEn || parametresData?.dadesEmpresa?.observacionsFactura)
+      : parametresData?.dadesEmpresa?.observacionsFactura;
+  if (obsText) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100);
-    const obsLines = doc.splitTextToSize(parametresData.dadesEmpresa.observacionsFactura, 180);
+    const obsLines = doc.splitTextToSize(obsText, 180);
     doc.text(obsLines, 105, yPos, { align: 'center' });
     yPos += (obsLines.length * 4) + 5;
   }
 
   // NOTES A PEU
-  if (formData.plantillesText) {
+  const notesText = idioma === 'es'
+    ? ((formData as any).plantillesTextEs || formData.plantillesText)
+    : idioma === 'en'
+      ? ((formData as any).plantillesTextEn || formData.plantillesText)
+      : formData.plantillesText;
+  if (notesText) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(80);
-    const notesLines = doc.splitTextToSize(formData.plantillesText, 180);
+    const notesLines = doc.splitTextToSize(notesText, 180);
     doc.text(notesLines, colIzq, yPos);
   }
 

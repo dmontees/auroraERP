@@ -18,11 +18,18 @@ import { storage } from '../../../utils/storageManager';
 // ============================================================================
 
 const DEFAULT_GRUPS_MATERIALS: GrupMaterial[] = [
-  { codi: 'GRM-00001', nom: 'Càmeres', esDefault: true },
-  { codi: 'GRM-00002', nom: 'Suports i il·luminació', esDefault: true },
-  { codi: 'GRM-00003', nom: 'Sistema de gravació so', esDefault: true },
-  { codi: 'GRM-00004', nom: 'Equipament realització', esDefault: true }
+  { codi: 'GRM-00001', nom: 'Càmeres', esDefault: true, nomEs: 'Cámaras', nomEn: 'Cameras' },
+  { codi: 'GRM-00002', nom: 'Suports i il·luminació', esDefault: true, nomEs: 'Soporte e Iluminación', nomEn: 'Support & Lighting' },
+  { codi: 'GRM-00003', nom: 'Sistema de gravació so', esDefault: true, nomEs: 'Sistema de grabación de sonido', nomEn: 'Sound Recording System' },
+  { codi: 'GRM-00004', nom: 'Equipament realització', esDefault: true, nomEs: 'Equipo de realización', nomEn: 'Production Crew' }
 ];
+
+const DEFAULT_GROUP_TRANSLATIONS: Record<string, { nomEs: string; nomEn: string }> = {
+  'GRM-00001': { nomEs: 'Cámaras', nomEn: 'Cameras' },
+  'GRM-00002': { nomEs: 'Soporte e Iluminación', nomEn: 'Support & Lighting' },
+  'GRM-00003': { nomEs: 'Sistema de grabación de sonido', nomEn: 'Sound Recording System' },
+  'GRM-00004': { nomEs: 'Equipo de realización', nomEn: 'Production Crew' },
+};
 
 const DEFAULT_TIPUS_PLANTILLES: TipusPlantilla[] = [
   { codi: 'TPL-00001', nom: 'Peu de pàgina de pressupost', esDefault: true },
@@ -217,6 +224,18 @@ export function useParametres() {
     if (tePlantillesAntiguaFactura) {
       data.plantilles = data.plantilles.filter((p: any) => p.tipusPlantilla !== 'TPL-00002');
       data.plantilles = [...data.plantilles, ...DEFAULT_PLANTILLES.filter(p => p.tipusPlantilla === 'TPL-00002')];
+      needsUpdate = true;
+    }
+
+    // Add ES/EN translations to default material groups if missing
+    if (data.grupsMaterials?.some((g: any) => g.esDefault && !g.nomEs)) {
+      data.grupsMaterials = data.grupsMaterials.map((g: any) => {
+        const trans = DEFAULT_GROUP_TRANSLATIONS[g.codi];
+        if (g.esDefault && trans && !g.nomEs) {
+          return { ...g, ...trans };
+        }
+        return g;
+      });
       needsUpdate = true;
     }
 

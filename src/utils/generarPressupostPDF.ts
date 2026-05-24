@@ -331,7 +331,14 @@ if (formData.tasques.length === 0) {
   
   categoriesOrdenades.forEach(categoriaCodi => {
     const categoria = parametresData?.categories?.find((c: any) => c.codi === categoriaCodi);
-    const categoriaNom = categoriaCodi === 'MATERIALS' ? 'MATERIALS' : (categoria?.nom || categoriaCodi).toUpperCase();
+    const categoriaBase = categoriaCodi === 'MATERIALS'
+      ? 'MATERIALS'
+      : idioma === 'es'
+        ? (categoria?.nomEs || categoria?.nom || categoriaCodi)
+        : idioma === 'en'
+          ? (categoria?.nomEn || categoria?.nom || categoriaCodi)
+          : (categoria?.nom || categoriaCodi);
+    const categoriaNom = categoriaBase.toUpperCase();
     const tasquesCategoria = formData.tasques
       .filter(t => t.categoria === categoriaCodi)
       .sort((a, b) => a.ordre - b.ordre);
@@ -350,12 +357,17 @@ if (formData.tasques.length === 0) {
     
     tasquesCategoria.forEach(tasca => {
       const unitat = parametresData?.unitats?.find((u: any) => u.codi === tasca.unitat);
+      const unitatNom = idioma === 'es'
+        ? (unitat?.nomEs || unitat?.nom || '-')
+        : idioma === 'en'
+          ? (unitat?.nomEn || unitat?.nom || '-')
+          : (unitat?.nom || '-');
       const concepte = tasca.descripcio || '-';
-      
+
       tableData.push([
         concepte,
         tasca.quantitat.toString(),
-        categoriaCodi === 'MATERIALS' ? '-' : (unitat?.nom || '-'),
+        categoriaCodi === 'MATERIALS' ? '-' : unitatNom,
         `${tasca.tarifa.toFixed(2)}€`,
         `${tasca.importe.toFixed(2)}€`
       ]);
@@ -453,11 +465,16 @@ doc.text(tr.totalIva, 120, yPos + 14);
 doc.text(`${totalAmbIva.toFixed(2)}€`, margenDer, yPos + 14, { align: 'right' });
 
 // NOTES A PEU
-if (formData.notesAPeu) {
+const notesText = idioma === 'es'
+  ? ((formData as any).notesAPeuEs || formData.notesAPeu)
+  : idioma === 'en'
+    ? ((formData as any).notesAPeuEn || formData.notesAPeu)
+    : formData.notesAPeu;
+if (notesText) {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80);
-  const notesLines = doc.splitTextToSize(formData.notesAPeu, 180);
+  const notesLines = doc.splitTextToSize(notesText, 180);
   doc.text(notesLines, colIzq, yPos + 24);
 }
 

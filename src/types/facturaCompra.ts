@@ -97,6 +97,7 @@ export interface ObligacioFiscal extends GastoBase {
   salariNet?: number;
   costTotalEmpresa?: number;
   projecteCodi?: string;
+  albaransVinculats?: string[];    // ALC-XXXXX codis vinculats (nomina-treballador)
   // iva-trimestral only:
   ivaRepercutitCalculat?: number;
   ivaSuportatCalculat?: number;

@@ -4,6 +4,7 @@ import { Trash2, Settings, X } from 'lucide-react';
 interface ServeisTabProps {
   hook: {
     parametres: any;
+    saveParametres: (params: any) => void;
     serveiEnUs: (codi: string) => boolean;
     categoriaEnUs: (codi: string) => boolean;
     afegirCategoria: () => void;
@@ -18,6 +19,7 @@ interface ServeisTabProps {
 export default function ServeisTab({ hook }: ServeisTabProps) {
   const {
     parametres,
+    saveParametres,
     serveiEnUs,
     categoriaEnUs,
     afegirCategoria,
@@ -169,32 +171,62 @@ export default function ServeisTab({ hook }: ServeisTabProps) {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Codi</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.85rem', fontWeight: 600, width: '15%' }}>Codi</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom CA</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom ES</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom EN</th>
                       <th style={{ width: '50px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {(parametres.categories || []).map((categoria: any, index: number) => (
                       <tr key={categoria.codi} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                        <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-tertiary)' }}>
+                        <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-tertiary)' }}>
                           {categoria.codi}
                         </td>
-                        <td style={{ padding: '0.75rem' }}>
+                        <td style={{ padding: '0.5rem' }}>
                           {categoriaEnUs(categoria.codi) ? (
-                            categoria.nom
+                            <span style={{ fontSize: '0.9rem' }}>{categoria.nom}</span>
                           ) : (
                             <input
                               type="text"
                               className="form-input"
                               value={categoria.nom}
                               onChange={(e) => actualitzarCategoria(index, e.target.value)}
-                              style={{ padding: '0.5rem' }}
+                              style={{ padding: '0.4rem 0.5rem' }}
                               placeholder="Nom de la categoria"
                             />
                           )}
                         </td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.5rem' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={categoria.nomEs || ''}
+                            onChange={(e) => {
+                              const noves = [...parametres.categories];
+                              noves[index] = { ...noves[index], nomEs: e.target.value };
+                              saveParametres({ ...parametres, categories: noves });
+                            }}
+                            placeholder="Castellano..."
+                            style={{ padding: '0.4rem 0.5rem' }}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={categoria.nomEn || ''}
+                            onChange={(e) => {
+                              const noves = [...parametres.categories];
+                              noves[index] = { ...noves[index], nomEn: e.target.value };
+                              saveParametres({ ...parametres, categories: noves });
+                            }}
+                            placeholder="English..."
+                            style={{ padding: '0.4rem 0.5rem' }}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                           {!categoriaEnUs(categoria.codi) && (
                             <button
                               type="button"

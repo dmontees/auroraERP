@@ -82,12 +82,18 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
       setPlantillesSeleccionades(plantillesDefecte);
 
       if (!initialPressupost) {
-        const textDefecte = (parametresData.plantilles || [])
-          .filter((p: any) => p.tipusPlantilla === tipusPeuPagina.codi && p.perDefecte)
-          .map((p: any) => `• ${p.text}`)
-          .join('\n');
+        const plantillesActives = (parametresData.plantilles || [])
+          .filter((p: any) => p.tipusPlantilla === tipusPeuPagina.codi && p.perDefecte);
 
-        setFormData(prev => ({ ...prev, notesAPeu: textDefecte }));
+        const textPerLang = (field: string) =>
+          plantillesActives.map((p: any) => `• ${p[field] || p.text}`).join('\n');
+
+        setFormData(prev => ({
+          ...prev,
+          notesAPeu: textPerLang('text'),
+          notesAPeuEs: textPerLang('textEs'),
+          notesAPeuEn: textPerLang('textEn'),
+        }));
       }
     }
   }, [initialPressupost]);

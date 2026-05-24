@@ -199,26 +199,36 @@ export default function Dashboard() {
 
   const kpiCard = (
     icon: React.ReactNode,
-    iconBg: string,
+    color: string,
     label: string,
     value: string,
     sub?: string,
-    borderColor?: string
   ) => (
-    <div style={{
-      background: 'var(--color-bg-secondary)',
-      padding: '0.9rem 1.1rem',
-      borderRadius: '12px',
-      border: `2px solid ${borderColor || 'var(--color-border)'}`,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
-        <div style={{ background: iconBg, padding: '0.5rem', borderRadius: '7px', display: 'flex' }}>
+    <div
+      style={{
+        background: 'var(--color-bg-secondary)',
+        padding: '1.5rem',
+        borderRadius: '12px',
+        border: `2px solid ${color}`,
+        transition: 'transform 0.2s, box-shadow 0.2s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+        <div style={{ background: `${color}20`, padding: '0.75rem', borderRadius: '8px', display: 'flex' }}>
           {icon}
         </div>
-        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{label}</span>
+        <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</span>
       </div>
-      <div style={{ fontSize: '1.45rem', fontWeight: 700 }}>{value}</div>
-      {sub && <div style={{ fontSize: '0.78rem', color: 'var(--color-text-tertiary)', marginTop: '0.2rem' }}>{sub}</div>}
+      <div style={{ fontSize: '2rem', fontWeight: 700, color, marginBottom: sub ? '0.25rem' : 0 }}>{value}</div>
+      {sub && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{sub}</div>}
     </div>
   );
 
@@ -230,34 +240,22 @@ export default function Dashboard() {
       </p>
 
       {/* ── KPIs ─────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1rem',
-        marginBottom: '1.25rem',
-      }}>
-        {kpiCard(<TrendingUp size={20} color="#f59e0b" />, '#fef3c7', 'Pendent de Cobrar', fmtEur2(pendentCobrar), undefined, '#f59e0b')}
-        {kpiCard(<TrendingDown size={20} color="#ef4444" />, '#fee2e2', 'Pendent de Pagar', fmtEur2(pendentPagar), undefined, '#ef4444')}
-        {kpiCard(
-          <AlertCircle size={20} color="#dc2626" />,
-          '#fecaca',
-          'Factures Vençudes',
-          String(facturesVencudes.length),
-          facturesVencudes.length > 0 ? fmtEur2(totalVencudes) : undefined,
-          '#dc2626'
-        )}
-        {kpiCard(<Briefcase size={20} color="#10b981" />, '#d1fae5', 'Projectes Actius', String(projectesActius), undefined, '#10b981')}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+        {kpiCard(<TrendingUp size={20} color="#f59e0b" />, '#f59e0b', 'Pendent de Cobrar', fmtEur2(pendentCobrar))}
+        {kpiCard(<TrendingDown size={20} color="#ef4444" />, '#ef4444', 'Pendent de Pagar', fmtEur2(pendentPagar))}
+        {kpiCard(<AlertCircle size={20} color="#dc2626" />, '#dc2626', 'Factures Vençudes', String(facturesVencudes.length), facturesVencudes.length > 0 ? fmtEur2(totalVencudes) : undefined)}
+        {kpiCard(<Briefcase size={20} color="#10b981" />, '#10b981', 'Projectes Actius', String(projectesActius))}
       </div>
 
       {/* ── GRÀFIC + CARDS + TASQUES ─────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '480px', gap: '1rem', marginBottom: '1.25rem' }}>
 
         {/* Gràfic barres */}
         <div style={{
           background: 'var(--color-bg-secondary)',
-          padding: '1rem 1.25rem',
           borderRadius: '12px',
           border: '1px solid var(--color-border)',
+          padding: '1rem 1.25rem',
           display: 'flex',
           flexDirection: 'column',
         }}>
@@ -309,12 +307,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
           {/* Card 1: Benefici net fiscal */}
-          <div style={{
-            background: 'var(--color-bg-secondary)',
-            padding: '1rem 1.1rem',
-            borderRadius: '12px',
-            border: '1px solid var(--color-border)',
-          }}>
+          <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', flex: 1, overflow: 'visible' }}>
             <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.4rem' }}>
               Benefici net fiscal · {selectedYear}
             </div>
@@ -360,12 +353,7 @@ export default function Dashboard() {
           </div>
 
           {/* Card 2: Benefici net real (estructural) */}
-          <div style={{
-            background: 'var(--color-bg-secondary)',
-            padding: '1rem 1.1rem',
-            borderRadius: '12px',
-            border: '1px solid var(--color-border)',
-          }}>
+          <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', flex: 1, overflow: 'visible' }}>
             <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.4rem' }}>
               Benefici net real · {selectedYear}
             </div>
@@ -415,13 +403,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── TASQUES URGENTS (3a columna del grid) ──────────────────────── */}
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem 1.1rem',
-          borderRadius: '12px',
-          border: '1px solid var(--color-border)',
-          overflowY: 'auto',
-        }}>
+        <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', overflow: 'visible' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>⚡ Tasques Urgents</h3>
 
           {tascasUrgents.map(t => {
@@ -453,12 +435,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── ACTIVITAT RECENT (amplada completa) ──────────────────────────── */}
-      <div style={{
-        background: 'var(--color-bg-secondary)',
-        padding: '1.5rem',
-        borderRadius: '12px',
-        border: '1px solid var(--color-border)',
-      }}>
+      <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1.5rem' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>🕐 Activitat Recent</h3>
 
         {activitatRecent.length === 0 ? (

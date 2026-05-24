@@ -38,6 +38,7 @@ export interface DataRodatge {
   data: string;
   hora?: string;
   nota?: string;
+  googleEventId?: string;
 }
 
 export interface DataEntrega {
@@ -45,6 +46,7 @@ export interface DataEntrega {
   data: string;
   nota?: string;
   entregada?: boolean;
+  googleEventId?: string;
 }
 
 export interface FeedbackProjecte {

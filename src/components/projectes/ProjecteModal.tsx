@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { storage } from '../../utils/storageManager';
 import { getNextTdCodi, syncAlbaransForProject, checkEliminarLinia, deleteAlbaraForLinia } from '../../utils/albaraSync';
+import { syncProjectDatesToGoogle, isGoogleCalendarConnected } from '../../utils/googleCalendarSync';
 import { X, Trash2, FileText } from 'lucide-react';
 import DocumentModal from './DocumentModal';
 import type { Projecte, TascaProjecte, RecursHumaProjecte, MaterialProjecte, DocumentProjecte } from '../../types/projecte';
@@ -147,6 +148,19 @@ function ProjecteModal({
   const handleSaveWithSync = (data: Projecte) => {
     onSave(data);
     syncAlbaransForProject(data, parametres);
+    // Google Calendar sync for project dates (fire and forget)
+    if (isGoogleCalendarConnected()) {
+      const oldProjecte = projecte;
+      syncProjectDatesToGoogle(data, oldProjecte, clients).then(updated => {
+        const hasDiff =
+          JSON.stringify(updated.datesRodatge) !== JSON.stringify(data.datesRodatge) ||
+          JSON.stringify(updated.datesEntrega) !== JSON.stringify(data.datesEntrega);
+        if (hasDiff) {
+          const stored = storage.getProjectes();
+          storage.setProjectes(stored.map((p: Projecte) => p.codi === updated.codi ? updated : p));
+        }
+      }).catch(console.error);
+    }
   };
   const { saveNow } = useAutoSave(formData, handleSaveWithSync);
   const estatAnteriorRef = useRef<string>(formData.estat);

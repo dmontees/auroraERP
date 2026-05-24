@@ -92,6 +92,8 @@ export interface FacturaVenta {
   observacions: string;
   plantillesSeleccionades: string[];  // Códigos de plantillas
   plantillesText: string;              // Texto combinado y editable
+  plantillesTextEs?: string;
+  plantillesTextEn?: string;
   
   // Historial
   accions: AccioFactura[];

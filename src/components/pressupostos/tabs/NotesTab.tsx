@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { storage } from '../../../utils/storageManager';
+import LangToggle, { type Lang } from '../../common/LangToggle';
 
 interface NotesTabProps {
   hook: any;
@@ -7,30 +8,62 @@ interface NotesTabProps {
 
 export default function NotesTab({ hook }: NotesTabProps) {
   const { formData, setFormData, plantillesSeleccionades, setPlantillesSeleccionades, clientBlocked, pressupostBloquejat } = hook;
+  const [lang, setLang] = useState<Lang>('ca');
+
+  // Lazy-populate ES/EN text from selected plantilles when switching to an empty lang field
+  useEffect(() => {
+    if (lang === 'ca') return;
+    const field = lang === 'es' ? 'notesAPeuEs' : 'notesAPeuEn';
+    if (formData[field]) return;
+
+    const parametresData = storage.getParametres();
+    const plantillesActives = (parametresData.plantilles || [])
+      .filter((p: any) => plantillesSeleccionades.includes(p.codi));
+
+    if (plantillesActives.length === 0) return;
+
+    const textLines = plantillesActives
+      .map((p: any) => `• ${lang === 'es' ? (p.textEs || p.text || '') : (p.textEn || p.text || '')}`)
+      .join('\n');
+
+    if (textLines.trim()) {
+      setFormData((prev: any) => ({ ...prev, [field]: textLines }));
+    }
+  }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const currentField = lang === 'ca' ? 'notesAPeu' : lang === 'es' ? 'notesAPeuEs' : 'notesAPeuEn';
+  const currentPlaceholder = lang === 'ca'
+    ? 'Les notes seleccionades apareixeran aquí. Podeu editar el text lliurement...'
+    : lang === 'es'
+      ? 'Las notas aparecerán aquí. Puedes editar el texto libremente...'
+      : 'Notes will appear here. You can edit the text freely...';
 
   return (
     <div>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '1rem' }}>
-          Plantilles disponibles
-        </h3>
-        
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 0 }}>
+            Plantilles disponibles
+          </h3>
+          <LangToggle value={lang} onChange={setLang} />
+        </div>
+
         {(() => {
           const parametres = storage.getParametres();
           const tipusPeuPagina = (parametres as any).tipusPlantilles?.find((t: any) => t.nom === 'Peu de pàgina de pressupost');
-          
+
           if (!tipusPeuPagina) return <p style={{ color: 'var(--color-text-tertiary)' }}>No hi ha plantilles de peu de pàgina</p>;
-          
+
           const plantillesPeu = (parametres.plantilles || []).filter((p: any) => p.tipusPlantilla === tipusPeuPagina.codi);
-          
+
           if (plantillesPeu.length === 0) return <p style={{ color: 'var(--color-text-tertiary)' }}>No hi ha plantilles creades</p>;
-          
+
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {plantillesPeu.map((plantilla: any) => {
                 const isChecked = plantillesSeleccionades.includes(plantilla.codi);
                 const isDisabled = plantilla.perDefecte;
-                
+
                 return (
                   <label
                     key={plantilla.codi}
@@ -50,14 +83,19 @@ export default function NotesTab({ hook }: NotesTabProps) {
                       checked={isChecked}
                       onChange={(e) => {
                         const checked = e.target.checked;
-                        
+
                         if (checked) {
                           setPlantillesSeleccionades((prev: string[]) => [...prev, plantilla.codi]);
+                          const langText = lang === 'ca'
+                            ? (plantilla.text || '')
+                            : lang === 'es'
+                              ? (plantilla.textEs || plantilla.text || '')
+                              : (plantilla.textEn || plantilla.text || '');
                           setFormData((prev: any) => ({
                             ...prev,
-                            notesAPeu: prev.notesAPeu 
-                              ? `${prev.notesAPeu}\n• ${plantilla.text}`
-                              : `• ${plantilla.text}`
+                            [currentField]: prev[currentField]
+                              ? `${prev[currentField]}\n• ${langText}`
+                              : `• ${langText}`
                           }));
                         } else {
                           setPlantillesSeleccionades((prev: string[]) => prev.filter(c => c !== plantilla.codi));
@@ -105,11 +143,11 @@ export default function NotesTab({ hook }: NotesTabProps) {
         </label>
         <textarea
           className="form-input"
-          value={formData.notesAPeu}
-          onChange={(e) => setFormData({ ...formData, notesAPeu: e.target.value })}
+          value={formData[currentField] || ''}
+          onChange={(e) => setFormData({ ...formData, [currentField]: e.target.value })}
           rows={12}
           style={{ resize: 'vertical', fontFamily: 'monospace' }}
-          placeholder="Les notes seleccionades apareixeran aquí. Podeu editar el text lliurement..."
+          placeholder={currentPlaceholder}
           disabled={pressupostBloquejat}
         />
       </div>

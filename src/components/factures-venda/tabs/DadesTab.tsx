@@ -149,6 +149,7 @@ export default function DadesTab({
         <div className="form-group">
           <label>Projecte</label>
           <SearchableSelect
+            key={formData.client}
             value={formData.projecte || ''}
             onChange={(value) => onProjecteSeleccionat(value || undefined)}
             options={projectes
@@ -157,8 +158,8 @@ export default function DadesTab({
                 value: p.codi,
                 label: `${p.codi} – ${p.titol}${p.facturaAssociada ? ` (vinculat a ${p.facturaAssociada})` : ''}`
               }))}
-            placeholder="Vincular projecte (opcional)..."
-            disabled={tePagaments}
+            placeholder={formData.client ? "Vincular projecte (opcional)..." : "Selecciona primer un client..."}
+            disabled={tePagaments || !formData.client}
           />
         </div>
       </div>

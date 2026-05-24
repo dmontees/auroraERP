@@ -9,8 +9,9 @@ import PlantillesTab from './tabs/PlantillesTab';
 import ModalitatsTab from './tabs/ModalitatsTab';
 import CategoriesProveidorsTab from './tabs/CategoriesProveidorsTab';
 import CalendariTab from './tabs/CalendariTab';
+import IntegracionsTab from './tabs/IntegracionsTab';
 
-type TabType = 'empresa' | 'serveis' | 'unitats' | 'tarifes' | 'materials' | 'plantilles' | 'modalitats' | 'categoriesProveidors' | 'calendari';
+type TabType = 'empresa' | 'serveis' | 'unitats' | 'tarifes' | 'materials' | 'plantilles' | 'modalitats' | 'categoriesProveidors' | 'calendari' | 'integracions';
 
 export default function ParametresPage() {
   const [activeTab, setActiveTab] = useState<TabType>('serveis');
@@ -28,7 +29,8 @@ export default function ParametresPage() {
     { id: 'modalitats', label: 'Modalitats' },
     { id: 'categoriesProveidors', label: 'Cat. Proveïdors' },
     { id: 'calendari', label: 'Calendari' },
-    { id: 'empresa', label: 'Dades Empresa' }
+    { id: 'empresa', label: 'Dades Empresa' },
+    { id: 'integracions', label: 'Integracions' }
   ];
 
   // Render tab content
@@ -60,6 +62,9 @@ export default function ParametresPage() {
 
       case 'calendari':
         return <CalendariTab hook={hook} />;
+
+      case 'integracions':
+        return <IntegracionsTab />;
 
       default:
         return null;

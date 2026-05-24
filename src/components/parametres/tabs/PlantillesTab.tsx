@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, FileText, X, Settings } from 'lucide-react';
+import LangToggle, { type Lang } from '../../common/LangToggle';
 
 interface PlantillesTabProps {
   hook: {
@@ -29,6 +30,19 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
   const [showPlantillaModal, setShowPlantillaModal] = useState(false);
   const [editingPlantilla, setEditingPlantilla] = useState<any>(null);
   const [showTipusPlantillesModal, setShowTipusPlantillesModal] = useState(false);
+  const [langPlantilla, setLangPlantilla] = useState<Lang>('ca');
+  const [txtCa, setTxtCa] = useState('');
+  const [txtEs, setTxtEs] = useState('');
+  const [txtEn, setTxtEn] = useState('');
+
+  useEffect(() => {
+    if (showPlantillaModal) {
+      setLangPlantilla('ca');
+      setTxtCa(editingPlantilla?.text || '');
+      setTxtEs(editingPlantilla?.textEs || '');
+      setTxtEn(editingPlantilla?.textEn || '');
+    }
+  }, [showPlantillaModal, editingPlantilla?.codi]);
 
   return (
     <div>
@@ -355,7 +369,6 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
                 const formData = new FormData(e.currentTarget);
                 const tipusPlantilla = formData.get('tipusPlantilla') as string;
                 const titol = formData.get('titol') as string;
-                const text = formData.get('text') as string;
                 const perDefecte = formData.get('perDefecte') === 'on';
 
                 if (!titol.trim()) {
@@ -365,16 +378,26 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
 
                 if (editingPlantilla) {
                   const index = parametres.plantilles.findIndex((p: any) => p.codi === editingPlantilla.codi);
-                  actualitzarPlantilla(index, 'tipusPlantilla', tipusPlantilla);
-                  actualitzarPlantilla(index, 'titol', titol);
-                  actualitzarPlantilla(index, 'text', text);
-                  actualitzarPlantilla(index, 'perDefecte', perDefecte);
+                  const updated = {
+                    ...parametres.plantilles[index],
+                    tipusPlantilla,
+                    titol,
+                    text: txtCa,
+                    textEs: txtEs,
+                    textEn: txtEn,
+                    perDefecte
+                  };
+                  const novesPlantilles = [...parametres.plantilles];
+                  novesPlantilles[index] = updated;
+                  saveParametres({ ...parametres, plantilles: novesPlantilles });
                 } else {
                   const novaPlantilla = {
                     codi: getNextPlantillaCode(),
                     tipusPlantilla,
                     titol,
-                    text,
+                    text: txtCa,
+                    textEs: txtEs,
+                    textEn: txtEn,
                     perDefecte
                   };
                   saveParametres({ ...parametres, plantilles: [...parametres.plantilles, novaPlantilla] });
@@ -411,15 +434,40 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
                 </div>
 
                 <div className="form-group">
-                  <label>Text</label>
-                  <textarea
-                    name="text"
-                    className="form-input"
-                    defaultValue={editingPlantilla?.text || ''}
-                    rows={8}
-                    style={{ resize: 'vertical' }}
-                    placeholder="Escriu el text de la plantilla..."
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <label style={{ marginBottom: 0 }}>Text</label>
+                    <LangToggle value={langPlantilla} onChange={setLangPlantilla} />
+                  </div>
+                  {langPlantilla === 'ca' && (
+                    <textarea
+                      className="form-input"
+                      value={txtCa}
+                      onChange={(e) => setTxtCa(e.target.value)}
+                      rows={8}
+                      style={{ resize: 'vertical' }}
+                      placeholder="Text en català..."
+                    />
+                  )}
+                  {langPlantilla === 'es' && (
+                    <textarea
+                      className="form-input"
+                      value={txtEs}
+                      onChange={(e) => setTxtEs(e.target.value)}
+                      rows={8}
+                      style={{ resize: 'vertical' }}
+                      placeholder="Texto en castellano..."
+                    />
+                  )}
+                  {langPlantilla === 'en' && (
+                    <textarea
+                      className="form-input"
+                      value={txtEn}
+                      onChange={(e) => setTxtEn(e.target.value)}
+                      rows={8}
+                      style={{ resize: 'vertical' }}
+                      placeholder="Text in English..."
+                    />
+                  )}
                 </div>
 
                 <div className="form-group">

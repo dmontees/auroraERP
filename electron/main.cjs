@@ -368,6 +368,132 @@ ipcMain.handle('import-data', (_, data) => {
 });
 
 // ============================================
+// GOOGLE CALENDAR OAUTH
+// ============================================
+
+async function exchangeCodeForTokens(code, clientId, clientSecret, redirectUri) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const body = new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    }).toString();
+
+    const req = https.request({
+      hostname: 'oauth2.googleapis.com',
+      path: '/token',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.error) reject(new Error(json.error_description || json.error));
+          else resolve(json);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+ipcMain.handle('google-calendar-start-auth', (_, { clientId, clientSecret }) => {
+  const http = require('http');
+
+  return new Promise((resolve, reject) => {
+    const server = http.createServer();
+
+    const timeout = setTimeout(() => {
+      server.close();
+      reject(new Error('Timeout: l\'autenticació ha superat els 5 minuts'));
+    }, 5 * 60 * 1000);
+
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'https://www.googleapis.com/auth/calendar',
+        access_type: 'offline',
+        prompt: 'consent'
+      }).toString();
+
+      shell.openExternal(authUrl);
+      console.log('🔗 Google OAuth: obertura del navegador per autenticació');
+
+      server.on('request', async (req, res) => {
+        if (!req.url || !req.url.startsWith('/callback')) {
+          res.writeHead(404); res.end(); return;
+        }
+
+        const url = new URL(req.url, `http://127.0.0.1:${port}`);
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+
+        clearTimeout(timeout);
+        server.close();
+
+        const html = (ok, msg) =>
+          `<html><body style="font-family:sans-serif;padding:2rem;text-align:center">` +
+          `<h2>${ok ? '✅' : '❌'} ${msg}</h2>` +
+          `<p>Pots tancar aquesta finestra i tornar a Aurora ERP.</p></body></html>`;
+
+        if (error || !code) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(html(false, 'Autenticació cancel·lada'));
+          reject(new Error(error || 'No s\'ha rebut el codi d\'autorització'));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(html(true, 'Connexió completada correctament'));
+
+        try {
+          const tokens = await exchangeCodeForTokens(code, clientId, clientSecret, redirectUri);
+          store.set('googleCalendarToken', {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: Date.now() + tokens.expires_in * 1000,
+            client_id: clientId,
+            client_secret: clientSecret,
+            calendar_id: 'primary'
+          });
+          console.log('✅ Google Calendar: token guardat correctament');
+          resolve({ success: true });
+        } catch (err) {
+          console.error('❌ Google Calendar: error intercanviant el codi:', err);
+          reject(err);
+        }
+      });
+
+      server.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+  });
+});
+
+ipcMain.handle('google-calendar-disconnect', () => {
+  store.delete('googleCalendarToken');
+  console.log('✅ Google Calendar: desconnectat');
+  return { success: true };
+});
+
+// ============================================
 // EVENTOS DE APLICACIÓN
 // ============================================
 

@@ -4,12 +4,15 @@ import type { ObligacioFiscal, SubtipusObligacioFiscal } from '../../types/factu
 import { SUBTIPUS_OBLIGACIO_FISCAL } from '../../types/facturaCompra';
 import type { Proveidor } from '../../types/proveidor';
 import type { Projecte } from '../../types/projecte';
+import type { AlbaraCompra } from '../../types/albara';
 import PagamentsManager from '../common/PagamentsManager';
 import SearchableSelect from '../common/SearchableSelect';
 import PDFUploader from '../common/PDFUploader';
 import { usePagaments } from '../../hooks/usePagaments';
 import { determinarEstat } from '../factures-compra/utils/facturesCalculations';
 import { useAutoSave } from '../../hooks/useAutoSave';
+import { storage } from '../../utils/storageManager';
+import { syncAlbaransAfterNomina } from '../../utils/albaraSync';
 
 interface Props {
   onClose: () => void;
@@ -95,6 +98,24 @@ export default function ObligacioFiscalModal({
   const [diesTreballats, setDiesTreballats] = useState(editingGasto?.diesTreballats || 0);
   const [salariDiariBrut, setSalariDiariBrut] = useState(editingGasto?.salariDiariBrut || 0);
 
+  // Nòmina: vinculació a projecte i albarans
+  const [vinculacioResposta, setVinculacioResposta] = useState<'no-resposta' | 'no' | 'si'>(() => {
+    if (editingGasto?.subtipus === 'nomina-treballador') {
+      return editingGasto.projecteCodi ? 'si' : 'no';
+    }
+    return 'no-resposta';
+  });
+  const [albaransDetectats, setAlbaransDetectats] = useState<AlbaraCompra[]>(() => {
+    if (editingGasto?.albaransVinculats?.length) {
+      const all = storage.getAlbaransCompra();
+      return all.filter(a => editingGasto.albaransVinculats!.includes(a.codi));
+    }
+    return [];
+  });
+  const [albaransVinculats, setAlbaransVinculats] = useState<string[]>(
+    editingGasto?.albaransVinculats || []
+  );
+
   const [ivaRegistratGestor, setIvaRegistratGestor] = useState(
     editingGasto?.ivaRegistratGestor || 0
   );
@@ -170,6 +191,9 @@ export default function ObligacioFiscalModal({
   const pendentPagament = totalGasto - totalPagat;
   const completamentPagada = totalGasto > 0.01 && pendentPagament <= 0.01;
   const camposBloquejats = totalPagat > 0;
+  const detailsBlocked = subtipus === 'nomina-treballador'
+    && !camposBloquejats
+    && (vinculacioResposta === 'no-resposta' || (vinculacioResposta === 'si' && !projecteCodi));
 
   const subtipusInfo = SUBTIPUS_OBLIGACIO_FISCAL.find(s => s.codi === subtipus);
 
@@ -179,6 +203,7 @@ export default function ObligacioFiscalModal({
     if (!data || !periode) return null;
     if (!concepte && subtipus !== 'nomina-treballador') return null;
     if (needsPDF && !documentPDF) return null;
+    if (detailsBlocked) return null;
 
     const estat = determinarEstat(totalGasto, totalPagat);
 
@@ -215,6 +240,7 @@ export default function ObligacioFiscalModal({
         salariNet,
         costTotalEmpresa,
         ...(projecteCodi && { projecteCodi }),
+        ...(albaransVinculats.length > 0 && { albaransVinculats }),
       }),
       ...(subtipus === 'iva-trimestral' && {
         ivaRegistratGestor,
@@ -231,10 +257,14 @@ export default function ObligacioFiscalModal({
       subtipus, periode, data, concepte, notes, baseImposable,
       treballadorCodi, diesTreballats, salariDiariBrut,
       ivaRegistratGestor, documentPDF, documentPDFName, pagaments, projecteCodi,
+      albaransVinculats, vinculacioResposta,
     },
     () => {
       const gasto = prepararGasto();
-      if (gasto) onSave(gasto);
+      if (gasto) {
+        syncAlbaransAfterNomina(gasto);
+        onSave(gasto);
+      }
     }
   );
 
@@ -278,6 +308,35 @@ export default function ObligacioFiscalModal({
       setDocumentPDF(undefined);
       setDocumentPDFName('');
     }
+  };
+
+  const detectarAlbarans = (pCodi: string, tCodi: string) => {
+    if (!pCodi || !tCodi) { setAlbaransDetectats([]); setAlbaransVinculats([]); return; }
+    const pendents = storage.getAlbaransCompra().filter(a =>
+      a.proveidorCodi === tCodi && a.projecteCodi === pCodi &&
+      a.estat === 'pendent-factura' && a.tipusLinia === 'rrhh'
+    );
+    setAlbaransDetectats(pendents);
+    setAlbaransVinculats(pendents.map(a => a.codi));
+  };
+
+  const handleTreballadorChange = (tCodi: string) => {
+    setTreballadorCodi(tCodi);
+    if (vinculacioResposta === 'si' && projecteCodi) detectarAlbarans(projecteCodi, tCodi);
+  };
+
+  const handleVinculacioNo = () => {
+    setVinculacioResposta('no');
+    setProjecteCodi('');
+    setAlbaransDetectats([]);
+    setAlbaransVinculats([]);
+  };
+
+  const handleVinculacioSi = () => setVinculacioResposta('si');
+
+  const handleProjecteChange = (pCodi: string) => {
+    setProjecteCodi(pCodi);
+    detectarAlbarans(pCodi, treballadorCodi);
   };
 
   const rowStyle: React.CSSProperties = {
@@ -442,6 +501,129 @@ export default function ObligacioFiscalModal({
             />
           </div>
 
+          {/* TREBALLADOR (nomina) */}
+          {subtipus === 'nomina-treballador' && (
+            <div className="form-group">
+              <label className="form-label">Treballador *</label>
+              <SearchableSelect
+                value={treballadorCodi}
+                onChange={handleTreballadorChange}
+                options={treballadors.map(t => ({
+                  value: t.codi,
+                  label: `${t.nomComercial || t.nomFiscal} (${t.codi})`,
+                }))}
+                placeholder="— Selecciona treballador —"
+                disabled={camposBloquejats}
+                required
+              />
+            </div>
+          )}
+
+          {/* VINCULACIÓ A PROJECTE (nomina, només quan no hi ha pagaments) */}
+          {subtipus === 'nomina-treballador' && !camposBloquejats && (
+            <div style={{
+              background: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1rem',
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+                Vinculada a un projecte?
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={handleVinculacioNo}
+                  style={{
+                    padding: '0.4rem 1.25rem',
+                    borderRadius: '6px',
+                    border: `2px solid ${vinculacioResposta === 'no' ? '#10b981' : 'var(--color-border)'}`,
+                    background: vinculacioResposta === 'no' ? '#ecfdf5' : 'transparent',
+                    color: vinculacioResposta === 'no' ? '#065f46' : 'var(--color-text-primary)',
+                    fontWeight: vinculacioResposta === 'no' ? 700 : 400,
+                    cursor: 'pointer',
+                  }}
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVinculacioSi}
+                  style={{
+                    padding: '0.4rem 1.25rem',
+                    borderRadius: '6px',
+                    border: `2px solid ${vinculacioResposta === 'si' ? '#3b82f6' : 'var(--color-border)'}`,
+                    background: vinculacioResposta === 'si' ? '#eff6ff' : 'transparent',
+                    color: vinculacioResposta === 'si' ? '#1d4ed8' : 'var(--color-text-primary)',
+                    fontWeight: vinculacioResposta === 'si' ? 700 : 400,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Sí
+                </button>
+              </div>
+
+              {vinculacioResposta === 'si' && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <label className="form-label">Projecte *</label>
+                  <SearchableSelect
+                    value={projecteCodi}
+                    onChange={handleProjecteChange}
+                    options={projectes
+                      .filter(p => p.estat !== 'facturat')
+                      .map(p => ({
+                        value: p.codi,
+                        label: `${p.titol} (${p.codi})`,
+                      }))}
+                    placeholder="— Selecciona projecte —"
+                  />
+                  {projecteCodi && albaransDetectats.length > 0 && (
+                    <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, fontSize: '0.85rem' }}>
+                      <strong style={{ color: '#1e40af' }}>Albarans vinculats automàticament ({albaransDetectats.length}):</strong>
+                      <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, color: '#1e3a8a' }}>
+                        {albaransDetectats.map(a => (
+                          <li key={a.codi} style={{ marginBottom: '0.2rem' }}>
+                            {a.codi} — {a.serveiNom || a.serveiCodi} ({a.quantitat} {a.unitatNom || a.unitatCodi})
+                            {' '}<strong>{(a.cost || 0).toFixed(2)} €</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {projecteCodi && treballadorCodi && albaransDetectats.length === 0 && (
+                    <div style={{
+                      marginTop: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      background: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      color: '#92400e',
+                    }}>
+                      Cap albarà pendent trobat per a aquest treballador i projecte
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Projecte associat (read-only quan hi ha pagaments) */}
+          {subtipus === 'nomina-treballador' && camposBloquejats && projecteCodi && (
+            <div className="form-group">
+              <label className="form-label">Projecte associat</label>
+              <input
+                type="text"
+                className="form-input"
+                value={projecteCodi}
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)', cursor: 'not-allowed' }}
+              />
+            </div>
+          )}
+
+          {/* FORMULARI NÒMINA TREBALLADOR */}
           {subtipus === 'nomina-treballador' && (
             <div style={{
               background: 'var(--color-bg-secondary)',
@@ -449,41 +631,10 @@ export default function ObligacioFiscalModal({
               borderRadius: '10px',
               padding: '1.25rem',
               marginBottom: '1rem',
+              opacity: detailsBlocked ? 0.5 : 1,
+              pointerEvents: detailsBlocked ? 'none' : 'auto',
             }}>
               <h4 style={{ fontWeight: 600, marginBottom: '1rem' }}>👷 Detall Nòmina</h4>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Treballador *</label>
-                  <SearchableSelect
-                    value={treballadorCodi}
-                    onChange={setTreballadorCodi}
-                    options={treballadors.map(t => ({
-                      value: t.codi,
-                      label: `${t.nomComercial || t.nomFiscal} (${t.codi})`,
-                    }))}
-                    placeholder="— Selecciona treballador —"
-                    disabled={camposBloquejats}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Projecte associat</label>
-                  <SearchableSelect
-                    value={projecteCodi}
-                    onChange={setProjecteCodi}
-                    options={projectes
-                      .filter(p => p.estat !== 'facturat')
-                      .map(p => ({
-                        value: p.codi,
-                        label: `${p.titol} (${p.codi})`,
-                      }))}
-                    placeholder="— Cap projecte —"
-                    disabled={camposBloquejats}
-                  />
-                </div>
-              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
                 <div className="form-group">

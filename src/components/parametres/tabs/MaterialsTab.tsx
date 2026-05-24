@@ -6,6 +6,7 @@ import MaterialModal from '../MaterialModal';
 interface MaterialsTabProps {
   hook: {
     parametres: any;
+    saveParametres: (params: any) => void;
     getNextMaterialCode: () => string;
     materialEnUs: (codi: string) => boolean;
     afegirMaterial: (material: any) => void;
@@ -22,6 +23,7 @@ interface MaterialsTabProps {
 export default function MaterialsTab({ hook }: MaterialsTabProps) {
   const {
     parametres,
+    saveParametres,
     getNextMaterialCode,
     materialEnUs,
     afegirMaterial,
@@ -280,15 +282,17 @@ export default function MaterialsTab({ hook }: MaterialsTabProps) {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Codi</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom</th>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '15%' }}>Codi</th>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom CA</th>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom ES</th>
+                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Nom EN</th>
                     <th style={{ width: '50px' }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {parametres.grupsMaterials.map((grup: any, index: number) => (
                     <tr key={grup.codi} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-tertiary)' }}>
+                      <td style={{ padding: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-tertiary)' }}>
                         {grup.codi}
                         {grup.esDefault && (
                           <span style={{
@@ -304,9 +308,9 @@ export default function MaterialsTab({ hook }: MaterialsTabProps) {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td style={{ padding: '0.5rem' }}>
                         {grup.esDefault ? (
-                          grup.nom
+                          <span style={{ fontSize: '0.9rem' }}>{grup.nom}</span>
                         ) : (
                           <input
                             type="text"
@@ -314,10 +318,39 @@ export default function MaterialsTab({ hook }: MaterialsTabProps) {
                             value={grup.nom}
                             onChange={(e) => actualitzarGrupMaterial(index, e.target.value)}
                             placeholder="Nom del grup"
+                            style={{ padding: '0.4rem 0.5rem' }}
                           />
                         )}
                       </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                      <td style={{ padding: '0.5rem' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={grup.nomEs || ''}
+                          onChange={(e) => {
+                            const nousGrups = [...parametres.grupsMaterials];
+                            nousGrups[index] = { ...nousGrups[index], nomEs: e.target.value };
+                            saveParametres({ ...parametres, grupsMaterials: nousGrups });
+                          }}
+                          placeholder="Castellano..."
+                          style={{ padding: '0.4rem 0.5rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={grup.nomEn || ''}
+                          onChange={(e) => {
+                            const nousGrups = [...parametres.grupsMaterials];
+                            nousGrups[index] = { ...nousGrups[index], nomEn: e.target.value };
+                            saveParametres({ ...parametres, grupsMaterials: nousGrups });
+                          }}
+                          placeholder="English..."
+                          style={{ padding: '0.4rem 0.5rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                         {!grup.esDefault && (
                           <button
                             type="button"

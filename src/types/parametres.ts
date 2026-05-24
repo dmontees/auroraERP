@@ -8,6 +8,8 @@ export interface Servei {
 export interface Unitat {
   codi: string;
   nom: string;
+  nomEs?: string;
+  nomEn?: string;
 }
 
 export interface DadesEmpresa {
@@ -24,16 +26,22 @@ export interface DadesEmpresa {
   logo: string | null;
   ibanDefecte: string;
   observacionsFactura: string;
+  observacionsFacturaEs?: string;
+  observacionsFacturaEn?: string;
 }
 
 export interface Categoria {
   codi: string;
   nom: string;
+  nomEs?: string;
+  nomEn?: string;
 }
 
 export interface GrupMaterial {
   codi: string;
   nom: string;
+  nomEs?: string;
+  nomEn?: string;
   esDefault: boolean;
 }
 
@@ -59,6 +67,8 @@ export interface Plantilla {
   tipusPlantilla: string;
   titol: string;
   text: string;
+  textEs?: string;
+  textEn?: string;
   perDefecte: boolean;
 }
 

@@ -44,6 +44,8 @@ export interface Pressupost {
   dataAcceptacio?: string; // Fecha cuando se aceptó
   observacionsClient: string;
   notesAPeu: string;
+  notesAPeuEs?: string;
+  notesAPeuEn?: string;
   
   // Detalles proyecto
   nomProjecte: string;
