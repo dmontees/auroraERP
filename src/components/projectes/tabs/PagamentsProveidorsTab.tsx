@@ -36,16 +36,27 @@ function albaraImport(a: AlbaraCompra) {
 export default function PagamentsProveidorsTab({ projecteCodi, proveidors, parametres }: Props) {
   const { pendents, vinculats, pagats, facturesVinculades } = useMemo(() => {
     const albarans = storage.getAlbaransCompra().filter(a => a.projecteCodi === projecteCodi);
-    const pendents = albarans.filter(a => a.estat === 'pendent-factura');
-    const vinculats = albarans.filter(a => a.estat === 'factura-vinculada');
-    const pagats = albarans.filter(a => a.estat === 'pagat');
+    const todesFactures = storage.getFacturesCompra() as FacturaCompra[];
 
-    // Load linked invoices
+    // An albarà with a fully-paid linked invoice is treated as "pagat" regardless of its stored estat,
+    // to handle cases where syncAlbaransAfterSave didn't run or had rounding issues.
+    const isEffectivamentPagat = (a: AlbaraCompra): boolean => {
+      if (a.estat === 'pagat') return true;
+      if (a.estat === 'factura-vinculada' && a.facturaCodi) {
+        const f = todesFactures.find(f => f.codi === a.facturaCodi);
+        return !!f && Math.round((f.pendentPagament || 0) * 100) / 100 <= 0 && (f.totalPagat || 0) > 0;
+      }
+      return false;
+    };
+
+    const pendents = albarans.filter(a => a.estat === 'pendent-factura');
+    const pagats = albarans.filter(a => isEffectivamentPagat(a));
+    const vinculats = albarans.filter(a => a.estat === 'factura-vinculada' && !isEffectivamentPagat(a));
+
     const facturaCodis = new Set([
       ...vinculats.map(a => a.facturaCodi!),
       ...pagats.map(a => a.facturaCodi!),
     ].filter(Boolean));
-    const todesFactures = storage.getFacturesCompra() as FacturaCompra[];
     const facturesVinculades = todesFactures.filter(f => facturaCodis.has(f.codi));
 
     return { pendents, vinculats, pagats, facturesVinculades };

@@ -232,11 +232,16 @@ export default function FacturaCompraModal({
   };
 
   const syncAlbaransAfterSave = (factura: FacturaCompra) => {
-    if (!factura.albaransVinculats?.length) return;
-    const isPagat = factura.pendentPagament <= 0.01 && factura.totalPagat > 0;
     const all = storage.getAlbaransCompra();
+    // Primary: use stored albaransVinculats; fallback: find by facturaCodi (handles missing field)
+    const codis: string[] = factura.albaransVinculats?.length
+      ? factura.albaransVinculats
+      : all.filter(a => a.facturaCodi === factura.codi).map(a => a.codi);
+    if (!codis.length) return;
+    // Treat any sub-cent remainder as fully paid
+    const isPagat = Math.round((factura.pendentPagament || 0) * 100) / 100 <= 0 && (factura.totalPagat || 0) > 0;
     storage.setAlbaransCompra(all.map(a =>
-      factura.albaransVinculats!.includes(a.codi)
+      codis.includes(a.codi)
         ? { ...a, facturaCodi: factura.codi, estat: isPagat ? 'pagat' : 'factura-vinculada' }
         : a
     ));

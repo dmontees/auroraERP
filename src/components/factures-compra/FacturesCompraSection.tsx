@@ -3,6 +3,7 @@ import { Download } from 'lucide-react';
 import type { EstatGasto, ObligacioFiscal } from '../../types/facturaCompra';
 import { CATEGORIES_GASTO_GENERAL } from '../../types/facturaCompra';
 import type { AlbaraCompra } from '../../types/albara';
+import type { Parametres } from '../../types/parametres';
 import { storage } from '../../utils/storageManager';
 import SearchableSelect from '../common/SearchableSelect';
 import TipusGastoModal from './TipusGastoModal';
@@ -20,11 +21,13 @@ export default function FacturesCompraSection() {
   const { gastos, proveidors, projectes, saveGastos, deleteGasto } = useFacturesData();
   const metricas = useFacturesMetrics(gastos);
   const [obligacionsFiscals, setObligacionsFiscals] = useState<ObligacioFiscal[]>([]);
+  const [parametres, setParametres] = useState<Parametres | null>(null);
   const [vista, setVista] = useState<Vista>('factures');
   const [albarans, setAlbarans] = useState<AlbaraCompra[]>([]);
 
   useEffect(() => {
     setObligacionsFiscals(storage.getObligacionsFiscals());
+    setParametres(storage.getParametres());
   }, []);
 
   // Reload albarans when vista is albarans OR when gastos changes (factura saved → syncAlbaransAfterSave runs)
@@ -348,9 +351,11 @@ export default function FacturesCompraSection() {
                   const provNom = prov?.nomComercial || prov?.nomFiscal || a.proveidorCodi;
                   const importVal = albaraImport(a);
                   const ei = albaraEstatInfo(a.estat);
+                  const serveiNom = parametres?.serveis.find(s => s.codi === a.serveiCodi)?.nom || a.serveiNom || a.serveiCodi || '';
+                  const materialNom = parametres?.materials.find(m => m.codi === a.materialCodi)?.material || a.materialNom || a.materialCodi || '';
                   const tipusLabel = a.tipusLinia === 'rrhh'
-                    ? `RRHH · ${a.serveiNom || a.serveiCodi || ''}`
-                    : `Material · ${a.materialNom || a.materialCodi || ''}`;
+                    ? `RRHH · ${serveiNom}`
+                    : `Material · ${materialNom}`;
                   return (
                     <tr key={a.codi} style={{ borderBottom: '1px solid var(--color-border)' }}>
                       <td style={{ padding: '0.75rem' }}>
@@ -363,7 +368,9 @@ export default function FacturesCompraSection() {
                         {a.facturaCodi || '—'}
                       </td>
                       <td style={{ padding: '0.75rem', fontSize: '0.85rem', fontWeight: 500 }}>{provNom}</td>
-                      <td style={{ padding: '0.75rem', fontSize: '0.82rem', fontFamily: 'monospace', color: 'var(--color-text-secondary)' }}>{a.projecteCodi}</td>
+                      <td style={{ padding: '0.75rem', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
+                        {projectes.find(p => p.codi === a.projecteCodi)?.titol || a.projecteCodi}
+                      </td>
                       <td style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{tipusLabel}</td>
                       <td style={{ padding: '0.75rem', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>{a.dataCreacio}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>

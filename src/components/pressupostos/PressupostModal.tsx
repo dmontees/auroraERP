@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { X, FileText, FolderKanban } from 'lucide-react';
 import { storage } from '../../utils/storageManager';
+import flagCa from '../../assets/flag-ca.png';
+import flagEs from '../../assets/flag-es.png';
+import flagEn from '../../assets/flag-en.png';
 import type { Pressupost } from '../../types/pressupost';
 import { usePressupost } from './hooks/usePressupost';
 import { useAutoSave } from '../../hooks/useAutoSave';
@@ -335,7 +338,7 @@ export default function PressupostModal({
                   onClick={() => { generarPDF('ca'); setShowLanguageModal(false); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
-                  <img src="/flag-ca.png" alt="Català" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={flagCa} alt="Català" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                   Català
                 </button>
                 <button
@@ -344,7 +347,7 @@ export default function PressupostModal({
                   onClick={() => { generarPDF('es'); setShowLanguageModal(false); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
-                  <img src="/flag-es.png" alt="Castellano" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={flagEs} alt="Castellano" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                   Castellano
                 </button>
                 <button
@@ -353,7 +356,7 @@ export default function PressupostModal({
                   onClick={() => { generarPDF('en'); setShowLanguageModal(false); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
-                  <img src="/flag-en.png" alt="English" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={flagEn} alt="English" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                   English
                 </button>
               </div>
