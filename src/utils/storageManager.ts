@@ -42,6 +42,14 @@ export interface StoreSchema {
     logo: string | null;
   } | null;
   esdevenimentsPersonalitzats: any[];
+  googleCalendarToken: {
+    access_token: string;
+    refresh_token: string;
+    expires_at: number;
+    client_id: string;
+    client_secret: string;
+    calendar_id: string;
+  } | null;
 }
 
 // Mapeo de claves localStorage → electron-store
@@ -59,7 +67,8 @@ const STORAGE_KEYS = {
   partsTreball: 'plateaPartsTreball',
   cronometre: 'plateaCronometre',
   settings: 'plateaErpSettings',
-  esdevenimentsPersonalitzats: 'plateaEsdevenimentsPersonalitzats'
+  esdevenimentsPersonalitzats: 'plateaEsdevenimentsPersonalitzats',
+  googleCalendarToken: 'plateaGoogleCalendarToken'
 } as const;
 
 class StorageManager {
@@ -132,6 +141,7 @@ class StorageManager {
       navigateTo: null,
       settings: null,
       esdevenimentsPersonalitzats: [],
+      googleCalendarToken: null,
       parametres: {
         categories: [],
         serveis: [],

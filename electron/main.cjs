@@ -463,16 +463,17 @@ ipcMain.handle('google-calendar-start-auth', (_, { clientId, clientSecret }) => 
 
         try {
           const tokens = await exchangeCodeForTokens(code, clientId, clientSecret, redirectUri);
-          store.set('googleCalendarToken', {
+          const tokenData = {
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             expires_at: Date.now() + tokens.expires_in * 1000,
             client_id: clientId,
             client_secret: clientSecret,
             calendar_id: 'primary'
-          });
+          };
+          store.set('googleCalendarToken', tokenData);
           console.log('✅ Google Calendar: token guardat correctament');
-          resolve({ success: true });
+          resolve({ success: true, token: tokenData });
         } catch (err) {
           console.error('❌ Google Calendar: error intercanviant el codi:', err);
           reject(err);

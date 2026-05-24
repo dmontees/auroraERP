@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getUserCalendars, setCalendarId, getCalendarId, isGoogleCalendarConnected } from '../../../utils/googleCalendarSync';
+import { storage } from '../../../utils/storageManager';
 
 type Status = 'idle' | 'connecting' | 'success' | 'error';
 
@@ -46,7 +47,10 @@ export default function IntegracionsTab() {
     setStatusMsg('S\'ha obert el navegador per autenticar-se. Torna aquí un cop hagis acceptat.');
 
     try {
-      await electron.startGoogleAuth(clientId.trim(), clientSecret.trim());
+      const result = await electron.startGoogleAuth(clientId.trim(), clientSecret.trim());
+      if (result?.token) {
+        storage.set('googleCalendarToken', result.token);
+      }
       setConnected(true);
       setStatus('success');
       setStatusMsg('Connexió establerta correctament!');
@@ -60,6 +64,7 @@ export default function IntegracionsTab() {
   const handleDisconnect = async () => {
     const electron = (window as any).electron;
     await electron?.disconnectGoogle?.();
+    storage.set('googleCalendarToken', null);
     setConnected(false);
     setCalendars([]);
     setClientSecret('');

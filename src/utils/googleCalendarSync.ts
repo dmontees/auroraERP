@@ -1,4 +1,5 @@
 import type { Projecte, DataRodatge, DataEntrega } from '../types/projecte';
+import { storage } from './storageManager';
 
 interface GoogleToken {
   access_token: string;
@@ -17,27 +18,18 @@ interface GoogleEvent {
   location?: string;
 }
 
-function getStore(): any {
-  return (window as any).electronStore ?? null;
-}
-
 export function isGoogleCalendarConnected(): boolean {
-  const store = getStore();
-  if (!store) return false;
-  const token: GoogleToken | null = store.get('googleCalendarToken');
+  const token = storage.get('googleCalendarToken');
   return !!token?.refresh_token;
 }
 
 function getStoredToken(): GoogleToken | null {
-  const store = getStore();
-  return store ? store.get('googleCalendarToken') : null;
+  return storage.get('googleCalendarToken') as GoogleToken | null;
 }
 
 function updateStoredToken(updates: Partial<GoogleToken>): void {
-  const store = getStore();
-  if (!store) return;
-  const current = store.get('googleCalendarToken');
-  if (current) store.set('googleCalendarToken', { ...current, ...updates });
+  const current = getStoredToken();
+  if (current) storage.set('googleCalendarToken', { ...current, ...updates });
 }
 
 export function getCalendarId(): string {
