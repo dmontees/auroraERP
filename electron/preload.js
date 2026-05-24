@@ -1,49 +1,59 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const Store = require('electron-store');
 
-// Inicializar electron-store con la misma configuración que main
-const store = new Store({
-  name: 'aurora-data',
-  defaults: {
-    clients: [],
-    proveidors: [],
-    projectes: [],
-    facturesVenda: [],
-    facturesCompra: [],
-    pressupostos: [],
-    obligacionsFiscals: [],
-    albaransCompra: [],
-    parametres: {
-      categories: [],
-      serveis: [],
-      unitats: [],
-      tarifes: [],
-      materials: [],
-      grupsMaterials: [],
-      plantilles: []
-    },
-    partsTreball: [],
-    version: '1.3.0',
-    migrationCompleted: false
-  }
-});
+// Initialize electron-store with error handling — if it fails, IPC-based features
+// (window.electron) must still be exposed so the app doesn't degrade to web mode.
+let store = null;
+try {
+  const Store = require('electron-store');
+  store = new Store({
+    name: 'aurora-data',
+    defaults: {
+      clients: [],
+      proveidors: [],
+      projectes: [],
+      facturesVenda: [],
+      facturesCompra: [],
+      pressupostos: [],
+      obligacionsFiscals: [],
+      albaransCompra: [],
+      parametres: {
+        categories: [],
+        serveis: [],
+        unitats: [],
+        tarifes: [],
+        materials: [],
+        grupsMaterials: [],
+        plantilles: []
+      },
+      partsTreball: [],
+      version: '1.4.1',
+      migrationCompleted: false
+    }
+  });
+  console.log('✅ electron-store inicialitzat correctament');
+  console.log('📁 Store path:', store.path);
+} catch (e) {
+  console.error('❌ Error inicialitzant electron-store:', e);
+  console.warn('⚠️  Preload continuarà sense electron-store (usarà localStorage al renderer)');
+}
 
-// Exponer API de electron-store al renderer
+// Expose electron-store API (null-safe — returns undefined if store is unavailable)
 contextBridge.exposeInMainWorld('electronStore', {
-  get: (key) => store.get(key),
-  set: (key, value) => store.set(key, value),
-  delete: (key) => store.delete(key),
-  clear: () => store.clear(),
-  getPath: () => store.path,
-  has: (key) => store.has(key),
-  store: () => store.store
+  get: (key) => store ? store.get(key) : undefined,
+  set: (key, value) => store ? store.set(key, value) : undefined,
+  delete: (key) => store ? store.delete(key) : undefined,
+  clear: () => store ? store.clear() : undefined,
+  getPath: () => store ? store.path : undefined,
+  has: (key) => store ? store.has(key) : false,
+  store: () => store ? store.store : undefined,
+  isAvailable: () => store !== null
 });
 
-// Exponer API de IPC y auto-updater
+// Expose IPC and auto-updater API — always available regardless of electron-store
 contextBridge.exposeInMainWorld('electron', {
-  // Versión de la app
+  // App version
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  
+
   // Auto-updater
   installUpdate: () => ipcRenderer.invoke('install-update'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
@@ -60,8 +70,8 @@ contextBridge.exposeInMainWorld('electron', {
   onUpdateNotAvailable: (callback) => {
     ipcRenderer.on('update-not-available', () => callback());
   },
-  
-  // Utilidades de store
+
+  // Store utilities
   getStorePath: () => ipcRenderer.invoke('get-store-path'),
   exportAllData: () => ipcRenderer.invoke('export-all-data'),
   importData: (data) => ipcRenderer.invoke('import-data', data),
@@ -74,5 +84,4 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('google-calendar-disconnect')
 });
 
-console.log('✅ Preload script cargado correctamente');
-console.log('📁 Store path:', store.path);
+console.log('✅ Preload script carregat correctament');

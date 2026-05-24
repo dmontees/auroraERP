@@ -67,14 +67,14 @@ class StorageManager {
   private electronStoreAPI: any;
 
   constructor() {
-    this.useElectronStore = typeof window !== 'undefined' && 
-                            typeof (window as any).electronStore !== 'undefined';
-    
+    const api = typeof window !== 'undefined' ? (window as any).electronStore : undefined;
+    this.useElectronStore = !!api && (api.isAvailable ? api.isAvailable() : typeof api.get === 'function');
+
     if (this.useElectronStore) {
-      this.electronStoreAPI = (window as any).electronStore;
+      this.electronStoreAPI = api;
       console.log('✅ Usando electron-store');
     } else {
-      console.log('ℹ️  Usando localStorage (modo desarrollo)');
+      console.log('ℹ️  Usando localStorage (modo desarrollo o electron-store no disponible)');
     }
   }
 
