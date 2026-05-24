@@ -26,7 +26,7 @@ try {
         plantilles: []
       },
       partsTreball: [],
-      version: '1.4.3',
+      version: '1.4.4',
       migrationCompleted: false
     }
   });

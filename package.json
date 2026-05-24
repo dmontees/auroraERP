@@ -1,7 +1,7 @@
 {
   "name": "Aurora-erp",
   "private": true,
-  "version": "1.4.3",
+  "version": "1.4.4",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Dani Montes",
@@ -44,8 +44,7 @@
       "provider": "github",
       "owner": "dmontees",
       "repo": "auroraERP",
-      "releaseType": "release",
-      "draft": false
+      "releaseType": "release"
     },
     "files": [
       "dist/**/*",
