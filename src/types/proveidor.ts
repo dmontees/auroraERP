@@ -47,4 +47,5 @@ export interface Proveidor {
   percentatgeIRPF?: number;          // % IRPF retingut; default 15
   salariDiari?: number;              // salari diari brut de referència
   serveisAssociats?: string[];       // codis de serveis que realitza
+  imatgePerfil?: string;            // base64 JPEG quadrat, usat com avatar
 }

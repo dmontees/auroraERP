@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Proveidor } from '../../../types/proveidor';
 import SearchableSelect from '../../common/SearchableSelect';
+import ProveidorImageCrop from '../ProveidorImageCrop';
 
 interface DadesTabProps {
   hook: {
@@ -33,32 +34,37 @@ export default function DadesTab({ hook }: DadesTabProps) {
           Identificació
         </h3>
         
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          gap: '1rem' 
-        }}>
-          <div className="form-group">
-            <label className="form-label">Codi</label>
-            <input
-              type="text"
-              className="form-input"
-              value={formData.codi}
-              disabled
-              style={{ 
-                background: 'var(--color-bg-tertiary)', 
-                cursor: 'not-allowed' 
-              }}
-            />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px', gap: '1.5rem', alignItems: 'start' }}>
+          {/* Left: codi + data d'alta apilats */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label">Codi</label>
+              <input
+                type="text"
+                className="form-input"
+                value={formData.codi}
+                disabled
+                style={{ background: 'var(--color-bg-tertiary)', cursor: 'not-allowed' }}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Data d'alta</label>
+              <input
+                type="date"
+                className="form-input"
+                value={formData.dataAlta}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataAlta: e.target.value }))}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Data d'alta</label>
-            <input
-              type="date"
-              className="form-input"
-              value={formData.dataAlta}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataAlta: e.target.value }))}
+          {/* Right: imatge de perfil */}
+          <div>
+            <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Imatge de perfil</label>
+            <ProveidorImageCrop
+              currentImage={formData.imatgePerfil}
+              onSave={(b64) => setFormData(prev => ({ ...prev, imatgePerfil: b64 }))}
+              onRemove={() => setFormData(prev => ({ ...prev, imatgePerfil: undefined }))}
             />
           </div>
         </div>

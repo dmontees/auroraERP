@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { storage } from '../../utils/storageManager';
 import { getNextTdCodi, syncAlbaransForProject, checkEliminarLinia, deleteAlbaraForLinia } from '../../utils/albaraSync';
 import { syncProjectDatesToGoogle, isGoogleCalendarConnected } from '../../utils/googleCalendarSync';
-import { X, Trash2, FileText } from 'lucide-react';
+import { ChevronLeft, Trash2, FileText } from 'lucide-react';
 import DocumentModal from './DocumentModal';
 import type { Projecte, TascaProjecte, RecursHumaProjecte, MaterialProjecte, DocumentProjecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
@@ -27,7 +27,7 @@ import {
   registrarDocumentEliminat,
 } from '../../utils/projecteHistorial';
 
-// Tabs
+import ResumTab from './tabs/ResumTab';
 import DadesTab from './tabs/DadesTab';
 import DespesesTab from './tabs/DespesesTab';
 import TasquesTab from './tabs/TasquesTab';
@@ -36,14 +36,13 @@ import FeedbackTab from './tabs/FeedbackTab';
 import HistorialTab from './tabs/HistorialTab';
 import PagamentsProveidorsTab from './tabs/PagamentsProveidorsTab';
 
-// Modals
 import AfegirTascaModal from './modals/AfegirTascaModal';
 import AfegirRecursModal from './modals/AfegirRecursModal';
 import VincularModal from './modals/VincularModal';
 
-interface ProjecteModalProps {
+interface ProjecteDetailViewProps {
   projecte: Projecte | null;
-  onClose: () => void;
+  onBack: () => void;
   onSave: (projecte: Projecte) => void;
   onCrearFactura?: (projecte: Projecte) => void;
   nextCode: string;
@@ -52,40 +51,42 @@ interface ProjecteModalProps {
   proveidors: Proveidor[];
 }
 
+function migrateProjecteIds(data: Projecte): Projecte {
+  const materials = (data.materials || []).map((m: MaterialProjecte, i: number) =>
+    m.id ? m : { ...m, id: `mat-legacy-${i}-${Date.now()}` }
+  );
+  const recursosHumans = (data.recursosHumans || []).map((r: RecursHumaProjecte, i: number) =>
+    r.id ? r : { ...r, id: `rh-legacy-${i}-${Date.now()}` }
+  );
+  return { ...data, materials, recursosHumans };
+}
+
 function hasRealProjectData(data: any): boolean {
   return (
-    data.pressupost ||
-    data.factura ||
-    data.titol ||
-    data.client ||
-    data.descripcio ||
-    data.recursosHumans?.length > 0 ||
-    data.materials?.length > 0 ||
-    data.tasques?.length > 0 ||
-    data.modalitat ||
-    data.servei ||
-    data.dataEntrega ||
-    data.datesRodatge?.length > 0 ||
-    data.datesEntrega?.length > 0 ||
-    data.dataFinalitzacio ||
-    data.instruccionsClient ||
-    data.instruccionsProveidors ||
-    (data.estat && data.estat !== 'esborrany') ||
-    data.historial?.length > 1
+    data.pressupost || data.factura || data.titol || data.client || data.descripcio ||
+    data.recursosHumans?.length > 0 || data.materials?.length > 0 || data.tasques?.length > 0 ||
+    data.modalitat || data.servei || data.dataEntrega ||
+    data.datesRodatge?.length > 0 || data.datesEntrega?.length > 0 ||
+    data.dataFinalitzacio || data.instruccionsClient || data.instruccionsProveidors ||
+    (data.estat && data.estat !== 'esborrany') || data.historial?.length > 1
   );
 }
 
-function ProjecteModal({
-  projecte,
-  onClose,
-  onSave,
-  onCrearFactura,
-  nextCode,
-  clients,
-  parametres,
-  proveidors
-}: ProjecteModalProps) {
-  const [activeTab, setActiveTab] = useState<'dades' | 'despeses' | 'tasques' | 'instruccions' | 'feedback' | 'historial' | 'pagaments'>('dades');
+const ESTAT_BG: Record<string, string> = {
+  esborrany: '#fef3c7', planificat: '#fed7aa', rodatge: '#fee2e2',
+  edicio: '#bfdbfe', esperant_feedback: '#f9fafb', revisio: '#3b82f6',
+  acabat: '#d1fae5', facturat: '#059669',
+};
+const ESTAT_COLOR: Record<string, string> = {
+  esborrany: '#92400e', planificat: '#9a3412', rodatge: '#991b1b',
+  edicio: '#1e3a8a', esperant_feedback: '#374151', revisio: '#ffffff',
+  acabat: '#065f46', facturat: '#ffffff',
+};
+
+function ProjecteDetailView({
+  projecte, onBack, onSave, onCrearFactura, nextCode, clients, parametres, proveidors
+}: ProjecteDetailViewProps) {
+  const [activeTab, setActiveTab] = useState<'resum' | 'dades' | 'despeses' | 'tasques' | 'instruccions' | 'feedback' | 'historial' | 'pagaments'>('resum');
   const [recursCopiado, setRecursCopiado] = useState<string | null>(null);
   const [materialCopiado, setMaterialCopiado] = useState<string | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -94,53 +95,34 @@ function ProjecteModal({
   const [pressupostos, setPressupostos] = useState<Pressupost[]>([]);
   const [factures, setFactures] = useState<FacturaVenta[]>([]);
 
-  const [formData, setFormData] = useState<Projecte>(
-    projecte || {
-      codi: nextCode,
-      client: '',
-      pressupost: undefined,
-      factura: undefined,
-      titol: '',
-      descripcio: '',
-      modalitat: '',
-      servei: '',
-      esDirect: false,
-      datesRodatge: [],
-      datesEntrega: [],
-      estat: 'esborrany',
-      recursosHumans: [],
-      materials: [],
-      ingresSenseIVA: 0,
-      iva: 21,
-      ingresAmbIVA: 0,
-      gastosMaterials: 0,
-      gastosHumans: 0,
-      gastosTotals: 0,
-      benefici: 0,
-      percentBenefici: 0,
-      instruccionsClient: '',
-      instruccionsProveidors: '',
-      tasques: [],
-      facturat: false,
-      arxivat: false,
-      historial: []
-    }
-  );
+  const [formData, setFormData] = useState<Projecte>(() => {
+    if (!projecte) return {
+      codi: nextCode, client: '', pressupost: undefined, factura: undefined,
+      titol: '', descripcio: '', modalitat: '', servei: '', esDirect: false,
+      datesRodatge: [], datesEntrega: [], estat: 'esborrany',
+      recursosHumans: [], materials: [],
+      ingresSenseIVA: 0, iva: 21, ingresAmbIVA: 0,
+      gastosMaterials: 0, gastosHumans: 0, gastosTotals: 0,
+      benefici: 0, percentBenefici: 0,
+      instruccionsClient: '', instruccionsProveidors: '',
+      tasques: [], facturat: false, arxivat: false, historial: []
+    };
+    return migrateProjecteIds(projecte);
+  });
 
   useEffect(() => {
     if (projecte) {
       const projectes = storage.getProjectes();
-      const projecteActualitzat = projectes.find((p: Projecte) => p.codi === projecte.codi);
-      if (projecteActualitzat) {
-        const data = JSON.parse(JSON.stringify(projecteActualitzat));
-        // Migrate legacy date fields to new array format
+      const updated = projectes.find((p: Projecte) => p.codi === projecte.codi);
+      if (updated) {
+        const data = JSON.parse(JSON.stringify(updated));
         if ((!data.datesRodatge || data.datesRodatge.length === 0) && data.dataInici) {
           data.datesRodatge = [{ id: `rod-${Date.now()}`, data: data.dataInici, hora: '', nota: '' }];
         }
         if ((!data.datesEntrega || data.datesEntrega.length === 0) && data.dataEntrega) {
           data.datesEntrega = [{ id: `ent-${Date.now()}`, data: data.dataEntrega, nota: '' }];
         }
-        setFormData(data);
+        setFormData(migrateProjecteIds(data));
       }
     }
   }, [projecte]);
@@ -148,7 +130,6 @@ function ProjecteModal({
   const handleSaveWithSync = (data: Projecte) => {
     onSave(data);
     syncAlbaransForProject(data, parametres);
-    // Google Calendar sync for project dates (fire and forget)
     if (isGoogleCalendarConnected()) {
       const oldProjecte = projecte;
       syncProjectDatesToGoogle(data, oldProjecte, clients).then(updated => {
@@ -163,6 +144,7 @@ function ProjecteModal({
       }).catch(console.error);
     }
   };
+
   const { saveNow } = useAutoSave(formData, handleSaveWithSync);
   const estatAnteriorRef = useRef<string>(formData.estat);
 
@@ -181,23 +163,21 @@ function ProjecteModal({
 
   const esBloquejat = formData.estat === 'facturat' || formData.estat === 'acabat';
 
-  // Sincronitzar avisFacturacio amb la factura vinculada
   const avisActiu = formData.avisFacturacio?.actiu;
   const avisDescripcio = formData.avisFacturacio?.descripcio;
   useEffect(() => {
     if (!formData.facturaAssociada) return;
-    const factures = storage.getFacturesVenda();
-    const facturaLinked = factures.find((f: any) => f.codi === formData.facturaAssociada);
+    const facturesAll = storage.getFacturesVenda();
+    const facturaLinked = facturesAll.find((f: any) => f.codi === formData.facturaAssociada);
     if (!facturaLinked) return;
     const nouAvis = { actiu: avisActiu ?? false, descripcio: avisDescripcio ?? '' };
     if (facturaLinked.avisFacturacio?.actiu !== nouAvis.actiu || facturaLinked.avisFacturacio?.descripcio !== nouAvis.descripcio) {
-      storage.setFacturesVenda(factures.map((f: any) =>
+      storage.setFacturesVenda(facturesAll.map((f: any) =>
         f.codi === formData.facturaAssociada ? { ...f, avisFacturacio: nouAvis } : f
       ));
     }
   }, [avisActiu, avisDescripcio, formData.facturaAssociada]);
 
-  // Càlculs automàtics
   useEffect(() => {
     const gastosHumans = formData.recursosHumans.reduce((sum, r) => sum + r.cost, 0);
     const gastosMaterials = formData.materials.reduce((sum, m) => sum + m.preuPlatea, 0);
@@ -209,25 +189,22 @@ function ProjecteModal({
   }, [formData.ingresSenseIVA, formData.iva, formData.recursosHumans, formData.materials]);
 
   // ─── Tarifes ────────────────────────────────────────────────────────────────
-
   const selectedClient = clients.find(c => c.codi === formData.client);
 
   const buscarTarifaClient = (servei: string, unitat: string): number | null => {
     if (!selectedClient || !parametres) return null;
     const tarifaClient = selectedClient.tarifesEspecials?.find(t => t.servei === servei && t.unitat === unitat);
     if (tarifaClient) return tarifaClient.preu;
-    const tarifaGeneral = parametres.tarifes.find(t => t.servei === servei && t.unitat === unitat);
-    return tarifaGeneral?.preu ?? null;
+    return parametres.tarifes.find(t => t.servei === servei && t.unitat === unitat)?.preu ?? null;
   };
 
   const buscarTarifaProveidor = (proveidorCodi: string, servei: string, unitat: string): number => {
     if (!proveidorCodi || !parametres) return 0;
-    const proveidor = proveidors.find(p => p.codi === proveidorCodi);
-    return proveidor?.tarifesEspecials?.find(t => t.servei === servei && t.unitat === unitat)?.preu || 0;
+    const prov = proveidors.find(p => p.codi === proveidorCodi);
+    return prov?.tarifesEspecials?.find(t => t.servei === servei && t.unitat === unitat)?.preu || 0;
   };
 
   // ─── CRUD Recursos Humans ────────────────────────────────────────────────────
-
   const [showAfegirRecursModal, setShowAfegirRecursModal] = useState(false);
   const [tipusRecurs, setTipusRecurs] = useState<'huma' | 'material'>('huma');
   const [nouRecursForm, setNouRecursForm] = useState<RecursHumaProjecte>({
@@ -293,10 +270,7 @@ function ProjecteModal({
         if (serveiData) updated.categoria = serveiData.categoria;
       }
       if (field === 'proveidor') {
-        // Assign tdCodi the first time a provider is set on this line
-        if (value && !updated.tdCodi) {
-          updated.tdCodi = getNextTdCodi(formData);
-        }
+        if (value && !updated.tdCodi) updated.tdCodi = getNextTdCodi(formData);
         const trb = proveidors.find(p => p.codi === value && p.tipus === 'Treballador');
         if (trb) {
           updated.preu = (trb.salariDiari || 0) * (1 + (trb.percentatgeSSEmpresa ?? 30.2) / 100);
@@ -353,14 +327,10 @@ function ProjecteModal({
     const tarifa = tarifaAuto !== null ? tarifaAuto : 0;
     const novaTasca: TascaProjecte = {
       id: `task-${Date.now()}-${Math.random()}`,
-      categoria: recurs.categoria,
-      servei: recurs.servei,
+      categoria: recurs.categoria, servei: recurs.servei,
       descripcio: serveiData?.descripcio || '',
-      quantitat: recurs.quantitat,
-      unitat: recurs.unitat,
-      tarifa,
-      importe: recurs.quantitat * tarifa,
-      ordre: formData.tasques.length
+      quantitat: recurs.quantitat, unitat: recurs.unitat,
+      tarifa, importe: recurs.quantitat * tarifa, ordre: formData.tasques.length
     };
     setFormData({ ...formData, tasques: [...formData.tasques, novaTasca] });
     setRecursCopiado(recurs.id);
@@ -368,7 +338,6 @@ function ProjecteModal({
   };
 
   // ─── CRUD Materials ──────────────────────────────────────────────────────────
-
   const afegirMaterial = () => {
     setNouMaterialForm({ id: `mat-${Date.now()}`, grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0 });
     setTipusRecurs('material');
@@ -383,10 +352,7 @@ function ProjecteModal({
   };
 
   const guardarNouMaterial = () => {
-    if (!nouMaterialForm.material) {
-      alert('Has de seleccionar un material');
-      return;
-    }
+    if (!nouMaterialForm.material) { alert('Has de seleccionar un material'); return; }
     const tdCodi = nouMaterialForm.proveidor ? getNextTdCodi(formData) : undefined;
     const materialAGuardar = { ...nouMaterialForm, tdCodi };
     const materialData = parametres?.materials.find(m => m.codi === materialAGuardar.material);
@@ -398,20 +364,21 @@ function ProjecteModal({
   };
 
   const actualitzarMaterial = (id: string, field: keyof MaterialProjecte, value: any) => {
-    setFormData({ ...formData, materials: formData.materials.map(m => m.id === id ? { ...m, [field]: value } : m) });
+    setFormData(prev => ({ ...prev, materials: prev.materials.map(m => m.id === id ? { ...m, [field]: value } : m) }));
   };
 
   const eliminarMaterial = (id: string) => {
-    const materialAEliminar = formData.materials.find(m => m.id === id);
-    if (materialAEliminar) {
-      const bloqueig = checkEliminarLinia(materialAEliminar.tdCodi);
-      if (bloqueig) { alert(bloqueig); return; }
-      deleteAlbaraForLinia(materialAEliminar.tdCodi);
-      const projecteAmbHistorial = registrarGastoEliminat(formData, `${materialAEliminar.grup || 'Material'} - ${materialAEliminar.material || ''}`, materialAEliminar.preuProveidor);
-      setFormData({ ...projecteAmbHistorial, materials: projecteAmbHistorial.materials.filter(m => m.id !== id) });
-    } else {
-      setFormData({ ...formData, materials: formData.materials.filter(m => m.id !== id) });
-    }
+    setFormData(prev => {
+      const materialAEliminar = prev.materials.find(m => m.id === id);
+      if (materialAEliminar) {
+        const bloqueig = checkEliminarLinia(materialAEliminar.tdCodi);
+        if (bloqueig) { alert(bloqueig); return prev; }
+        deleteAlbaraForLinia(materialAEliminar.tdCodi);
+        const projecteAmbHistorial = registrarGastoEliminat(prev, `${materialAEliminar.grup || 'Material'} - ${materialAEliminar.material || ''}`, materialAEliminar.preuProveidor);
+        return { ...projecteAmbHistorial, materials: projecteAmbHistorial.materials.filter(m => m.id !== id) };
+      }
+      return { ...prev, materials: prev.materials.filter(m => m.id !== id) };
+    });
   };
 
   const trasladarMaterialATaska = (material: MaterialProjecte) => {
@@ -420,15 +387,10 @@ function ProjecteModal({
     const grupData = parametres?.grupsMaterials.find(g => g.codi === material.grup);
     if (materialData && grupData) {
       const novaTasca: TascaProjecte = {
-        id: `task-${Date.now()}-${Math.random()}`,
-        categoria: 'MATERIALS',
-        servei: grupData.nom,
-        descripcio: grupData.nom,
-        quantitat: 1,
-        unitat: '',
-        tarifa: material.preuPlatea,
-        importe: material.preuPlatea,
-        ordre: formData.tasques.length
+        id: `task-${Date.now()}-${Math.random()}`, categoria: 'MATERIALS',
+        servei: grupData.nom, descripcio: grupData.nom,
+        quantitat: 1, unitat: '', tarifa: material.preuPlatea,
+        importe: material.preuPlatea, ordre: formData.tasques.length
       };
       setFormData({ ...formData, tasques: [...formData.tasques, novaTasca] });
       setMaterialCopiado(material.id);
@@ -437,7 +399,6 @@ function ProjecteModal({
   };
 
   // ─── CRUD Tasques ────────────────────────────────────────────────────────────
-
   const [showAfegirTascaModal, setShowAfegirTascaModal] = useState(false);
   const [novaTascaForm, setNovaTascaForm] = useState<TascaProjecte>({
     id: '', categoria: '', servei: '', descripcio: '', quantitat: 1, unitat: '', tarifa: 0, importe: 0, ordre: 0
@@ -468,10 +429,7 @@ function ProjecteModal({
   };
 
   const guardarNovaTasca = () => {
-    if (!novaTascaForm.servei || !novaTascaForm.unitat) {
-      alert('Has de seleccionar un servei i una unitat');
-      return;
-    }
+    if (!novaTascaForm.servei || !novaTascaForm.unitat) { alert('Has de seleccionar un servei i una unitat'); return; }
     const tascaCompleta = {
       ...novaTascaForm,
       id: novaTascaForm.id || `tasca-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -545,7 +503,6 @@ function ProjecteModal({
   };
 
   // ─── Documents ───────────────────────────────────────────────────────────────
-
   const afegirDocument = (document: DocumentProjecte) => {
     const projecteAmbHistorial = registrarDocumentAfegit(formData, document.nom, document.tipus);
     setFormData({ ...projecteAmbHistorial, documents: [...(projecteAmbHistorial.documents || []), document] });
@@ -570,8 +527,7 @@ function ProjecteModal({
     link.click();
   };
 
-  // ─── Vincular Pressupost / Factura ───────────────────────────────────────────
-
+  // ─── Vincular ────────────────────────────────────────────────────────────────
   const vincularPressupost = (codiPressupost: string) => {
     if (!codiPressupost) return;
     const projecteAmbHistorial = registrarPressupostVinculat(formData, codiPressupost);
@@ -598,8 +554,7 @@ function ProjecteModal({
     setShowVincularFacturaModal(false);
   };
 
-  // ─── Eliminar Projecte ───────────────────────────────────────────────────────
-
+  // ─── Eliminar ────────────────────────────────────────────────────────────────
   const eliminarProjecte = () => {
     if (!confirm(`Estàs segur que vols eliminar el projecte ${formData.codi}?\n\nAquesta acció no es pot desfer.`)) return;
     if (formData.pressupost) {
@@ -616,71 +571,99 @@ function ProjecteModal({
     }
     storage.setProjectes(storage.getProjectes().filter((p: any) => p.codi !== formData.codi));
     alert('Projecte eliminat correctament.');
-    onClose();
+    onBack();
   };
 
   // ─── Marcar Acabat ───────────────────────────────────────────────────────────
-
   const marcarAcabat = () => {
     if (!confirm('Estàs segur que el client ha validat el projecte? L\'estat canviarà a "Acabat".')) return;
     const dataValidacio = new Date().toISOString().split('T')[0];
     setFormData(prev => ({
-      ...prev,
-      estat: 'acabat',
+      ...prev, estat: 'acabat',
       feedback: { ...(prev.feedback || { validat: false }), validat: true, dataValidacio }
     }));
   };
 
-  // ─── Tancar ──────────────────────────────────────────────────────────────────
-
-  const handleClose = () => {
+  // ─── Tornar ──────────────────────────────────────────────────────────────────
+  const handleBack = () => {
     const tieneCanvis = hasRealProjectData(formData);
     if (!tieneCanvis) {
       const projectesExistents = storage.getProjectes();
       if (projectesExistents.some((p: any) => p.codi === formData.codi)) {
         storage.setProjectes(projectesExistents.filter((p: any) => p.codi !== formData.codi));
       }
-      onClose();
+      onBack();
       return;
     }
     if (!formData.client || !formData.titol) {
-      alert('⚠️ Falten camps obligatoris:\n\n• Client\n• Títol del projecte\n\nOmple aquests camps abans de tancar.');
+      alert('⚠️ Falten camps obligatoris:\n\n• Client\n• Títol del projecte\n\nOmple aquests camps abans de sortir.');
       return;
     }
     saveNow();
-    onClose();
+    onBack();
+  };
+
+  // ─── Navigate away ───────────────────────────────────────────────────────────
+  const navigateToPressupost = (codi: string) => {
+    saveNow();
+    storage.setNavigateTo({ type: 'pressupost', codi });
+    onBack();
+    setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'pressupostos', codi } })), 100);
+  };
+
+  const navigateToFactura = (codi: string) => {
+    saveNow();
+    storage.setNavigateTo({ type: 'factura', codi });
+    onBack();
+    setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'factures-venda', codi } })), 100);
   };
 
   // ─── RENDER ──────────────────────────────────────────────────────────────────
-
   const TABS = [
+    { id: 'resum', label: 'Resum' },
     { id: 'dades', label: 'Dades Generals' },
     { id: 'despeses', label: 'Despeses' },
     { id: 'tasques', label: 'Tasques' },
     { id: 'instruccions', label: 'Instruccions' },
     { id: 'feedback', label: 'Feedback' },
     { id: 'historial', label: 'Historial' },
-    { id: 'pagaments', label: 'Pagaments Proveïdors' }
+    { id: 'pagaments', label: 'Pagaments Proveïdors' },
   ] as const;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1400px', maxHeight: '95vh', display: 'flex', flexDirection: 'column' }}>
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
-        {/* HEADER */}
-        <div className="modal-header">
-          <h2>
-            <FileText size={24} />
-            {formData.esImportat && '📥 '}
-            {projecte ? 'Editar' : 'Nou'} Projecte - {formData.codi}
-            {formData.esImportat && (
-              <span style={{ marginLeft: '0.5rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, background: '#e0e7ff', color: '#4338ca' }}>
-                Importat
+        {/* ── BREADCRUMB ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.6rem', paddingBottom: '1rem',
+          borderBottom: '1px solid var(--color-border)', marginBottom: '1.25rem',
+          flexWrap: 'wrap', minHeight: '48px',
+        }}>
+          <button
+            type="button"
+            onClick={handleBack}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.75rem', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.83rem', fontWeight: 500, color: 'var(--color-text-secondary)', flexShrink: 0 }}
+          >
+            <ChevronLeft size={15} />
+            Projectes
+          </button>
+          <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.9rem' }}>/</span>
+          <span style={{ fontSize: '0.82rem', color: 'var(--color-text-tertiary)', fontFamily: 'monospace', fontWeight: 500, flexShrink: 0 }}>
+            {formData.codi}
+          </span>
+          {formData.titol && (
+            <>
+              <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.9rem' }}>—</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '280px' }}>
+                {formData.titol}
               </span>
-            )}
-          </h2>
+            </>
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Actions */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+
             {/* Crear Factura */}
             {projecte && formData.estat === 'acabat' && !formData.facturaAssociada && !formData.facturaHistorica && (
               <button
@@ -691,56 +674,42 @@ function ProjecteModal({
                     if (onCrearFactura) onCrearFactura(formData);
                   }
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.9rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
               >
-                <FileText size={18} />
+                <FileText size={15} />
                 Crear Factura
               </button>
             )}
 
-            {/* Indicador Pressupost */}
+            {/* Pressupost badge */}
             {formData.pressupost && (
               <div
-                onClick={() => {
-                  storage.setNavigateTo({ type: 'pressupost', codi: formData.pressupost as string });
-                  onClose();
-                  setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'pressupostos', codi: formData.pressupost } })), 100);
-                }}
-                style={{ padding: '0.5rem 1rem', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                onClick={() => navigateToPressupost(formData.pressupost!)}
+                style={{ padding: '0.35rem 0.75rem', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: '1px solid #fbbf24', whiteSpace: 'nowrap' }}
                 title="Clic per obrir el pressupost"
               >
-                Pressupost: <br /> {formData.pressupost}
+                📄 {formData.pressupost}
               </div>
             )}
 
-            {/* Indicador Factura */}
+            {/* Factura badge */}
             {formData.facturaHistorica ? (
-              <div style={{ padding: '0.75rem 1rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#92400e' }}>
-                <div style={{ marginBottom: '0.25rem' }}>📋 Factura: {formData.facturaHistorica.numero}</div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Data: {new Date(formData.facturaHistorica.data).toLocaleDateString('ca-ES')}</div>
-                <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', fontStyle: 'italic', opacity: 0.8 }}>⚠️ Factura històrica (importada)</div>
+              <div style={{ padding: '0.35rem 0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, color: '#92400e', whiteSpace: 'nowrap' }}>
+                📋 {formData.facturaHistorica.numero}
               </div>
             ) : formData.facturaAssociada ? (
               <div
-                onClick={() => {
-                  storage.setNavigateTo({ type: 'factura', codi: formData.facturaAssociada as string });
-                  onClose();
-                  setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'factures-venda', codi: formData.facturaAssociada } })), 100);
-                }}
-                style={{ padding: '0.5rem 1rem', background: '#dbeafe', color: '#1e40af', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                onClick={() => navigateToFactura(formData.facturaAssociada!)}
+                style={{ padding: '0.35rem 0.75rem', background: '#dbeafe', color: '#1e40af', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: '1px solid #93c5fd', whiteSpace: 'nowrap' }}
                 title="Clic per obrir la factura"
               >
-                Factura:<br />{formData.facturaAssociada}
+                🧾 {formData.facturaAssociada}
               </div>
             ) : null}
 
-            {/* Dropdown Estat */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 600 }}>Estat:</label>
+            {/* Estat dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text-secondary)', flexShrink: 0 }}>Estat:</label>
               <select
                 className="form-input"
                 value={formData.estat}
@@ -755,27 +724,11 @@ function ProjecteModal({
                     setFormData({ ...formData, estat: nouEstat });
                   }
                 }}
-                onClick={(e) => e.stopPropagation()}
                 style={{
-                  padding: '0.5rem', borderRadius: '6px', fontWeight: 600, fontSize: '0.85rem', border: '1px solid var(--color-border)', cursor: 'pointer',
-                  background:
-                    formData.estat === 'esborrany' ? '#fef3c7' :
-                    formData.estat === 'planificat' ? '#fed7aa' :
-                    formData.estat === 'rodatge' ? '#fee2e2' :
-                    formData.estat === 'edicio' ? '#bfdbfe' :
-                    formData.estat === 'esperant_feedback' ? '#f9fafb' :
-                    formData.estat === 'revisio' ? '#3b82f6' :
-                    formData.estat === 'acabat' ? '#d1fae5' :
-                    '#059669',
-                  color:
-                    formData.estat === 'esborrany' ? '#92400e' :
-                    formData.estat === 'planificat' ? '#9a3412' :
-                    formData.estat === 'rodatge' ? '#991b1b' :
-                    formData.estat === 'edicio' ? '#1e3a8a' :
-                    formData.estat === 'esperant_feedback' ? '#374151' :
-                    formData.estat === 'revisio' ? '#ffffff' :
-                    formData.estat === 'acabat' ? '#065f46' :
-                    '#ffffff',
+                  padding: '0.4rem 0.6rem', borderRadius: '6px', fontWeight: 600, fontSize: '0.82rem',
+                  border: '1px solid var(--color-border)', cursor: 'pointer',
+                  background: ESTAT_BG[formData.estat] || '#f3f4f6',
+                  color: ESTAT_COLOR[formData.estat] || '#374151',
                 }}
               >
                 <option value="esborrany">Esborrany</option>
@@ -789,29 +742,34 @@ function ProjecteModal({
               </select>
             </div>
 
-            <button type="button" onClick={handleClose} className="modal-close">
-              <X size={24} />
-            </button>
+            {/* Eliminar */}
+            {projecte && !esBloquejat && (formData.estat === 'esborrany' || formData.estat === 'planificat') && !formData.facturaAssociada && !formData.facturaHistorica && (
+              <button
+                type="button"
+                onClick={eliminarProjecte}
+                className="btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', borderColor: '#dc2626', color: '#dc2626', padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
+              >
+                <Trash2 size={14} />
+                Eliminar
+              </button>
+            )}
           </div>
         </div>
 
-        {/* PESTAÑES */}
-        <div style={{ display: 'flex', borderBottom: '2px solid var(--color-border)', marginBottom: '1.5rem', gap: '0.5rem' }}>
+        {/* ── TABS ── */}
+        <div className="projecte-tabs-bar" style={{ display: 'flex', borderBottom: '2px solid var(--color-border)', marginBottom: '1.5rem', gap: '0.25rem', overflowX: 'auto' }}>
           {TABS.map(tab => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: '0.75rem 1.5rem',
-                background: 'transparent',
-                border: 'none',
+                padding: '0.65rem 1.25rem', background: 'transparent', border: 'none',
                 borderBottom: activeTab === tab.id ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
                 color: activeTab === tab.id ? 'var(--color-accent-primary)' : 'var(--color-text-secondary)',
                 fontWeight: activeTab === tab.id ? 600 : 400,
-                cursor: 'pointer',
-                marginBottom: '-2px',
-                whiteSpace: 'nowrap'
+                cursor: 'pointer', marginBottom: '-2px', whiteSpace: 'nowrap', fontSize: '0.88rem'
               }}
             >
               {tab.label}
@@ -819,27 +777,31 @@ function ProjecteModal({
           ))}
         </div>
 
-        {/* CONTINGUT */}
-        <div className="modal-body" style={{ flex: 1, overflow: 'auto' }}>
-          {activeTab === 'dades' && (
-            <DadesTab
+        {/* ── CONTENT ── */}
+        <div>
+          {activeTab === 'resum' && (
+            <ResumTab
               formData={formData}
               setFormData={setFormData}
               clients={clients}
               parametres={parametres}
+              proveidors={proveidors}
+              pressupostos={pressupostos}
               esBloquejat={esBloquejat}
+              onNavigateToPressupost={navigateToPressupost}
+              onNavigateToFactura={navigateToFactura}
             />
+          )}
+
+          {activeTab === 'dades' && (
+            <DadesTab formData={formData} setFormData={setFormData} clients={clients} parametres={parametres} esBloquejat={esBloquejat} />
           )}
 
           {activeTab === 'despeses' && (
             <DespesesTab
-              formData={formData}
-              setFormData={setFormData}
-              parametres={parametres}
-              proveidors={proveidors}
-              esBloquejat={esBloquejat}
-              recursCopiado={recursCopiado}
-              materialCopiado={materialCopiado}
+              formData={formData} setFormData={setFormData} parametres={parametres}
+              proveidors={proveidors} esBloquejat={esBloquejat}
+              recursCopiado={recursCopiado} materialCopiado={materialCopiado}
               onAfegirRecursHuma={afegirRecursHuma}
               onActualitzarRecursHuma={actualitzarRecursHuma}
               onEliminarRecursHuma={eliminarRecursHuma}
@@ -852,9 +814,7 @@ function ProjecteModal({
 
           {activeTab === 'tasques' && (
             <TasquesTab
-              formData={formData}
-              parametres={parametres}
-              esBloquejat={esBloquejat}
+              formData={formData} parametres={parametres} esBloquejat={esBloquejat}
               tasquesAgrupades={tasquesAgrupades}
               onAfegirTasca={afegirTasca}
               onActualitzarTasca={actualitzarTasca}
@@ -865,93 +825,52 @@ function ProjecteModal({
           )}
 
           {activeTab === 'instruccions' && (
-            <InstruccionsTab
-              formData={formData}
-              setFormData={setFormData}
-              esBloquejat={esBloquejat}
-            />
+            <InstruccionsTab formData={formData} setFormData={setFormData} esBloquejat={esBloquejat} />
           )}
 
           {activeTab === 'feedback' && (
-            <FeedbackTab
-              formData={formData}
-              setFormData={setFormData}
-              esBloquejat={esBloquejat}
-              onMarcarAcabat={marcarAcabat}
-            />
+            <FeedbackTab formData={formData} setFormData={setFormData} esBloquejat={esBloquejat} onMarcarAcabat={marcarAcabat} />
           )}
 
           {activeTab === 'historial' && (
             <HistorialTab
-              formData={formData}
-              esBloquejat={esBloquejat}
+              formData={formData} esBloquejat={esBloquejat}
               onShowDocumentModal={() => setShowDocumentModal(true)}
               onShowVincularPressupostModal={() => setShowVincularPressupostModal(true)}
               onShowVincularFacturaModal={() => setShowVincularFacturaModal(true)}
               onEliminarDocument={eliminarDocument}
               onDescarregarDocument={descarregarDocument}
-              onClose={onClose}
+              onClose={handleBack}
             />
           )}
 
           {activeTab === 'pagaments' && (
-            <PagamentsProveidorsTab
-              projecteCodi={formData.codi}
-              proveidors={proveidors}
-              parametres={parametres}
-            />
+            <PagamentsProveidorsTab projecteCodi={formData.codi} proveidors={proveidors} parametres={parametres} />
           )}
-        </div>
-
-        {/* FOOTER */}
-        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexShrink: 0 }}>
-          {projecte && !esBloquejat && (formData.estat === 'esborrany' || formData.estat === 'planificat') && !formData.facturaAssociada && !formData.facturaHistorica && (
-            <button
-              type="button"
-              onClick={eliminarProjecte}
-              className="btn-secondary"
-              style={{ borderColor: '#dc2626', color: '#dc2626', marginRight: 'auto' }}
-            >
-              <Trash2 size={18} />
-              Eliminar
-            </button>
-          )}
-          <button type="button" className="btn-primary" onClick={handleClose}>
-            Acceptar
-          </button>
         </div>
       </div>
 
-      {/* MODALS SECUNDARIS */}
+      {/* ── SECONDARY MODALS ── */}
       {showAfegirTascaModal && (
         <AfegirTascaModal
-          novaTascaForm={novaTascaForm}
-          setNovaTascaForm={setNovaTascaForm}
-          parametres={parametres}
-          esBloquejat={esBloquejat}
-          onServeiChange={handleServeiChange}
-          onUnitatChange={handleUnitatChange}
-          onGuardar={guardarNovaTasca}
-          onClose={() => setShowAfegirTascaModal(false)}
+          novaTascaForm={novaTascaForm} setNovaTascaForm={setNovaTascaForm}
+          parametres={parametres} esBloquejat={esBloquejat}
+          onServeiChange={handleServeiChange} onUnitatChange={handleUnitatChange}
+          onGuardar={guardarNovaTasca} onClose={() => setShowAfegirTascaModal(false)}
         />
       )}
 
       {showAfegirRecursModal && (
         <AfegirRecursModal
-          tipusRecurs={tipusRecurs}
-          setTipusRecurs={setTipusRecurs}
-          nouRecursForm={nouRecursForm}
-          setNouRecursForm={setNouRecursForm}
-          nouMaterialForm={nouMaterialForm}
-          setNouMaterialForm={setNouMaterialForm}
-          parametres={parametres}
-          proveidors={proveidors}
+          tipusRecurs={tipusRecurs} setTipusRecurs={setTipusRecurs}
+          nouRecursForm={nouRecursForm} setNouRecursForm={setNouRecursForm}
+          nouMaterialForm={nouMaterialForm} setNouMaterialForm={setNouMaterialForm}
+          parametres={parametres} proveidors={proveidors}
           onRecursServeiChange={handleRecursServeiChange}
           onRecursProveidorChange={handleRecursProveidorChange}
           onRecursUnitatChange={handleRecursUnitatChange}
           onMaterialChange={handleMaterialChange}
-          onGuardarRecurs={guardarNouRecurs}
-          onGuardarMaterial={guardarNouMaterial}
+          onGuardarRecurs={guardarNouRecurs} onGuardarMaterial={guardarNouMaterial}
           onClose={() => setShowAfegirRecursModal(false)}
         />
       )}
@@ -962,25 +881,19 @@ function ProjecteModal({
 
       {showVincularPressupostModal && (
         <VincularModal
-          tipus="pressupost"
-          pressupostos={pressupostos}
-          clientCodi={formData.client}
-          onVincular={vincularPressupost}
-          onClose={() => setShowVincularPressupostModal(false)}
+          tipus="pressupost" pressupostos={pressupostos} clientCodi={formData.client}
+          onVincular={vincularPressupost} onClose={() => setShowVincularPressupostModal(false)}
         />
       )}
 
       {showVincularFacturaModal && (
         <VincularModal
-          tipus="factura"
-          factures={factures}
-          clientCodi={formData.client}
-          onVincular={vincularFactura}
-          onClose={() => setShowVincularFacturaModal(false)}
+          tipus="factura" factures={factures} clientCodi={formData.client}
+          onVincular={vincularFactura} onClose={() => setShowVincularFacturaModal(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 
-export default ProjecteModal;
+export default ProjecteDetailView;

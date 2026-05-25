@@ -125,6 +125,9 @@ materials: MaterialProjecte[];
   feedback?: FeedbackProjecte;
   avisFacturacio?: { actiu: boolean; descripcio: string };
 
+  // Imatge de referència del projecte (base64, mostrada al hero del Resum)
+  imatgeReferencia?: string;
+
   // Campos para proyectos importados
   esImportat?: boolean;
   facturaHistorica?: {

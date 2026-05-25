@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import auroraIcon from '../build/icon.png';
+import auroraIcon from '../build/icon_A.png';
 import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings, Scale } from 'lucide-react';
 import Dashboard from './components/dashboard/Dashboard';
 import ProjectesSection from './components/projectes/ProjectesSection';
@@ -66,7 +66,7 @@ function App() {
 
   // Ejecutar migraciones al inicio
   useEffect(() => {
-    console.log('🚀 Iniciando Aurora ERP v1.0.1...');
+    console.log('🚀 Iniciando Aurora ERP v2.0.0...');
     
     try {
       // 1. Migrar de localStorage a electron-store (solo una vez)
@@ -213,7 +213,7 @@ function App() {
           </div>
 
           <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v1.4.4</p>
+            <p className="footer-text">v2.0.0</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
           

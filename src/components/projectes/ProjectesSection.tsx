@@ -4,7 +4,7 @@ import type { Projecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import type { Parametres } from '../../types/parametres';
 import type { AlbaraCompra } from '../../types/albara';
-import ProjecteModal from './ProjecteModal';
+import ProjecteDetailView from './ProjecteDetailView';
 import { storage } from '../../utils/storageManager';
 import { exportarProjectesExcel } from './utils/exportProjectes';
 
@@ -17,7 +17,7 @@ function ProjectesSection() {
   
   // Estados UI
   const [vistaActual, setVistaActual] = useState<'taula' | 'kanban'>('taula');
-  const [showModal, setShowModal] = useState(false);
+  const [showDetailView, setShowDetailView] = useState(false);
   const [editingProjecte, setEditingProjecte] = useState<Projecte | null>(null);
   
   // Estados filtros
@@ -103,7 +103,7 @@ useEffect(() => {
       if (projecte) {
         setTimeout(() => {
           setEditingProjecte(projecte);
-          setShowModal(true);
+          setShowDetailView(true);
         }, 100);
       }
     }
@@ -213,8 +213,8 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
 
   saveProjectes(projectesActualitzats);
 
-  // Cerrar modal
-  setShowModal(false);
+  // Tornar a la llista
+  setShowDetailView(false);
   setEditingProjecte(null);
 
   alert(`✅ Factura ${codiFactura} creada correctament!\n\nEl projecte ha estat marcat com facturat i vinculat a la factura.`);
@@ -354,6 +354,33 @@ const estatLabels: Record<string, string> = {
   acabat: 'Acabat',
   facturat: 'Facturat',
 };
+
+  // Renderitzar vista de detall a pantalla completa
+  if (showDetailView) {
+    return (
+      <ProjecteDetailView
+        projecte={editingProjecte}
+        onBack={() => {
+          setShowDetailView(false);
+          setEditingProjecte(null);
+          setProjectes(storage.getProjectes());
+        }}
+        onSave={(projecte) => {
+          const existeix = projectes.some(p => p.codi === projecte.codi);
+          if (existeix) {
+            saveProjectes(projectes.map(p => p.codi === projecte.codi ? projecte : p));
+          } else {
+            saveProjectes([...projectes, projecte]);
+          }
+        }}
+        onCrearFactura={crearFacturaDesdeProjecte}
+        nextCode={getNextCode()}
+        clients={clients}
+        parametres={parametres}
+        proveidors={storage.getProveidors()}
+      />
+    );
+  }
 
   return (
 <div style={{ marginBottom: '1.5rem' }}>
@@ -508,7 +535,7 @@ const estatLabels: Record<string, string> = {
       className="btn-primary"
       onClick={() => {
         setEditingProjecte(null);
-        setShowModal(true);
+        setShowDetailView(true);
       }}
       style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
     >
@@ -619,7 +646,7 @@ const estatLabels: Record<string, string> = {
         {projectes.length === 0 ? 'No hi ha projectes encara' : 'No hi ha projectes que coincideixin amb els filtres'}
       </p>
       {projectes.length === 0 && (
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn-primary" onClick={() => setShowDetailView(true)}>
           + Crear primer projecte
         </button>
       )}
@@ -657,11 +684,11 @@ const estatLabels: Record<string, string> = {
     const percentBenefici = ingressos > 0 ? (benefici / ingressos) * 100 : 0;
     
     return (
-      <tr 
+      <tr
         key={projecte.codi}
         onClick={() => {
           setEditingProjecte(projecte);
-          setShowModal(true);
+          setShowDetailView(true);
         }}
         style={{ 
           borderBottom: '1px solid var(--color-border)',
@@ -969,7 +996,7 @@ const estatLabels: Record<string, string> = {
                             e.currentTarget.style.opacity = '0.5';
                           }}
                           onDragEnd={(e) => { e.currentTarget.style.opacity = '1'; }}
-                          onClick={() => { setEditingProjecte(projecte); setShowModal(true); }}
+                          onClick={() => { setEditingProjecte(projecte); setShowDetailView(true); }}
                           style={{
                             background: 'var(--color-bg-primary)',
                             border: '1px solid var(--color-border)',
@@ -1030,34 +1057,6 @@ const estatLabels: Record<string, string> = {
     </>
   )}
   
-  {/* MODAL PROJECTE */}
-{showModal && (
-  <ProjecteModal
-    projecte={editingProjecte}
-    onClose={() => {
-      setShowModal(false);
-      setEditingProjecte(null);
-      setProjectes(storage.getProjectes());
-    }}
-    onSave={(projecte) => {
-      // Verificar si el proyecto ya existe (upsert)
-      const existeix = projectes.some(p => p.codi === projecte.codi);
-      
-      if (existeix) {
-        // Actualizar proyecto existente
-        saveProjectes(projectes.map(p => p.codi === projecte.codi ? projecte : p));
-      } else {
-        // Añadir nuevo proyecto solo si no existe
-        saveProjectes([...projectes, projecte]);
-      }
-    }}
-    onCrearFactura={crearFacturaDesdeProjecte}
-    nextCode={getNextCode()}
-    clients={clients}
-    parametres={parametres}
-    proveidors={storage.getProveidors()}
-  />
-)}
     </div>
   );
 }

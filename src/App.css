@@ -347,6 +347,14 @@
      box-shadow: var(--shadow-sm);
    }
    
+   .projecte-tabs-bar {
+     scrollbar-width: none;
+     -ms-overflow-style: none;
+   }
+   .projecte-tabs-bar::-webkit-scrollbar {
+     display: none;
+   }
+
    .placeholder-header {
      display: flex;
      align-items: center;
@@ -815,4 +823,35 @@ input[type="number"] {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
   margin: 6px 16px;
+}
+
+/* ── On-air / Directe badge ── */
+@keyframes pulse-on-air {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px 3px rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.direct-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: pulse-on-air 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.direct-label {
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
 }

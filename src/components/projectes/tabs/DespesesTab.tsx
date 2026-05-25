@@ -1,3 +1,4 @@
+import React from 'react';
 import { Check, Trash2 } from 'lucide-react';
 import type { Projecte, RecursHumaProjecte, MaterialProjecte } from '../../../types/projecte';
 import type { Parametres } from '../../../types/parametres';
@@ -6,7 +7,7 @@ import SearchableSelect from '../../common/SearchableSelect';
 
 interface Props {
   formData: Projecte;
-  setFormData: (data: Projecte) => void;
+  setFormData: React.Dispatch<React.SetStateAction<Projecte>>;
   parametres: Parametres | null;
   proveidors: Proveidor[];
   esBloquejat: boolean;
@@ -259,12 +260,15 @@ export default function DespesesTab({
                         onChange={(value) => {
                           const materialData = parametres?.materials.find(m => m.codi === value);
                           if (materialData) {
-                            const nousMaterials = formData.materials.map(m =>
-                              m.id === material.id
-                                ? { ...m, material: value, grup: materialData.grup, preuProveidor: materialData.preuProveidor, preuPlatea: materialData.preuPlatea }
-                                : m
-                            );
-                            setFormData({ ...formData, materials: nousMaterials });
+                            const matId = material.id;
+                            setFormData(prev => ({
+                              ...prev,
+                              materials: prev.materials.map(m =>
+                                m.id === matId
+                                  ? { ...m, material: value, grup: materialData.grup, preuProveidor: materialData.preuProveidor, preuPlatea: materialData.preuPlatea }
+                                  : m
+                              )
+                            }));
                           }
                         }}
                         disabled={esBloquejat}
