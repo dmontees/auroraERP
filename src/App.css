@@ -133,25 +133,25 @@
    /* Navegación */
    .nav-menu {
      flex: 1;
-     padding: var(--spacing-lg) var(--spacing-sm);
+     padding: 0.5rem var(--spacing-sm);
      overflow-y: auto;
    }
-   
+
    .nav-item {
      width: 100%;
      display: flex;
      align-items: center;
-     gap: var(--spacing-md);
-     padding: var(--spacing-md) var(--spacing-lg);
+     gap: 0.6rem;
+     padding: 0.4rem var(--spacing-lg);
      background: transparent;
      border: none;
      border-radius: 8px;
      color: #94a3b8;
-     font-size: 0.9rem;
+     font-size: 0.85rem;
      font-weight: 500;
      cursor: pointer;
      transition: all var(--transition-base);
-     margin-bottom: 0.1rem;
+     margin-bottom: 1px;
      position: relative;
    }
    
@@ -807,12 +807,12 @@ input[type="number"] {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.3);
-  padding: 16px 20px 4px;
+  padding: 10px 20px 2px;
   user-select: none;
 }
 
 .nav-group-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
-  margin: 8px 16px;
+  margin: 4px 16px;
 }

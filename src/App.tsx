@@ -127,18 +127,18 @@ function App() {
   };
 
   const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, description: 'Resum general de l\'activitat' },
-    { id: 'projectes', label: 'Projectes', icon: <Film size={20} />, description: 'Gestió de produccions audiovisuals' },
-    { id: 'clients', label: 'Clients', icon: <Users size={20} />, description: 'Base de dades de clients' },
-    { id: 'proveidors', label: 'RRHH i Proveïdors', icon: <Briefcase size={20} />, description: 'Recursos humans, proveïdors i acreedors' },
-    { id: 'pressupostos', label: 'Pressupostos', icon: <FileText size={20} />, description: 'Crear i gestionar pressupostos' },
-    { id: 'factures-venda', label: 'Factures Venda', icon: <Receipt size={20} />, description: 'Factures emeses a clients' },
-    { id: 'factures-compra', label: 'Factures Compra', icon: <ShoppingCart size={20} />, description: 'Factures rebudes de proveïdors' },
-    { id: 'gestio-fiscal', label: 'Gestió Fiscal', icon: <Scale size={20} />, description: 'Obligacions fiscals: autònom, IRPF, IVA, nòmines' },
-    { id: 'resultats', label: 'Resultats', icon: <TrendingUp size={20} />, description: 'Anàlisi financera i rendibilitat' },
-    { id: 'parts-treball', label: 'Parts Treball', icon: <Clock size={20} />, description: 'Registre d\'hores i tasques' },
-    { id: 'calendari', label: 'Calendari', icon: <CalendarIcon size={20} />, description: 'Visualitza esdeveniments i dates importants' },
-    { id: 'parametres', label: 'Paràmetres', icon: <Settings size={20} />, description: 'Configuració de serveis, unitats i tarifes' }
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} />, description: 'Resum general de l\'activitat' },
+    { id: 'projectes', label: 'Projectes', icon: <Film size={17} />, description: 'Gestió de produccions audiovisuals' },
+    { id: 'clients', label: 'Clients', icon: <Users size={17} />, description: 'Base de dades de clients' },
+    { id: 'proveidors', label: 'RRHH i Proveïdors', icon: <Briefcase size={17} />, description: 'Recursos humans, proveïdors i acreedors' },
+    { id: 'pressupostos', label: 'Pressupostos', icon: <FileText size={17} />, description: 'Crear i gestionar pressupostos' },
+    { id: 'factures-venda', label: 'Factures Venda', icon: <Receipt size={17} />, description: 'Factures emeses a clients' },
+    { id: 'factures-compra', label: 'Factures Compra', icon: <ShoppingCart size={17} />, description: 'Factures rebudes de proveïdors' },
+    { id: 'gestio-fiscal', label: 'Gestió Fiscal', icon: <Scale size={17} />, description: 'Obligacions fiscals: autònom, IRPF, IVA, nòmines' },
+    { id: 'resultats', label: 'Resultats', icon: <TrendingUp size={17} />, description: 'Anàlisi financera i rendibilitat' },
+    { id: 'parts-treball', label: 'Parts Treball', icon: <Clock size={17} />, description: 'Registre d\'hores i tasques' },
+    { id: 'calendari', label: 'Calendari', icon: <CalendarIcon size={17} />, description: 'Visualitza esdeveniments i dates importants' },
+    { id: 'parametres', label: 'Paràmetres', icon: <Settings size={17} />, description: 'Configuració de serveis, unitats i tarifes' }
   ];
 
   return (
@@ -218,7 +218,7 @@ function App() {
           </div>
           
           <button className="settings-button" onClick={() => setShowSettings(true)} title="Configuració">
-            <Settings size={20} />
+            <Settings size={17} />
           </button>
         </div>
       </aside>
