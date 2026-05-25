@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, Briefcase, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, Briefcase, FileText, ChevronLeft, ChevronRight, ArrowUpRight, Clock } from 'lucide-react';
 import type { FacturaVenta } from '../../types/facturaVenda';
 import type { Gasto, ObligacioFiscal, FacturaCompra } from '../../types/facturaCompra';
 import type { Projecte } from '../../types/projecte';
@@ -9,29 +9,63 @@ import { storage } from '../../utils/storageManager';
 
 const MESOS_CURTS = ['Gen', 'Feb', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Des'];
 
+const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
+const LABEL: React.CSSProperties = { ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600 };
+
 function fmtK(n: number): string {
   if (n === 0) return '0';
-  if (Math.abs(n) >= 10000) return `${(n / 1000).toFixed(0)}k€`;
-  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}k€`;
-  return `${n.toFixed(0)}€`;
+  if (Math.abs(n) >= 10000) return `${(n / 1000).toFixed(0)}k`;
+  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return `${n.toFixed(0)}`;
 }
-
 function fmtEur(n: number): string {
-  return n.toLocaleString('ca-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + '€';
+  return n.toLocaleString('ca-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €';
+}
+function fmtEur2(n: number): string {
+  return n.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
 }
 
-function fmtEur2(n: number): string {
-  return n.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '€';
+const colorPos = (n: number) => n >= 0 ? '#2d7a4f' : '#b83232';
+
+// ─── Estat chips ─────────────────────────────────────────────────────────────
+const ESTAT_MAP: Record<string, { label: string; bg: string; color: string }> = {
+  esborrany:        { label: 'Esborrany',     bg: '#f3f0ec', color: '#6b5f57' },
+  planificat:       { label: 'Planificat',    bg: '#e8f0fc', color: '#2d5fb8' },
+  en_curs:          { label: 'En curs',       bg: '#fbe8e2', color: '#c84a2a' },
+  post_produccio:   { label: 'Postproducció', bg: '#1c1917', color: '#f0ebe7' },
+  entregat:         { label: 'Entregat',      bg: '#e5eed8', color: '#2d7a4f' },
+  facturat:         { label: 'Facturat',      bg: '#fef6e0', color: '#a07010' },
+  rodatge:          { label: 'Rodatge',       bg: '#fbe8e2', color: '#c84a2a' },
+  edicio:           { label: 'Edició',        bg: '#e8f0fc', color: '#2d5fb8' },
+  esperant_feedback:{ label: 'Feedback',      bg: '#fef6e0', color: '#a07010' },
+  revisio:          { label: 'Revisió',       bg: '#fef6e0', color: '#a07010' },
+  acabat:           { label: 'Acabat',        bg: '#e5eed8', color: '#2d7a4f' },
+};
+function EstatChip({ estat }: { estat: string }) {
+  const s = ESTAT_MAP[estat] || ESTAT_MAP.esborrany;
+  return (
+    <span style={{
+      ...MONO, fontSize: 10, letterSpacing: '0.08em', fontWeight: 700,
+      padding: '3px 9px', borderRadius: 999,
+      background: s.bg, color: s.color,
+      display: 'inline-block', whiteSpace: 'nowrap',
+    }}>
+      {s.label.toUpperCase()}
+    </span>
+  );
 }
 
 export default function Dashboard() {
-  const [facturesVenda, setFacturesVenda] = useState<FacturaVenta[]>([]);
-  const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [facturesVenda, setFacturesVenda]         = useState<FacturaVenta[]>([]);
+  const [gastos, setGastos]                       = useState<Gasto[]>([]);
   const [obligacionsFiscals, setObligacionsFiscals] = useState<ObligacioFiscal[]>([]);
-  const [projectes, setProjectes] = useState<Projecte[]>([]);
-  const [pressupostos, setPressupostos] = useState<Pressupost[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [projectes, setProjectes]                 = useState<Projecte[]>([]);
+  const [pressupostos, setPressupostos]           = useState<Pressupost[]>([]);
+  const [clients, setClients]                     = useState<Client[]>([]);
+  const [selectedYear, setSelectedYear]           = useState(new Date().getFullYear());
 
   useEffect(() => {
     setFacturesVenda(storage.getFacturesVenda());
@@ -42,503 +76,425 @@ export default function Dashboard() {
     setClients(storage.getClients());
   }, []);
 
-  const nowYear = new Date().getFullYear();
-  const nowMonth = new Date().getMonth() + 1; // 1-12
+  const nowYear  = new Date().getFullYear();
+  const nowMonth = new Date().getMonth() + 1;
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const pendentCobrar = facturesVenda
     .filter(f => ['enviada', 'pagada-parcial', 'vencuda'].includes(f.estat))
-    .reduce((sum, f) => sum + f.pendentCobrar, 0);
+    .reduce((s, f) => s + f.pendentCobrar, 0);
 
   const pendentPagar = [
     ...gastos.filter(g => g.pendentPagament > 0),
-    ...obligacionsFiscals.filter(o => (o.pendentPagament || 0) > 0)
-  ].reduce((sum, g) => sum + (g.pendentPagament || 0), 0);
+    ...obligacionsFiscals.filter(o => (o.pendentPagament || 0) > 0),
+  ].reduce((s, g) => s + (g.pendentPagament || 0), 0);
 
   const facturesVencudes = facturesVenda.filter(f => f.estat === 'vencuda');
-  const totalVencudes = facturesVencudes.reduce((sum, f) => sum + f.pendentCobrar, 0);
+  const totalVencudes    = facturesVencudes.reduce((s, f) => s + f.pendentCobrar, 0);
 
-  const ESTATS_ACTIUS = ['rodatge', 'edicio', 'esperant_feedback', 'revisio'];
-  const ESTATS_URGENTS = ['rodatge', 'edicio'];
-  const projectesActius = projectes.filter(p => ESTATS_ACTIUS.includes(p.estat)).length;
+  const ACTIUS  = ['rodatge', 'edicio', 'esperant_feedback', 'revisio'];
+  const URGENTS = ['rodatge', 'edicio'];
+  const projectesActius = projectes.filter(p => ACTIUS.includes(p.estat));
 
-  const getNextEntregaPendent = (p: typeof projectes[0]): string => {
-    if (p.datesEntrega && p.datesEntrega.length > 0) {
-      const pendents = p.datesEntrega
-        .filter(d => d.data && !d.entregada)
-        .sort((a, b) => a.data!.localeCompare(b.data!));
-      return pendents[0]?.data || '';
+  // ── Gràfic mensual ────────────────────────────────────────────────────────
+  const beneficiPerMes = Array.from({ length: 12 }, (_, i) => {
+    const mes    = String(i + 1).padStart(2, '0');
+    const prefix = `${selectedYear}-${mes}`;
+    const deFactures = facturesVenda
+      .filter(f => !['borrador', 'cancelled'].includes(f.estat) && f.dataFactura?.startsWith(prefix))
+      .reduce((s, f) => s + (f.baseImposable || 0), 0);
+    const deImportats = projectes
+      .filter(p => p.esImportat)
+      .filter(p => (p.facturaHistorica?.data || p.dataFinalitzacio || p.dataInici || '').startsWith(prefix))
+      .reduce((s, p) => {
+        const ing = (p.tasques || []).reduce((a, t) => a + (t.importe || 0), 0);
+        const dep = (p.recursosHumans || []).reduce((a, r) => a + (r.cost || 0), 0)
+          + (p.materials || []).reduce((a, m) => a + (m.preuProveidor || 0), 0);
+        return s + (ing - dep);
+      }, 0);
+    return deFactures + deImportats;
+  });
+  const totalFacturatAny = beneficiPerMes.reduce((s, b) => s + b, 0);
+
+  const obligaciosFiscalsAny = obligacionsFiscals
+    .filter(o => o.periode?.substring(0, 4) === String(selectedYear) &&
+      ['cuota-autonomo', 'irpf-trimestral', 'irpf-anual', 'regularitzacio-ss'].includes(o.subtipus))
+    .reduce((s, o) => s + (o.baseImposable || o.totalGasto || 0), 0);
+
+  const despesesEstructuralsAny = gastos
+    .filter(g => g.tipus === 'factura-compra' && (g as FacturaCompra).esDesepsaGeneral && g.dataGasto?.startsWith(String(selectedYear)))
+    .reduce((s, g) => s + (g.baseImposable || 0), 0);
+
+  const mesosBase       = selectedYear < nowYear ? 12 : (selectedYear > nowYear ? 1 : Math.max(1, nowMonth - 1));
+  const beneficiFiscal  = totalFacturatAny - obligaciosFiscalsAny;
+  const beneficiReal    = beneficiFiscal - despesesEstructuralsAny;
+  const beneficiFiscalMitja = mesosBase > 0 ? beneficiFiscal / mesosBase : 0;
+  const beneficiRealMitja   = mesosBase > 0 ? beneficiReal / mesosBase : 0;
+
+  // ── Tasques urgents ───────────────────────────────────────────────────────
+  const avui = new Date(); avui.setHours(0,0,0,0);
+  type TascaU = { id: string; titol: string; sub: string; data: string; tipus: 'factura' | 'rodatge' | 'entrega' };
+
+  const getNextEntrega = (p: Projecte) => {
+    if (p.datesEntrega?.length) {
+      const pend = p.datesEntrega.filter(d => d.data && !d.entregada).sort((a,b) => a.data!.localeCompare(b.data!));
+      return pend[0]?.data || '';
     }
     return p.dataEntrega || '';
   };
 
-  // ── GRÀFIC: benefici brut mensual de factures emeses + projectes importats ─
-  // "Emeses" = qualsevol estat excepte esborrany
-  // Projectes importats: mai tenen factura associada, s'usa el benefici del projecte
-  const beneficiPerMes = Array.from({ length: 12 }, (_, i) => {
-    const mes = String(i + 1).padStart(2, '0');
-    const prefix = `${selectedYear}-${mes}`;
-
-    const deFactures = facturesVenda
-      .filter(f => !['borrador', 'cancelled'].includes(f.estat) && f.dataFactura?.startsWith(prefix))
-      .reduce((sum, f) => sum + (f.baseImposable || 0), 0);
-
-    const deImportats = projectes
-      .filter(p => p.esImportat === true)
-      .filter(p => {
-        const data = p.facturaHistorica?.data || p.dataFinalitzacio || p.dataInici || '';
-        return data.startsWith(prefix);
-      })
-      .reduce((sum, p) => {
-        const ingressos = (p.tasques || []).reduce((s, t) => s + (t.importe || 0), 0);
-        const despeses = (p.recursosHumans || []).reduce((s, r) => s + (r.cost || 0), 0)
-          + (p.materials || []).reduce((s, m) => s + (m.preuProveidor || 0), 0);
-        return sum + (ingressos - despeses);
-      }, 0);
-
-    return deFactures + deImportats;
-  });
-
-  const totalFacturatAny = beneficiPerMes.reduce((sum, b) => sum + b, 0);
-
-  // ── OBLIGACIONS FISCALS de l'any (per periode) ───────────────────────────
-  // Inclou: cuota-autonomo, irpf-trimestral, irpf-anual, regularitzacio-ss
-  const obligaciosFiscalsAny = obligacionsFiscals
-    .filter(o =>
-      o.periode?.substring(0, 4) === String(selectedYear) &&
-      ['cuota-autonomo', 'irpf-trimestral', 'irpf-anual', 'regularitzacio-ss'].includes(o.subtipus)
-    )
-    .reduce((sum, o) => sum + (o.baseImposable || o.totalGasto || 0), 0);
-
-  // ── DESPESES ESTRUCTURALS de l'any (factures acreedor no vinculades a projecte) ──
-  const despesesEstructuralsAny = gastos
-    .filter(g => {
-      if (g.tipus !== 'factura-compra') return false;
-      const fc = g as FacturaCompra;
-      return fc.esDesepsaGeneral === true && g.dataGasto?.startsWith(String(selectedYear));
-    })
-    .reduce((sum, g) => sum + (g.baseImposable || 0), 0);
-
-  // ── MEDIES ───────────────────────────────────────────────────────────────
-  // Si any seleccionat = any en curs, dividir per mesos transcorreguts; si no, per 12
-  const mesosBase = selectedYear < nowYear ? 12 : (selectedYear > nowYear ? 1 : Math.max(1, nowMonth - 1));
-
-  const beneficiFiscal = totalFacturatAny - obligaciosFiscalsAny;
-  const beneficiFiscalMitja = mesosBase > 0 ? beneficiFiscal / mesosBase : 0;
-
-  const beneficiReal = beneficiFiscal - despesesEstructuralsAny;
-  const beneficiRealMitja = mesosBase > 0 ? beneficiReal / mesosBase : 0;
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
-
-  // ── TASQUES URGENTS ───────────────────────────────────────────────────────
-  const avuiTs = new Date();
-  avuiTs.setHours(0, 0, 0, 0);
-
-  type TascaUrgent = { id: string; titol: string; subtitol: string; data: string; tipus: 'factura' | 'rodatge' | 'entrega' };
-
-  const tascasUrgents: TascaUrgent[] = [
-    // Factures vençudes
+  const tascasUrgents: TascaU[] = [
     ...facturesVencudes.map(f => {
-      const client = clients.find(c => c.codi === f.client);
-      return {
-        id: f.codi,
-        titol: f.codi,
-        subtitol: `${client?.nomComercial || client?.nomFiscal || '—'} · ${fmtEur2(f.pendentCobrar)}`,
-        data: f.dataVenciment,
-        tipus: 'factura' as const,
-      };
+      const cl = clients.find(c => c.codi === f.client);
+      return { id: f.codi, titol: f.codi, sub: `${cl?.nomComercial || cl?.nomFiscal || '—'} · ${fmtEur2(f.pendentCobrar)}`, data: f.dataVenciment, tipus: 'factura' as const };
     }),
-    // Propers rodatges
-    ...projectes
-      .filter(p => p.estat !== 'acabat' && p.estat !== 'facturat' && !p.arxivat)
-      .flatMap(p => {
-        if (p.datesRodatge && p.datesRodatge.length > 0) {
-          return p.datesRodatge
-            .filter(d => d.data && new Date(d.data) >= avuiTs)
-            .map(d => ({ id: `rod-${p.codi}-${d.id}`, titol: p.titol, subtitol: `Rodatge · ${formatDate(d.data!)}`, data: d.data!, tipus: 'rodatge' as const }));
-        }
-        if (p.dataInici && new Date(p.dataInici) >= avuiTs) {
-          return [{ id: `rod-${p.codi}`, titol: p.titol, subtitol: `Rodatge · ${formatDate(p.dataInici)}`, data: p.dataInici, tipus: 'rodatge' as const }];
-        }
-        return [];
-      }),
-    // Projectes per entregar
-    ...projectes
-      .filter(p => {
-        if (!ESTATS_URGENTS.includes(p.estat)) return false;
-        if (p.datesEntrega && p.datesEntrega.length > 0) return p.datesEntrega.some(d => d.data && !d.entregada);
-        return !!p.dataEntrega;
-      })
-      .map(p => {
-        const data = getNextEntregaPendent(p);
-        return { id: `ent-${p.codi}`, titol: p.titol, subtitol: `Entrega · ${data ? formatDate(data) : '—'}`, data, tipus: 'entrega' as const };
-      }),
-  ]
-    .sort((a, b) => a.data.localeCompare(b.data))
-    .slice(0, 4);
+    ...projectes.filter(p => p.estat !== 'acabat' && p.estat !== 'facturat' && !p.arxivat).flatMap(p => {
+      if (p.datesRodatge?.length) return p.datesRodatge.filter(d => d.data && new Date(d.data) >= avui)
+        .map(d => ({ id: `r-${p.codi}-${d.id}`, titol: p.titol, sub: `Rodatge · ${fmtDate(d.data!)}`, data: d.data!, tipus: 'rodatge' as const }));
+      if (p.dataInici && new Date(p.dataInici) >= avui)
+        return [{ id: `r-${p.codi}`, titol: p.titol, sub: `Rodatge · ${fmtDate(p.dataInici)}`, data: p.dataInici, tipus: 'rodatge' as const }];
+      return [];
+    }),
+    ...projectes.filter(p => URGENTS.includes(p.estat) && (p.datesEntrega?.some(d => d.data && !d.entregada) || !!p.dataEntrega))
+      .map(p => { const d = getNextEntrega(p); return { id: `e-${p.codi}`, titol: p.titol, sub: `Entrega · ${d ? fmtDate(d) : '—'}`, data: d, tipus: 'entrega' as const }; }),
+  ].sort((a, b) => a.data.localeCompare(b.data)).slice(0, 5);
 
-  // ── ACTIVITAT RECENT ──────────────────────────────────────────────────────
-  const activitatRecent = [
-    ...facturesVenda.slice(-5).map(f => ({
-      text: `Factura ${f.codi} creada`,
-      data: f.dataFactura,
-      icon: <FileText size={16} />,
-    })),
-    ...projectes.slice(-5).map(p => ({
-      text: `Projecte ${p.titol}`,
-      data: p.dataInici,
-      icon: <Briefcase size={16} />,
-    })),
-  ]
-    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-    .slice(0, 6);
+  // ── Activitat recent ──────────────────────────────────────────────────────
+  const activitat = [
+    ...facturesVenda.slice(-5).map(f => ({ text: `Factura ${f.codi}`, data: f.dataFactura, icon: 'factura' })),
+    ...projectes.slice(-5).map(p => ({ text: p.titol, data: p.dataInici, icon: 'projecte' })),
+  ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).slice(0, 6);
 
-  const colorBenefici = (n: number) => (n >= 0 ? '#10b981' : '#ef4444');
+  // ── Greeting ──────────────────────────────────────────────────────────────
+  const h = new Date().getHours();
+  const greeting = h < 13 ? 'Bon dia' : h < 20 ? 'Bona tarda' : 'Bona nit';
+  const dateStr  = new Date().toLocaleDateString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const kpiCard = (
-    icon: React.ReactNode,
-    color: string,
-    label: string,
-    value: string,
-    sub?: string,
-  ) => (
-    <div
-      style={{
-        background: 'var(--color-bg-secondary)',
-        padding: '1.5rem',
-        borderRadius: '12px',
-        border: `2px solid ${color}`,
-        transition: 'transform 0.2s, box-shadow 0.2s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-        <div style={{ background: `${color}20`, padding: '0.75rem', borderRadius: '8px', display: 'flex' }}>
-          {icon}
-        </div>
-        <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</span>
-      </div>
-      <div style={{ fontSize: '2rem', fontWeight: 700, color, marginBottom: sub ? '0.25rem' : 0 }}>{value}</div>
-      {sub && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{sub}</div>}
-    </div>
-  );
+  const tascaAccent = (t: TascaU['tipus']) => t === 'factura' ? '#b83232' : t === 'rodatge' ? '#c84a2a' : '#c08a1e';
+  const tascaLabel  = (t: TascaU['tipus']) => t === 'factura' ? 'VENÇUDA' : t === 'rodatge' ? 'RODATGE' : 'ENTREGA';
 
+  /* ── RENDER ────────────────────────────────────────────────────────────── */
   return (
-    <div>
-      {/* ── DATA ─────────────────────────────────────────────────────────── */}
-      <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-        {new Date().toLocaleDateString('ca-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* ── KPIs ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
-        {kpiCard(<TrendingUp size={20} color="#f59e0b" />, '#f59e0b', 'Pendent de Cobrar', fmtEur2(pendentCobrar))}
-        {kpiCard(<TrendingDown size={20} color="#ef4444" />, '#ef4444', 'Pendent de Pagar', fmtEur2(pendentPagar))}
-        {kpiCard(<AlertCircle size={20} color="#dc2626" />, '#dc2626', 'Factures Vençudes', String(facturesVencudes.length), facturesVencudes.length > 0 ? fmtEur2(totalVencudes) : undefined)}
-        {kpiCard(<Briefcase size={20} color="#10b981" />, '#10b981', 'Projectes Actius', String(projectesActius))}
-      </div>
-
-      {/* ── GRÀFIC + CARDS + TASQUES ─────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '480px', gap: '1rem', marginBottom: '1.25rem' }}>
-
-        {/* Gràfic barres */}
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          borderRadius: '12px',
-          border: '1px solid var(--color-border)',
-          padding: '1rem 1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          {/* Capçalera amb navegació d'any */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexShrink: 0 }}>
-            <div>
-              <div style={{ fontSize: '1rem', fontWeight: 600 }}>Benefici brut de facturació per mes</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginTop: '0.2rem' }}>
-                Ingressos bruts (sense IVA) de les factures emeses — no cal que estiguin cobrades
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button
-                onClick={() => setSelectedYear(y => y - 1)}
-                style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem', minWidth: '3rem', textAlign: 'center' }}>
-                {selectedYear}
-              </span>
-              <button
-                onClick={() => setSelectedYear(y => y + 1)}
-                disabled={selectedYear >= nowYear}
-                style={{ background: selectedYear >= nowYear ? 'var(--color-bg-primary)' : 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '0.3rem', cursor: selectedYear >= nowYear ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', opacity: selectedYear >= nowYear ? 0.4 : 1 }}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Chart fills remaining card space — minHeight 0 lets grid row height be set by cards column */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <GraficBarresBenefici data={beneficiPerMes} />
-          </div>
-
-          {/* Total any */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', flexShrink: 0 }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-              Benefici brut facturat {selectedYear}:{' '}
-              <strong style={{ color: colorBenefici(totalFacturatAny), fontSize: '1rem' }}>
-                {fmtEur2(totalFacturatAny)}
-              </strong>
+      {/* ── CAPÇALERA ─────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ ...LABEL, color: 'var(--color-accent-primary)', marginBottom: 6 }}>{dateStr}</p>
+          <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.035em', lineHeight: 1, color: 'var(--color-text-primary)', margin: 0 }}>
+            {greeting}.
+            <span style={{ fontWeight: 400, color: 'var(--color-text-secondary)', marginLeft: 12 }}>
+              {projectesActius.length > 0
+                ? `${projectesActius.length} projecte${projectesActius.length > 1 ? 's' : ''} actiu${projectesActius.length > 1 ? 's' : ''}.`
+                : 'Cap projecte actiu avui.'}
             </span>
-          </div>
+          </h2>
         </div>
-
-        {/* Cards columna */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-          {/* Card 1: Benefici net fiscal */}
-          <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', flex: 1, overflow: 'visible' }}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.4rem' }}>
-              Benefici net fiscal · {selectedYear}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginBottom: '0.6rem', lineHeight: 1.4 }}>
-              Ingressos bruts de facturació <strong>després de descomptar</strong> el que has pagat a Hisenda i SS com a autònom
-            </div>
-
-            {selectedYear < nowYear && (
-              <div style={{
-                fontSize: '0.74rem',
-                color: '#92400e',
-                background: '#fef3c7',
-                border: '1px solid #fcd34d',
-                borderRadius: '6px',
-                padding: '0.35rem 0.55rem',
-                marginBottom: '0.6rem',
-                lineHeight: 1.4,
-              }}>
-                ⚠️ És possible que no s'hagin registrat totes les obligacions fiscals d'aquest període.
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Total facturat</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#10b981' }}>+{fmtEur2(totalFacturatAny)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Obligacions fiscals</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#dc2626' }}>-{fmtEur2(obligaciosFiscalsAny)}</div>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '2px solid var(--color-border)', paddingTop: '0.5rem' }}>
-              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: colorBenefici(beneficiFiscal) }}>
-                {fmtEur2(beneficiFiscal)}
-              </div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--color-text-tertiary)', marginTop: '0.2rem' }}>
-                Mitjana: <strong style={{ color: colorBenefici(beneficiFiscalMitja) }}>{fmtEur(beneficiFiscalMitja)}/mes</strong>
-                {' '}· {mesosBase} {mesosBase === 1 ? 'mes' : 'mesos'}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Benefici net real (estructural) */}
-          <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', flex: 1, overflow: 'visible' }}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.4rem' }}>
-              Benefici net real · {selectedYear}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginBottom: '0.6rem', lineHeight: 1.4 }}>
-              Benefici net fiscal <strong>tenint en compte</strong> les despeses fixes del negoci: factures de proveïdors/acreedors registrades com a despesa general
-            </div>
-
-            {selectedYear < nowYear && (
-              <div style={{
-                fontSize: '0.74rem',
-                color: '#92400e',
-                background: '#fef3c7',
-                border: '1px solid #fcd34d',
-                borderRadius: '6px',
-                padding: '0.35rem 0.55rem',
-                marginBottom: '0.6rem',
-                lineHeight: 1.4,
-              }}>
-                ⚠️ És possible que no s'hagin registrat totes les despeses fixes d'aquest període.
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Benefici net fiscal</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: colorBenefici(beneficiFiscal) }}>
-                  {beneficiFiscal >= 0 ? '+' : ''}{fmtEur2(beneficiFiscal)}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Despeses estructurals</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#dc2626' }}>-{fmtEur2(despesesEstructuralsAny)}</div>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '2px solid var(--color-border)', paddingTop: '0.5rem' }}>
-              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: colorBenefici(beneficiReal) }}>
-                {fmtEur2(beneficiReal)}
-              </div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--color-text-tertiary)', marginTop: '0.2rem' }}>
-                Mitjana: <strong style={{ color: colorBenefici(beneficiRealMitja) }}>{fmtEur(beneficiRealMitja)}/mes</strong>
-                {' '}· {mesosBase} {mesosBase === 1 ? 'mes' : 'mesos'}
-              </div>
-            </div>
-          </div>
-
+        <div style={{ display: 'flex', gap: 8 }}>
+          <span style={{
+            ...MONO, fontSize: 10, letterSpacing: '0.12em',
+            padding: '6px 14px', borderRadius: 999,
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)', background: '#fff',
+          }}>
+            {selectedYear}
+          </span>
         </div>
-
-        {/* ── TASQUES URGENTS (3a columna del grid) ──────────────────────── */}
-        <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', overflow: 'visible' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>⚡ Tasques Urgents</h3>
-
-          {tascasUrgents.map(t => {
-            const color = t.tipus === 'factura' ? '#dc2626' : t.tipus === 'rodatge' ? '#6366f1' : '#f59e0b';
-            const icon = t.tipus === 'factura' ? '🧾' : t.tipus === 'rodatge' ? '🎬' : '📦';
-            return (
-              <div key={t.id} style={{
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.85rem',
-                borderLeft: `3px solid ${color}`,
-                marginBottom: '0.5rem',
-                background: 'var(--color-bg-tertiary)',
-                borderRadius: '0 4px 4px 0',
-              }}>
-                <div style={{ fontWeight: 600 }}>{icon} {t.titol}</div>
-                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>{t.subtitol}</div>
-              </div>
-            );
-          })}
-
-          {tascasUrgents.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-tertiary)', fontSize: '0.9rem' }}>
-              <CheckCircle size={32} style={{ margin: '0 auto 0.5rem', display: 'block', opacity: 0.4 }} />
-              Tot al dia!
-            </div>
-          )}
-        </div>
-
       </div>
 
-      {/* ── ACTIVITAT RECENT (amplada completa) ──────────────────────────── */}
-      <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1.5rem' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>🕐 Activitat Recent</h3>
-
-        {activitatRecent.length === 0 ? (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', padding: '2rem' }}>
-            No hi ha activitat recent
-          </p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-            {activitatRecent.map((item, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.6rem 0.75rem',
-                background: 'var(--color-bg-tertiary)',
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-              }}>
-                <div style={{ background: 'var(--color-bg-secondary)', padding: '0.4rem', borderRadius: '6px', display: 'flex' }}>
-                  {item.icon}
-                </div>
-                <div style={{ flex: 1, fontWeight: 500 }}>{item.text}</div>
-                <div style={{ color: 'var(--color-text-tertiary)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                  {item.data ? formatDate(item.data) : ''}
-                </div>
-              </div>
-            ))}
+      {/* ── KPI STRIP ─────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        background: '#fff', border: '1px solid var(--color-border)',
+        borderRadius: 14, overflow: 'hidden',
+      }}>
+        {[
+          {
+            label: 'Pendent de cobrar',
+            value: fmtEur(pendentCobrar),
+            sub: `${facturesVenda.filter(f => ['enviada','pagada-parcial','vencuda'].includes(f.estat)).length} factures`,
+            color: '#c08a1e',
+            icon: <TrendingUp size={16} strokeWidth={2} />,
+          },
+          {
+            label: 'Pendent de pagar',
+            value: fmtEur(pendentPagar),
+            sub: 'proveïdors + fiscal',
+            color: '#c84a2a',
+            icon: <TrendingDown size={16} strokeWidth={2} />,
+          },
+          {
+            label: 'Factures vençudes',
+            value: String(facturesVencudes.length),
+            sub: facturesVencudes.length > 0 ? fmtEur2(totalVencudes) : 'Sense vençudes',
+            color: facturesVencudes.length > 0 ? '#b83232' : '#2d7a4f',
+            icon: <AlertCircle size={16} strokeWidth={2} />,
+          },
+          {
+            label: 'Projectes actius',
+            value: String(projectesActius.length),
+            sub: `de ${projectes.filter(p => !p.arxivat).length} totals`,
+            color: '#2d7a4f',
+            icon: <Briefcase size={16} strokeWidth={2} />,
+          },
+        ].map((k, i) => (
+          <div key={i} style={{
+            padding: '22px 24px',
+            borderRight: i < 3 ? '1px solid var(--color-border)' : 'none',
+            display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...LABEL, color: 'var(--color-text-tertiary)' }}>{k.label}</span>
+              <span style={{ color: k.color, opacity: 0.7 }}>{k.icon}</span>
+            </div>
+            <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', color: k.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+              {k.value}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 500 }}>{k.sub}</div>
           </div>
-        )}
+        ))}
       </div>
+
+      {/* ── GRID PRINCIPAL ────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16 }}>
+
+        {/* Columna esquerra: gràfic + beneficis */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Gràfic barres */}
+          <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 14, padding: '20px 24px', display: 'flex', flexDirection: 'column', minHeight: 300 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <p style={{ ...LABEL, color: 'var(--color-text-tertiary)', marginBottom: 4 }}>Benefici brut facturat</p>
+                <p style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: 'var(--color-text-primary)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtEur(totalFacturatAny)}
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)', marginLeft: 8 }}>{selectedYear}</span>
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button onClick={() => setSelectedYear(y => y - 1)}
+                  style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', display: 'flex', color: 'var(--color-text-secondary)' }}>
+                  <ChevronLeft size={15} />
+                </button>
+                <button onClick={() => setSelectedYear(y => y + 1)} disabled={selectedYear >= nowYear}
+                  style={{ background: selectedYear >= nowYear ? 'var(--color-bg-primary)' : 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '5px 8px', cursor: selectedYear >= nowYear ? 'not-allowed' : 'pointer', display: 'flex', color: 'var(--color-text-secondary)', opacity: selectedYear >= nowYear ? 0.4 : 1 }}>
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+            <div style={{ flex: 1, minHeight: 200 }}>
+              <GraficBarres data={beneficiPerMes} />
+            </div>
+          </div>
+
+          {/* Dos cards de benefici — grid horitzontal */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+            {/* Net fiscal */}
+            <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 14, padding: '20px 24px' }}>
+              <p style={{ ...LABEL, color: 'var(--color-text-tertiary)', marginBottom: 14 }}>Net fiscal · {selectedYear}</p>
+              {selectedYear < nowYear && (
+                <div style={{ fontSize: 11, color: '#a07010', background: '#fef6e0', border: '1px solid #f5d86a', borderRadius: 7, padding: '5px 9px', marginBottom: 12, lineHeight: 1.4 }}>
+                  Pot faltar obligacions d'aquest any
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+                <span>Facturat</span>
+                <span style={{ fontWeight: 600, color: '#2d7a4f', fontVariantNumeric: 'tabular-nums' }}>+{fmtEur(totalFacturatAny)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+                <span>Obligacions fiscals</span>
+                <span style={{ fontWeight: 600, color: '#b83232', fontVariantNumeric: 'tabular-nums' }}>-{fmtEur(obligaciosFiscalsAny)}</span>
+              </div>
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
+                <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: colorPos(beneficiFiscal), fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtEur(beneficiFiscal)}
+                </div>
+                <p style={{ ...MONO, fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+                  {fmtEur(beneficiFiscalMitja)}/mes · {mesosBase} {mesosBase === 1 ? 'mes' : 'mesos'}
+                </p>
+              </div>
+            </div>
+
+            {/* Net real */}
+            <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 14, padding: '20px 24px' }}>
+              <p style={{ ...LABEL, color: 'var(--color-text-tertiary)', marginBottom: 14 }}>Net real · {selectedYear}</p>
+              {selectedYear < nowYear && (
+                <div style={{ fontSize: 11, color: '#a07010', background: '#fef6e0', border: '1px solid #f5d86a', borderRadius: 7, padding: '5px 9px', marginBottom: 12, lineHeight: 1.4 }}>
+                  Pot faltar despeses d'aquest any
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+                <span>Net fiscal</span>
+                <span style={{ fontWeight: 600, color: colorPos(beneficiFiscal), fontVariantNumeric: 'tabular-nums' }}>
+                  {beneficiFiscal >= 0 ? '+' : ''}{fmtEur(beneficiFiscal)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+                <span>Despeses estructurals</span>
+                <span style={{ fontWeight: 600, color: '#b83232', fontVariantNumeric: 'tabular-nums' }}>-{fmtEur(despesesEstructuralsAny)}</span>
+              </div>
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
+                <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: colorPos(beneficiReal), fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtEur(beneficiReal)}
+                </div>
+                <p style={{ ...MONO, fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+                  {fmtEur(beneficiRealMitja)}/mes · {mesosBase} {mesosBase === 1 ? 'mes' : 'mesos'}
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Columna dreta: tasques + projectes actius + activitat */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Tasques urgents */}
+          <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px 10px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...LABEL, color: 'var(--color-text-tertiary)' }}>Tasques urgents</span>
+              {tascasUrgents.length > 0 && (
+                <span style={{ ...MONO, fontSize: 10, fontWeight: 700, background: '#fbe8e2', color: '#c84a2a', padding: '2px 7px', borderRadius: 999 }}>
+                  {tascasUrgents.length}
+                </span>
+              )}
+            </div>
+            <div style={{ padding: '8px 12px' }}>
+              {tascasUrgents.length === 0 ? (
+                <div style={{ padding: '20px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--color-text-tertiary)' }}>
+                  <CheckCircle size={22} strokeWidth={1.5} />
+                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>Tot al dia!</span>
+                </div>
+              ) : tascasUrgents.map(t => (
+                <div key={t.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '9px 8px', borderRadius: 8,
+                  borderLeft: `3px solid ${tascaAccent(t.tipus)}`,
+                  marginBottom: 4, background: 'var(--color-bg-primary)',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', color: tascaAccent(t.tipus), marginBottom: 2 }}>{tascaLabel(t.tipus)}</p>
+                    <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-text-primary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.titol}</p>
+                    <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>{t.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Projectes actius */}
+          <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 14, overflow: 'hidden', flex: 1 }}>
+            <div style={{ padding: '14px 20px 10px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...LABEL, color: 'var(--color-text-tertiary)' }}>Projectes actius</span>
+            </div>
+            <div>
+              {projectesActius.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-tertiary)', fontSize: 12.5 }}>
+                  Cap projecte actiu
+                </div>
+              ) : projectesActius.slice(0, 5).map((p, i) => {
+                const cl = clients.find(c => c.codi === p.client);
+                return (
+                  <div key={p.codi} style={{
+                    padding: '10px 20px',
+                    borderBottom: i < Math.min(projectesActius.length, 5) - 1 ? '1px solid var(--color-border)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                        <p style={{ ...MONO, fontSize: 9.5, color: 'var(--color-text-tertiary)' }}>{p.codi}</p>
+                        <EstatChip estat={p.estat} />
+                      </div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {p.titol}
+                      </p>
+                      {cl && <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>{cl.nomComercial || cl.nomFiscal}</p>}
+                    </div>
+                    <ArrowUpRight size={14} strokeWidth={2} color="var(--color-text-tertiary)" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Activitat recent */}
+          <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px 10px', borderBottom: '1px solid var(--color-border)' }}>
+              <span style={{ ...LABEL, color: 'var(--color-text-tertiary)' }}>Activitat recent</span>
+            </div>
+            <div>
+              {activitat.map((item, i) => (
+                <div key={i} style={{
+                  padding: '9px 20px',
+                  borderBottom: i < activitat.length - 1 ? '1px solid var(--color-border)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {item.icon === 'factura'
+                      ? <FileText size={13} strokeWidth={2} color="var(--color-text-secondary)" />
+                      : <Briefcase size={13} strokeWidth={2} color="var(--color-text-secondary)" />}
+                  </div>
+                  <span style={{ fontSize: 12.5, fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.text}</span>
+                  <span style={{ ...MONO, fontSize: 10, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
+                    {item.data ? fmtDate(item.data) : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   );
 }
 
-// ── GRÀFIC DE BARRES ─────────────────────────────────────────────────────────
-function GraficBarresBenefici({ data }: { data: number[] }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dims, setDims] = useState({ width: 560, height: 0 });
+/* ── GRÀFIC DE BARRES ──────────────────────────────────────────────────────── */
+function GraficBarres({ data }: { data: number[] }) {
+  const ref  = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ w: 560, h: 200 });
 
   useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (w > 0 && h > 0) setDims({ width: w, height: h });
-    };
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    measure();
+    const el = ref.current; if (!el) return;
+    const measure = () => { const { clientWidth: w, clientHeight: h } = el; if (w > 0 && h > 0) setDims({ w, h }); };
+    const ro = new ResizeObserver(measure); ro.observe(el); measure();
     return () => ro.disconnect();
   }, []);
 
-  const W = dims.width;
-  const H = dims.height;
-  const PL = 80;
-  const PR = 8;
-  const PT = 20;
-  const PB = 22;
-
-  const chartW = Math.max(W - PL - PR, 10);
-  const chartH = Math.max(H - PT - PB, 10);
-  const maxVal = Math.max(...data, 1);
-  const barW = chartW / 12;
-  const barGap = 14;
-  const gridLevels = [0, 0.25, 0.5, 0.75, 1];
+  const { w: W, h: H } = dims;
+  const PL = 60, PR = 8, PT = 8, PB = 22;
+  const cW = Math.max(W - PL - PR, 10);
+  const cH = Math.max(H - PT - PB, 10);
+  const max = Math.max(...data, 1);
+  const bW  = cW / 12;
+  const gap = 10;
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
-        {gridLevels.map((pct, i) => {
-          const y = PT + chartH - pct * chartH;
+    <div ref={ref} style={{ width: '100%', height: '100%' }}>
+      <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
+        {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+          const y = PT + cH - pct * cH;
           return (
             <g key={i}>
-              <line x1={PL} y1={y} x2={W - PR} y2={y}
-                stroke="var(--color-border)" strokeWidth={pct === 0 ? 1.5 : 1}
-                strokeDasharray={pct === 0 ? undefined : '4 3'}
-              />
-              <text x={PL - 5} y={y + 3.5} textAnchor="end" fontSize="9.5" fill="var(--color-text-tertiary)">
-                {fmtEur(maxVal * pct)}
+              <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--color-border)" strokeWidth={pct === 0 ? 1.5 : 0.8} strokeDasharray={pct === 0 ? undefined : '3 3'} />
+              <text x={PL - 6} y={y + 3.5} textAnchor="end" fontSize="9" fill="var(--color-text-tertiary)" fontFamily="'JetBrains Mono',monospace">
+                {fmtK(max * pct)}
               </text>
             </g>
           );
         })}
-
         {data.map((val, i) => {
-          const barH = Math.max(0, (val / maxVal) * chartH);
-          const x = PL + i * barW + barGap / 2;
-          const y = PT + chartH - barH;
-          const bw = barW - barGap;
-          const color = val > 0 ? '#3b82f6' : val < 0 ? '#ef4444' : '#d1d5db';
-
+          const bH    = Math.max(0, (val / max) * cH);
+          const x     = PL + i * bW + gap / 2;
+          const y     = PT + cH - bH;
+          const bw    = bW - gap;
+          const color = val > 0 ? '#c84a2a' : val < 0 ? '#b83232' : '#e2d9d0';
           return (
             <g key={i}>
-              {barH > 0 && (
-                <rect x={x} y={y} width={bw} height={barH} fill={color} rx="3" opacity="0.9" />
-              )}
-              {val > 0 && barH > 12 && (
-                <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-text-secondary)">
-                  {fmtEur(val)}
-                </text>
-              )}
-              <text x={x + bw / 2} y={H - 5} textAnchor="middle" fontSize="10" fill="var(--color-text-secondary)">
+              {bH > 0 && <rect x={x} y={y} width={bw} height={bH} fill={color} rx="4" opacity="0.9" />}
+              <text x={x + bw / 2} y={H - 5} textAnchor="middle" fontSize="9" fill="var(--color-text-tertiary)" fontFamily="'JetBrains Mono',monospace">
                 {MESOS_CURTS[i]}
               </text>
             </g>

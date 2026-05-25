@@ -62,12 +62,13 @@
    }
    
    body {
-     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+     font-family: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
      background: var(--color-bg-primary);
      color: var(--color-text-primary);
-     line-height: 1.6;
+     line-height: 1.5;
      -webkit-font-smoothing: antialiased;
      -moz-osx-font-smoothing: grayscale;
+     letter-spacing: -0.01em;
    }
    
    /* ============================================================================
@@ -85,7 +86,7 @@
       ============================================================================ */
    
    .sidebar {
-     width: 280px;
+     width: 256px;
      background: #1c1917;
      border-right: 1px solid rgba(255,255,255,0.06);
      display: flex;
@@ -224,7 +225,7 @@
    
    .main-content {
      flex: 1;
-     margin-left: 280px;
+     margin-left: 256px;
      background: var(--color-bg-primary);
      min-height: 100vh;
      overflow-y: auto; 
@@ -792,4 +793,87 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* ============================================================================
+   SIDEBAR GRUPOS — navegació agrupada amb etiquetes de secció
+   ============================================================================ */
+
+.nav-group {
+  margin-bottom: 4px;
+}
+
+.nav-group-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+  padding: 14px 16px 5px;
+  display: block;
+  user-select: none;
+}
+
+.nav-group-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 8px 16px;
+}
+
+/* Logo mark — quadrat fosc amb lletra A */
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  background: var(--color-accent-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.04em;
+  flex-shrink: 0;
+}
+
+/* Títol de secció — tipografia editorial */
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin-bottom: 0.2rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.section-description {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* Settings button — versió sidebar fosca */
+.settings-button {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  color: rgba(255,255,255,0.5);
+  flex-shrink: 0;
+}
+
+.settings-button:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border-color: rgba(255,255,255,0.18);
+  transform: none;
 }
