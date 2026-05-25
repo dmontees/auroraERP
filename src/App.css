@@ -794,3 +794,25 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* ── Sidebar nav groups ─────────────────────────────────────────────────── */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 16px 20px 4px;
+  user-select: none;
+}
+
+.nav-group-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 8px 16px;
+}

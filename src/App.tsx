@@ -42,6 +42,21 @@ const DEFAULT_SETTINGS: CompanySettings = {
   logo: null
 };
 
+const NAV_GROUPS = [
+  {
+    label: 'Producció',
+    items: ['dashboard', 'projectes', 'calendari', 'parts-treball'] as Section[],
+  },
+  {
+    label: 'Relacions',
+    items: ['clients', 'proveidors'] as Section[],
+  },
+  {
+    label: 'Finances',
+    items: ['pressupostos', 'factures-venda', 'factures-compra', 'gestio-fiscal', 'resultats'] as Section[],
+  },
+];
+
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [showSettings, setShowSettings] = useState(false);
@@ -146,17 +161,44 @@ function App() {
         </div>
 
         <nav className="nav-menu">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id)}
-              className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
-              title={item.description}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </button>
-          ))}
+          {(() => {
+            const navMap = Object.fromEntries(navItems.map(n => [n.id, n])) as Record<Section, NavItem>;
+            return (
+              <>
+                {NAV_GROUPS.map((group, gi) => (
+                  <div key={group.label} className="nav-group">
+                    {gi > 0 && <div className="nav-group-divider" />}
+                    <span className="nav-group-label">{group.label}</span>
+                    {group.items.map(id => {
+                      const item = navMap[id];
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => setActiveSection(id)}
+                          className={`nav-item ${activeSection === id ? 'active' : ''}`}
+                          title={item.description}
+                        >
+                          <span className="nav-icon">{item.icon}</span>
+                          <span className="nav-label">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+                <div className="nav-group" style={{ marginTop: 'auto' }}>
+                  <div className="nav-group-divider" />
+                  <button
+                    onClick={() => setActiveSection('parametres')}
+                    className={`nav-item ${activeSection === 'parametres' ? 'active' : ''}`}
+                    title={navMap.parametres.description}
+                  >
+                    <span className="nav-icon">{navMap.parametres.icon}</span>
+                    <span className="nav-label">{navMap.parametres.label}</span>
+                  </button>
+                </div>
+              </>
+            );
+          })()}
         </nav>
 
         <CronometreWidget />
