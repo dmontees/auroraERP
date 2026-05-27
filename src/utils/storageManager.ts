@@ -50,6 +50,12 @@ export interface StoreSchema {
     client_secret: string;
     calendar_id: string;
   } | null;
+  webSyncConfig: {
+    url: string;          // https://auroraerp.plateafilms.com/api
+    apiKey: string;       // SYNC_API_KEY del config.php
+    autoSync: boolean;
+    intervalMinutes: number; // 15 | 30 | 60 | 120
+  } | null;
 }
 
 // Mapeo de claves localStorage → electron-store
@@ -68,7 +74,8 @@ const STORAGE_KEYS = {
   cronometre: 'plateaCronometre',
   settings: 'plateaErpSettings',
   esdevenimentsPersonalitzats: 'plateaEsdevenimentsPersonalitzats',
-  googleCalendarToken: 'plateaGoogleCalendarToken'
+  googleCalendarToken: 'plateaGoogleCalendarToken',
+  webSyncConfig: 'plateaWebSyncConfig'
 } as const;
 
 class StorageManager {
@@ -142,6 +149,7 @@ class StorageManager {
       settings: null,
       esdevenimentsPersonalitzats: [],
       googleCalendarToken: null,
+      webSyncConfig: null,
       parametres: {
         categories: [],
         serveis: [],
@@ -609,6 +617,18 @@ class StorageManager {
       return this.electronStoreAPI.getPath?.() || null;
     }
     return null;
+  }
+
+  // ============================================================================
+  // WEB SYNC CONFIG
+  // ============================================================================
+
+  getWebSyncConfig(): StoreSchema['webSyncConfig'] {
+    return this.get('webSyncConfig');
+  }
+
+  setWebSyncConfig(config: StoreSchema['webSyncConfig']): void {
+    this.set('webSyncConfig', config);
   }
 }
 

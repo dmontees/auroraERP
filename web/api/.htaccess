@@ -1,0 +1,33 @@
+# Aurora ERP API — Seguretat i capçaleres (LiteSpeed / Apache compatible)
+
+# Protegeix els fitxers de configuració
+<FilesMatch "^(config\.php|helpers\.php)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Evita llistat de directoris
+Options -Indexes
+
+# Capçaleres de seguretat
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Augmenta els límits per a la sincronització (fitxers JSON grans)
+<IfModule mod_php.c>
+    php_value post_max_size        64M
+    php_value upload_max_filesize  64M
+    php_value max_execution_time   120
+    php_value memory_limit         256M
+    php_value max_input_time       120
+</IfModule>
+
+# LiteSpeed equivalent
+<IfModule LiteSpeed>
+    php_value post_max_size        64M
+    php_value max_execution_time   120
+    php_value memory_limit         256M
+</IfModule>

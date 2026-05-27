@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import auroraIcon from '../build/icon_A.png';
-import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings, Scale } from 'lucide-react';
+import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings, Scale, Cloud, CloudOff } from 'lucide-react';
+import { useWebSync } from './hooks/useWebSync';
+import WebSyncModal from './components/common/WebSyncModal';
 import Dashboard from './components/dashboard/Dashboard';
 import ProjectesSection from './components/projectes/ProjectesSection';
 import ParametresSection from './components/parametres/ParametresPage';
@@ -61,12 +63,14 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [showSettings, setShowSettings] = useState(false);
   const [showCronometreModal, setShowCronometreModal] = useState(false);
+  const [showWebSync, setShowWebSync] = useState(false);
+  const webSync = useWebSync();
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [clients, setClients] = useState<Client[]>([]);
 
   // Ejecutar migraciones al inicio
   useEffect(() => {
-    console.log('🚀 Iniciando Aurora ERP v2.0.0...');
+    console.log('🚀 Iniciando Aurora ERP v2.1.0...');
     
     try {
       // 1. Migrar de localStorage a electron-store (solo una vez)
@@ -213,10 +217,26 @@ function App() {
           </div>
 
           <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v2.0.0</p>
+            <p className="footer-text">v2.1.0</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
           
+          <button
+            className="settings-button"
+            onClick={() => setShowWebSync(true)}
+            title={webSync.status === 'error' ? `Error sync: ${webSync.error}` : 'Sincronització web'}
+            style={{ position: 'relative' }}
+          >
+            {webSync.status === 'syncing'
+              ? <Cloud size={17} style={{ animation: 'spin 1s linear infinite', color: '#3b82f6' }} />
+              : webSync.status === 'success'
+              ? <Cloud size={17} style={{ color: '#10b981' }} />
+              : webSync.status === 'error'
+              ? <CloudOff size={17} style={{ color: '#ef4444' }} />
+              : <Cloud size={17} />
+            }
+          </button>
+
           <button className="settings-button" onClick={() => setShowSettings(true)} title="Configuració">
             <Settings size={17} />
           </button>
@@ -248,10 +268,20 @@ function App() {
       </main>
  
       {showSettings && (
-        <SettingsModal 
+        <SettingsModal
           settings={settings}
           onSave={saveSettings}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {showWebSync && (
+        <WebSyncModal
+          status={webSync.status}
+          lastSync={webSync.lastSync}
+          error={webSync.error}
+          onSync={webSync.sync}
+          onClose={() => setShowWebSync(false)}
         />
       )}
 

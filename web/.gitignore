@@ -1,0 +1,9 @@
+# Credencials — mai pujar al repositori
+api/config.php
+api/config.example.php.bak
+
+# ZIPs temporals de desplegament
+api/api.zip
+frontend/dist.zip
+frontend/dist/
+frontend/node_modules/
