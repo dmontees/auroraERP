@@ -165,7 +165,7 @@ export default function CalendariTab({ hook }: Props) {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#ef4444',
+                    color: 'var(--color-error)',
                     cursor: 'pointer',
                     padding: '0.25rem',
                     flexShrink: 0

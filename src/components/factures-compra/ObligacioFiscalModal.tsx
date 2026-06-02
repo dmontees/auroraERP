@@ -381,7 +381,7 @@ export default function ObligacioFiscalModal({
               <span style={{
                 marginLeft: '1rem',
                 fontSize: '0.9rem',
-                background: '#10b981',
+                background: 'var(--color-success)',
                 color: 'white',
                 padding: '0.25rem 0.75rem',
                 borderRadius: '4px',
@@ -552,9 +552,9 @@ export default function ObligacioFiscalModal({
                   style={{
                     padding: '0.4rem 1.25rem',
                     borderRadius: '6px',
-                    border: `2px solid ${vinculacioResposta === 'no' ? '#10b981' : 'var(--color-border)'}`,
+                    border: `2px solid ${vinculacioResposta === 'no' ? 'var(--color-success)' : 'var(--color-border)'}`,
                     background: vinculacioResposta === 'no' ? '#ecfdf5' : 'transparent',
-                    color: vinculacioResposta === 'no' ? '#065f46' : 'var(--color-text-primary)',
+                    color: vinculacioResposta === 'no' ? 'var(--color-success-dark)' : 'var(--color-text-primary)',
                     fontWeight: vinculacioResposta === 'no' ? 700 : 400,
                     cursor: 'pointer',
                   }}
@@ -567,8 +567,8 @@ export default function ObligacioFiscalModal({
                   style={{
                     padding: '0.4rem 1.25rem',
                     borderRadius: '6px',
-                    border: `2px solid ${vinculacioResposta === 'si' ? '#3b82f6' : 'var(--color-border)'}`,
-                    background: vinculacioResposta === 'si' ? '#eff6ff' : 'transparent',
+                    border: `2px solid ${vinculacioResposta === 'si' ? 'var(--color-info)' : 'var(--color-border)'}`,
+                    background: vinculacioResposta === 'si' ? 'var(--color-info-bg-light)' : 'transparent',
                     color: vinculacioResposta === 'si' ? '#1d4ed8' : 'var(--color-text-primary)',
                     fontWeight: vinculacioResposta === 'si' ? 700 : 400,
                     cursor: 'pointer',
@@ -593,9 +593,9 @@ export default function ObligacioFiscalModal({
                     placeholder="— Selecciona projecte —"
                   />
                   {projecteCodi && albaransDetectats.length > 0 && (
-                    <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, fontSize: '0.85rem' }}>
-                      <strong style={{ color: '#1e40af' }}>Albarans vinculats automàticament ({albaransDetectats.length}):</strong>
-                      <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, color: '#1e3a8a' }}>
+                    <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-info-bg-light)', border: '1px solid var(--color-info-border-strong)', borderRadius: 6, fontSize: '0.85rem' }}>
+                      <strong style={{ color: 'var(--color-info-dark)' }}>Albarans vinculats automàticament ({albaransDetectats.length}):</strong>
+                      <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, color: 'var(--color-info-darker)' }}>
                         {albaransDetectats.map(a => (
                           <li key={a.codi} style={{ marginBottom: '0.2rem' }}>
                             {a.codi} — {a.serveiNom || a.serveiCodi} ({a.quantitat} {a.unitatNom || a.unitatCodi})
@@ -610,10 +610,10 @@ export default function ObligacioFiscalModal({
                       marginTop: '0.5rem',
                       padding: '0.5rem 0.75rem',
                       background: '#fffbeb',
-                      border: '1px solid #fde68a',
+                      border: '1px solid var(--color-warning-border)',
                       borderRadius: '6px',
                       fontSize: '0.8rem',
-                      color: '#92400e',
+                      color: 'var(--color-warning-dark)',
                     }}>
                       Cap albarà pendent trobat per a aquest treballador i projecte
                     </div>
@@ -687,24 +687,24 @@ export default function ObligacioFiscalModal({
                 </div>
                 <div style={rowStyle}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>SS empresa ({pctSSEmpresa.toFixed(1)}%)</span>
-                  <span style={{ color: '#dc2626' }}>+{fmt(ssEmpresa)}</span>
+                  <span style={{ color: 'var(--color-error-dark)' }}>+{fmt(ssEmpresa)}</span>
                 </div>
                 <div style={{ ...rowStyle, fontWeight: 700, borderBottom: 'none', borderTop: '2px solid var(--color-border)', marginTop: '0.25rem', paddingTop: '0.5rem' }}>
                   <span>Cost total empresa</span>
-                  <span style={{ color: '#dc2626' }}>{fmt(costTotalEmpresa)}</span>
+                  <span style={{ color: 'var(--color-error-dark)' }}>{fmt(costTotalEmpresa)}</span>
                 </div>
                 <div style={{ borderTop: '1px dashed var(--color-border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
                   <div style={rowStyle}>
                     <span style={{ color: 'var(--color-text-secondary)' }}>SS treballador ({pctSSTreballador.toFixed(2)}%)</span>
-                    <span style={{ color: '#f59e0b' }}>-{fmt(ssTreballador)}</span>
+                    <span style={{ color: 'var(--color-warning)' }}>-{fmt(ssTreballador)}</span>
                   </div>
                   <div style={rowStyle}>
                     <span style={{ color: 'var(--color-text-secondary)' }}>IRPF retingut ({pctIRPF.toFixed(1)}%)</span>
-                    <span style={{ color: '#f59e0b' }}>-{fmt(irpfRetingut)}</span>
+                    <span style={{ color: 'var(--color-warning)' }}>-{fmt(irpfRetingut)}</span>
                   </div>
                   <div style={{ ...rowStyle, borderBottom: 'none', fontWeight: 600 }}>
                     <span>Salari net al treballador</span>
-                    <span style={{ color: '#10b981' }}>{fmt(salariNet)}</span>
+                    <span style={{ color: 'var(--color-success)' }}>{fmt(salariNet)}</span>
                   </div>
                 </div>
               </div>
@@ -764,7 +764,7 @@ export default function ObligacioFiscalModal({
               {editingGasto?.ivaNetCalculat != null && (
                 <div style={{ ...rowStyle, borderBottom: 'none', fontWeight: 600, marginTop: '0.5rem' }}>
                   <span>Diferència (calculat vs registrat)</span>
-                  <span style={{ color: Math.abs(editingGasto.ivaNetCalculat - ivaRegistratGestor) < 0.01 ? '#10b981' : '#f59e0b' }}>
+                  <span style={{ color: Math.abs(editingGasto.ivaNetCalculat - ivaRegistratGestor) < 0.01 ? 'var(--color-success)' : 'var(--color-warning)' }}>
                     {fmt(editingGasto.ivaNetCalculat - ivaRegistratGestor)}
                   </span>
                 </div>
@@ -844,7 +844,7 @@ export default function ObligacioFiscalModal({
               type="button"
               className="btn-secondary"
               onClick={handleDelete}
-              style={{ marginRight: 'auto', borderColor: '#dc2626', color: '#dc2626' }}
+              style={{ marginRight: 'auto', borderColor: 'var(--color-error-dark)', color: 'var(--color-error-dark)' }}
             >
               <Trash2 size={18} />
               Eliminar

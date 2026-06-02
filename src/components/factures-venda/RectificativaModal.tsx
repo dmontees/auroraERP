@@ -63,12 +63,12 @@ export default function RectificativaModal({ factura, onClose, onCreate }: Props
 
           {/* Advertencia */}
           <div style={{
-            background: '#fef3c7',
-            border: '1px solid #fbbf24',
+            background: 'var(--color-warning-bg)',
+            border: '1px solid var(--color-warning-light)',
             borderRadius: '8px',
             padding: '1rem',
             marginBottom: '1.5rem',
-            color: '#92400e'
+            color: 'var(--color-warning-dark)'
           }}>
             <strong>⚠️ Atenció:</strong>
             <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>

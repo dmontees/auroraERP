@@ -3,8 +3,9 @@ export interface MaterialPressupost {
   grup: string;
   material: string;
   proveidor: string;
-  preuProveidor: number;
-  preuPlatea: number;
+  preuProveidor: number;  // cost price per day
+  preuPlatea: number;     // sale price per day
+  jornades: number;       // days this material is used
 }
 
 export interface RecursHumaPressupost {
@@ -18,17 +19,10 @@ export interface RecursHumaPressupost {
   importe: number;
 }
 
-export interface TascaPressupost {
-  id: string;
-  categoria: string;
-  servei: string;
-  descripcio: string;
-  quantitat: number;
-  unitat: string;
-  tarifa: number;
-  importe: number;
-  ordre: number;
-}
+export type { TascaVenda } from './tascaVenda';
+// Backward-compatible aliases — existing imports keep working unchanged
+export type TascaPressupost = import('./tascaVenda').TascaVenda;
+export type TascaCategoria  = import('./tascaVenda').TascaVenda;
 
 export interface Pressupost {
   codi: string;

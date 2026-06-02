@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import auroraIcon from '../build/icon_A.png';
-import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, Settings, Scale, Cloud, CloudOff } from 'lucide-react';
+import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, BadgePlus, Settings, Scale, Cloud, CloudOff, Sun, Moon } from 'lucide-react';
 import { useWebSync } from './hooks/useWebSync';
 import WebSyncModal from './components/common/WebSyncModal';
 import Dashboard from './components/dashboard/Dashboard';
@@ -64,13 +64,25 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showCronometreModal, setShowCronometreModal] = useState(false);
   const [showWebSync, setShowWebSync] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    () => (localStorage.getItem('aurora-theme') as 'light' | 'dark') || 'light'
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('theme-transitioning');
+    root.setAttribute('data-theme', theme);
+    localStorage.setItem('aurora-theme', theme);
+    const t = setTimeout(() => root.classList.remove('theme-transitioning'), 300);
+    return () => clearTimeout(t);
+  }, [theme]);
   const webSync = useWebSync();
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [clients, setClients] = useState<Client[]>([]);
 
   // Ejecutar migraciones al inicio
   useEffect(() => {
-    console.log('🚀 Iniciando Aurora ERP v2.1.0...');
+    console.log('🚀 Iniciando Aurora ERP v3.0.0...');
     
     try {
       // 1. Migrar de localStorage a electron-store (solo una vez)
@@ -142,7 +154,7 @@ function App() {
     { id: 'resultats', label: 'Resultats', icon: <TrendingUp size={17} />, description: 'Anàlisi financera i rendibilitat' },
     { id: 'parts-treball', label: 'Parts Treball', icon: <Clock size={17} />, description: 'Registre d\'hores i tasques' },
     { id: 'calendari', label: 'Calendari', icon: <CalendarIcon size={17} />, description: 'Visualitza esdeveniments i dates importants' },
-    { id: 'parametres', label: 'Paràmetres', icon: <Settings size={17} />, description: 'Configuració de serveis, unitats i tarifes' }
+    { id: 'parametres', label: 'Paràmetres', icon: <BadgePlus size={17} />, description: 'Configuració de serveis, unitats i tarifes' }
   ];
 
   return (
@@ -208,38 +220,52 @@ function App() {
         <CronometreWidget />
 
         <div className="sidebar-footer">
-          <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img
-              src={auroraIcon}
-              alt="Aurora ERP"
-              style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }}
-            />
-          </div>
+          {/* Logo amb resplandor */}
+          <img
+            src={auroraIcon}
+            alt="Aurora ERP"
+            style={{
+              width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover',
+              flexShrink: 0, display: 'block',
+              filter: 'drop-shadow(0 0 6px rgba(79,70,229,0.55)) drop-shadow(0 0 14px rgba(14,165,233,0.3))',
+            }}
+          />
 
-          <div className="footer-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="footer-text">v2.1.0</p>
+          {/* Versió */}
+          <div className="footer-info" style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+            <p className="footer-text">v3.0.0</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
-          
-          <button
-            className="settings-button"
-            onClick={() => setShowWebSync(true)}
-            title={webSync.status === 'error' ? `Error sync: ${webSync.error}` : 'Sincronització web'}
-            style={{ position: 'relative' }}
-          >
-            {webSync.status === 'syncing'
-              ? <Cloud size={17} style={{ animation: 'spin 1s linear infinite', color: '#3b82f6' }} />
-              : webSync.status === 'success'
-              ? <Cloud size={17} style={{ color: '#10b981' }} />
-              : webSync.status === 'error'
-              ? <CloudOff size={17} style={{ color: '#ef4444' }} />
-              : <Cloud size={17} />
-            }
-          </button>
 
-          <button className="settings-button" onClick={() => setShowSettings(true)} title="Configuració">
-            <Settings size={17} />
-          </button>
+          {/* Botons agrupats */}
+          <div style={{ display: 'flex', gap: '0.05rem', flexShrink: 0 }}>
+            <button
+              className="settings-button"
+              onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+              title={theme === 'light' ? 'Mode fosc' : 'Mode clar'}
+            >
+              {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+            </button>
+
+            <button
+              className="settings-button"
+              onClick={() => setShowWebSync(true)}
+              title={webSync.status === 'error' ? `Error sync: ${webSync.error}` : 'Sincronització web'}
+            >
+              {webSync.status === 'syncing'
+                ? <Cloud size={15} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-info)' }} />
+                : webSync.status === 'success'
+                ? <Cloud size={15} style={{ color: 'var(--color-success)' }} />
+                : webSync.status === 'error'
+                ? <CloudOff size={15} style={{ color: 'var(--color-error)' }} />
+                : <Cloud size={15} />
+              }
+            </button>
+
+            <button className="settings-button" onClick={() => setShowSettings(true)} title="Configuració">
+              <Settings size={15} />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -281,6 +307,14 @@ function App() {
           lastSync={webSync.lastSync}
           error={webSync.error}
           onSync={webSync.sync}
+          docStatus={webSync.docStatus}
+          lastDocSync={webSync.lastDocSync}
+          docStats={webSync.docStats}
+          docError={webSync.docError}
+          backupStatus={webSync.backupStatus}
+          lastBackup={webSync.lastBackup}
+          backupError={webSync.backupError}
+          onBackup={webSync.backup}
           onClose={() => setShowWebSync(false)}
         />
       )}

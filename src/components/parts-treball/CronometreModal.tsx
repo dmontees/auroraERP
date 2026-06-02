@@ -289,9 +289,9 @@ export default function CronometreModal({
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '0.5rem',
-                    background: '#fee2e2',
-                    color: '#dc2626',
-                    border: '1px solid #dc2626'
+                    background: 'var(--color-error-bg)',
+                    color: 'var(--color-error-dark)',
+                    border: '1px solid var(--color-error-dark)'
                   }}
                 >
                   <Square size={18} />
@@ -325,7 +325,7 @@ export default function CronometreModal({
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '0.5rem',
-                      background: '#f59e0b'
+                      background: 'var(--color-warning)'
                     }}
                   >
                     <Pause size={18} />

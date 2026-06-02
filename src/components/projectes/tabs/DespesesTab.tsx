@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Trash2 } from 'lucide-react';
+import { Check, Trash2, ArrowDownToLine } from 'lucide-react';
 import type { Projecte, RecursHumaProjecte, MaterialProjecte } from '../../../types/projecte';
 import type { Parametres } from '../../../types/parametres';
 import type { Proveidor } from '../../../types/proveidor';
@@ -12,14 +12,14 @@ interface Props {
   proveidors: Proveidor[];
   esBloquejat: boolean;
   recursCopiado: string | null;
-  materialCopiado: string | null;
+  materialsAgregats: boolean;
   onAfegirRecursHuma: () => void;
   onActualitzarRecursHuma: (id: string, field: keyof RecursHumaProjecte, value: any) => void;
   onEliminarRecursHuma: (id: string) => void;
   onTrasladarRecursATaska: (recurs: RecursHumaProjecte) => void;
   onActualitzarMaterial: (id: string, field: keyof MaterialProjecte, value: any) => void;
   onEliminarMaterial: (id: string) => void;
-  onTrasladarMaterialATaska: (material: MaterialProjecte) => void;
+  onAgregarMaterialsATasques: () => void;
 }
 
 export default function DespesesTab({
@@ -29,14 +29,14 @@ export default function DespesesTab({
   proveidors,
   esBloquejat,
   recursCopiado,
-  materialCopiado,
+  materialsAgregats,
   onAfegirRecursHuma,
   onActualitzarRecursHuma,
   onEliminarRecursHuma,
   onTrasladarRecursATaska,
   onActualitzarMaterial,
   onEliminarMaterial,
-  onTrasladarMaterialATaska
+  onAgregarMaterialsATasques
 }: Props) {
   return (
     <div>
@@ -169,8 +169,8 @@ export default function DespesesTab({
                           onClick={() => onTrasladarRecursATaska(recurs)}
                           disabled={!recurs.servei || !recurs.unitat || esBloquejat}
                           style={{
-                            background: recursCopiado === recurs.id ? '#10b981' : 'transparent',
-                            border: `1px solid ${recursCopiado === recurs.id ? '#10b981' : 'var(--color-border)'}`,
+                            background: recursCopiado === recurs.id ? 'var(--color-success)' : 'transparent',
+                            border: `1px solid ${recursCopiado === recurs.id ? 'var(--color-success)' : 'var(--color-border)'}`,
                             borderRadius: '4px',
                             color: recursCopiado === recurs.id ? 'white' : 'var(--color-accent-primary)',
                             cursor: (recurs.servei && recurs.unitat) ? 'pointer' : 'not-allowed',
@@ -220,6 +220,32 @@ export default function DespesesTab({
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
             Materials
           </h3>
+          {formData.materials.some(m => m.material && m.grup) && !esBloquejat && (
+            <button
+              type="button"
+              onClick={onAgregarMaterialsATasques}
+              title="Agrupa tots els materials per grup i els afegeix a Tasques de Venda (substitueix les tasques de Materials existents)"
+              style={{
+                background: materialsAgregats ? 'var(--color-success)' : 'transparent',
+                border: `1px solid ${materialsAgregats ? 'var(--color-success)' : 'var(--color-accent-primary)'}`,
+                borderRadius: '4px',
+                color: materialsAgregats ? 'white' : 'var(--color-accent-primary)',
+                cursor: 'pointer',
+                padding: '0.4rem 0.75rem',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {materialsAgregats ? (
+                <><Check size={14} /> Generat!</>
+              ) : (
+                <><ArrowDownToLine size={14} /> Generar Tasques</>
+              )}
+            </button>
+          )}
         </div>
 
         {formData.materials.length === 0 ? (
@@ -233,9 +259,11 @@ export default function DespesesTab({
                 <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '120px' }}>Grup</th>
                 <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Material</th>
                 <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '150px' }}>Proveïdor</th>
-                <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Preu Prov.</th>
-                <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Preu Platea</th>
-                <th style={{ width: '100px' }}></th>
+                <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '75px' }}>Preu Prov.</th>
+                <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '70px' }}>Jorns.</th>
+                <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '75px' }}>Total Cost</th>
+                <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '75px' }}>Preu Platea</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -293,7 +321,7 @@ export default function DespesesTab({
                       />
                     </td>
 
-                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '90px' }}>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '75px' }}>
                       <input
                         type="number"
                         className="form-input"
@@ -306,7 +334,24 @@ export default function DespesesTab({
                       />
                     </td>
 
-                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '90px' }}>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '70px' }}>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={material.jornades ?? 1}
+                        onChange={(e) => onActualitzarMaterial(material.id, 'jornades', e.target.value === '' ? 1 : parseInt(e.target.value, 10))}
+                        disabled={esBloquejat}
+                        min="1"
+                        step="1"
+                        style={{ textAlign: 'right' }}
+                      />
+                    </td>
+
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, width: '75px', color: 'var(--color-text-secondary)' }}>
+                      {(material.preuProveidor * (material.jornades ?? 1)).toFixed(2)}€
+                    </td>
+
+                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '75px' }}>
                       <input
                         type="number"
                         className="form-input"
@@ -319,49 +364,21 @@ export default function DespesesTab({
                       />
                     </td>
 
-                    <td style={{ padding: '0.75rem', textAlign: 'center', width: '100px' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => onTrasladarMaterialATaska(material)}
-                          disabled={!material.material || !material.grup || esBloquejat}
-                          style={{
-                            background: materialCopiado === material.id ? '#10b981' : 'transparent',
-                            border: `1px solid ${materialCopiado === material.id ? '#10b981' : 'var(--color-border)'}`,
-                            borderRadius: '4px',
-                            color: materialCopiado === material.id ? 'white' : 'var(--color-accent-primary)',
-                            cursor: material.material ? 'pointer' : 'not-allowed',
-                            padding: '0.25rem 0.5rem',
-                            fontSize: '0.85rem',
-                            opacity: (material.material && material.grup) ? 1 : 0.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            transition: 'all 0.3s ease'
-                          }}
-                          title="Trasladar a tasques"
-                        >
-                          {materialCopiado === material.id ? (
-                            <><Check size={14} />Copiat</>
-                          ) : (
-                            '→ Tasques'
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onEliminarMaterial(material.id)}
-                          disabled={esBloquejat}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--color-error)',
-                            cursor: 'pointer',
-                            padding: '0.25rem'
-                          }}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                    <td style={{ padding: '0.75rem', textAlign: 'center', width: '40px' }}>
+                      <button
+                        type="button"
+                        onClick={() => onEliminarMaterial(material.id)}
+                        disabled={esBloquejat}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--color-error)',
+                          cursor: 'pointer',
+                          padding: '0.25rem'
+                        }}
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </td>
                   </tr>
                 );

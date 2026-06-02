@@ -16,6 +16,7 @@ interface Props {
   };
   clientBlocked: boolean;
   tePagaments: boolean;
+  esBloquejat?: boolean;
   onShowTascaModal: () => void;
   onShowMaterialModal: () => void;
   onEliminarTasca: (catIndex: number, tascaIndex: number) => void;
@@ -34,7 +35,8 @@ export default function TasquesTab({
   parametres,
   totals,
   clientBlocked,
-  tePagaments,
+  tePagaments: tePagamentsProp,
+  esBloquejat = false,
   onShowTascaModal,
   onShowMaterialModal,
   onEliminarTasca,
@@ -46,9 +48,23 @@ export default function TasquesTab({
   onUpdateTasca,
   onBuscarTarifa
 }: Props) {
-  
+
+  // Una factura emesa (no borrador) bloqueja tota l'edició, igual que tenir pagaments
+  const tePagaments = tePagamentsProp || esBloquejat;
+
   return (
     <div>
+      {esBloquejat && (
+        <div style={{
+          padding: '0.65rem 1rem', marginBottom: '1rem',
+          background: 'var(--color-info-bg)', border: '1px solid var(--color-info-border)',
+          borderRadius: '8px', fontSize: '0.85rem', color: 'var(--color-info-dark)',
+          display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}>
+          🔒 Factura emesa — el contingut no es pot modificar. Per fer correccions, crea una factura rectificativa.
+        </div>
+      )}
+
       {/* Tasques */}
       <div style={{
         background: 'var(--color-bg-tertiary)',
@@ -394,7 +410,7 @@ export default function TasquesTab({
                             style={{
                               background: 'transparent',
                               border: 'none',
-                              color: '#dc2626',
+                              color: 'var(--color-error-dark)',
                               cursor: 'pointer',
                               padding: '0.25rem'
                             }}

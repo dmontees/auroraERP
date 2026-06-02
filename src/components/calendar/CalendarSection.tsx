@@ -13,11 +13,11 @@ import { syncCustomEventToGoogle, deleteGoogleEvent, isGoogleCalendarConnected }
 import type { Projecte } from '../../types/projecte';
 
 const DEFAULT_CONFIG_CALENDARI = {
-  rodatge:       { actiu: true,  color: '#ef4444' },
-  entrega:       { actiu: true,  color: '#f59e0b' },
-  facturesVenda: { actiu: false, color: '#3b82f6' },
-  facturesCompra:{ actiu: false, color: '#ef4444' },
-  pressupostos:  { actiu: false, color: '#6366f1' },
+  rodatge:       { actiu: true,  color: 'var(--color-error)' },
+  entrega:       { actiu: true,  color: 'var(--color-warning)' },
+  facturesVenda: { actiu: false, color: 'var(--color-info)' },
+  facturesCompra:{ actiu: false, color: 'var(--color-error)' },
+  pressupostos:  { actiu: false, color: 'var(--color-indigo)' },
 };
 
 const AUTO_CATS_LEGEND = [
@@ -244,7 +244,7 @@ export default function CalendarSection() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+    <div className="section-placeholder" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* NAVEGACIÓ */}
       <div style={{
         display: 'flex',
@@ -351,7 +351,7 @@ export default function CalendarSection() {
       </div>
 
       {/* GRID LAYOUT */}
-      <div style={{ display: 'grid', gridTemplateColumns: diaSeleccionat ? '1fr 350px' : '1fr', gap: '1.5rem' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: diaSeleccionat ? '1fr 350px' : '1fr', gap: '1.5rem' }}>
         <CalendarGrid
           mesActual={mesActual}
           diaSeleccionat={diaSeleccionat}

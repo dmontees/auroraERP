@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, X, ExternalLink, CheckCircle, AlertCircle, Clock, Download, FileText, File } from 'lucide-react';
+import { Upload, X, ExternalLink, CheckCircle, AlertCircle, Clock, Download, FileText, File, Timer } from 'lucide-react';
 import type { Projecte, DocumentProjecte } from '../../../types/projecte';
 import type { Client } from '../../../types/client';
 import type { Parametres } from '../../../types/parametres';
@@ -23,14 +23,14 @@ interface ResumTabProps {
 }
 
 const ESTAT_COLORS: Record<string, { bg: string; text: string }> = {
-  esborrany:         { bg: '#fef3c7', text: '#92400e' },
+  esborrany:         { bg: 'var(--color-warning-bg)', text: 'var(--color-warning-dark)' },
   planificat:        { bg: '#fed7aa', text: '#9a3412' },
-  rodatge:           { bg: '#fee2e2', text: '#991b1b' },
-  edicio:            { bg: '#bfdbfe', text: '#1e3a8a' },
+  rodatge:           { bg: 'var(--color-error-bg)', text: 'var(--color-error-darker)' },
+  edicio:            { bg: 'var(--color-info-border)', text: 'var(--color-info-darker)' },
   esperant_feedback: { bg: '#f3f4f6', text: '#374151' },
-  revisio:           { bg: '#3b82f6', text: '#ffffff' },
-  acabat:            { bg: '#d1fae5', text: '#065f46' },
-  facturat:          { bg: '#059669', text: '#ffffff' },
+  revisio:           { bg: 'var(--color-info)', text: '#ffffff' },
+  acabat:            { bg: 'var(--color-success-bg)', text: 'var(--color-success-dark)' },
+  facturat:          { bg: 'var(--color-success-medium)', text: '#ffffff' },
 };
 
 const ESTAT_LABELS: Record<string, string> = {
@@ -39,7 +39,7 @@ const ESTAT_LABELS: Record<string, string> = {
   acabat: 'Acabat', facturat: 'Facturat',
 };
 
-const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0891b2', '#dc2626', '#65a30d'];
+const AVATAR_COLORS = ['var(--color-info)', 'var(--color-purple)', 'var(--color-pink)', 'var(--color-warning)', 'var(--color-success)', '#0891b2', 'var(--color-error-dark)', '#65a30d'];
 
 function getInitials(nom: string): string {
   return nom.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
@@ -52,15 +52,14 @@ function getAvatarColor(seed: string): string {
 
 function getFacturaEstatIcon(estat: EstatFacturaVenta) {
   const color =
-    estat === 'pagada'         ? '#10b981' :
-    estat === 'vencuda'        ? '#ef4444' :
-    estat === 'cancelled'      ? '#9ca3af' :
-    estat === 'pagada-parcial' ? '#f59e0b' :
-    estat === 'enviada'        ? '#3b82f6' :
-    '#9ca3af';
+    estat === 'pagada'         ? 'var(--color-success)' :
+    estat === 'vencuda'        ? 'var(--color-error)' :
+    estat === 'pagada-parcial' ? 'var(--color-warning)' :
+    estat === 'enviada'        ? 'var(--color-info)' :
+    'var(--color-text-tertiary)';
   const Icon =
-    estat === 'pagada'                           ? CheckCircle :
-    estat === 'vencuda' || estat === 'cancelled' ? AlertCircle :
+    estat === 'pagada'   ? CheckCircle :
+    estat === 'vencuda'  ? AlertCircle :
     Clock;
   return { Icon, color, label: ESTAT_FACTURA_COLORS[estat]?.label || estat };
 }
@@ -74,9 +73,17 @@ function descarregarDocument(doc: DocumentProjecte) {
 
 function getDocIcon(nomFitxer: string) {
   const ext = nomFitxer.split('.').pop()?.toLowerCase();
-  if (ext === 'pdf') return <FileText size={16} color="#ef4444" />;
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) return <File size={16} color="#3b82f6" />;
-  return <File size={16} color="#6b7280" />;
+  if (ext === 'pdf') return <FileText size={16} color="var(--color-error)" />;
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) return <File size={16} color="var(--color-info)" />;
+  return <File size={16} color="var(--color-text-secondary)" />;
+}
+
+function formatHores(minuts: number): string {
+  const h = Math.floor(minuts / 60);
+  const m = minuts % 60;
+  if (h === 0) return `${m}min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}min`;
 }
 
 // Card height (avatar fills this via alignSelf stretch)
@@ -116,6 +123,15 @@ function ResumTab({
     }
   }, [formData.facturaAssociada]);
 
+  const [totalMinutsRegistrats, setTotalMinutsRegistrats] = useState(0);
+  useEffect(() => {
+    const parts = storage.getPartsTreball();
+    const total = parts
+      .filter(p => p.projecte === formData.codi)
+      .reduce((s, p) => s + (p.temps || 0), 0);
+    setTotalMinutsRegistrats(total);
+  }, [formData.codi]);
+
   const client = clients.find(c => c.codi === formData.client);
   const modalitat = parametres?.modalitats?.find(m => m.codi === formData.modalitat);
   const tipusProducció = parametres?.tipusProduccio?.find(t => t.codi === formData.servei);
@@ -125,7 +141,7 @@ function ResumTab({
   // KPIs
   const ingressos = formData.tasques.reduce((s, t) => s + t.importe, 0);
   const costHumans = formData.recursosHumans.reduce((s, r) => s + r.cost, 0);
-  const costMaterials = formData.materials.reduce((s, m) => s + m.preuProveidor, 0);
+  const costMaterials = formData.materials.reduce((s, m) => s + m.preuProveidor * (m.jornades ?? 1), 0);
   const costTotal = costHumans + costMaterials;
   const benefici = ingressos - costTotal;
   const marge = ingressos > 0 ? (benefici / ingressos) * 100 : 0;
@@ -248,7 +264,7 @@ function ResumTab({
                   </button>
                   {formData.imatgeReferencia && (
                     <button type="button" onClick={() => setFormData({ ...formData, imatgeReferencia: undefined })}
-                      style={{ display: 'flex', alignItems: 'center', padding: '0.32rem 0.52rem', background: 'rgba(255,255,255,0.85)', border: '1px solid var(--color-border)', borderRadius: '6px', cursor: 'pointer', color: '#dc2626' }}
+                      style={{ display: 'flex', alignItems: 'center', padding: '0.32rem 0.52rem', background: 'rgba(255,255,255,0.85)', border: '1px solid var(--color-border)', borderRadius: '6px', cursor: 'pointer', color: 'var(--color-error-dark)' }}
                       title="Eliminar imatge"
                     ><X size={13} /></button>
                   )}
@@ -263,7 +279,7 @@ function ResumTab({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.83rem', fontWeight: 600, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>🎬 Rodatge</span>
                   {formData.datesRodatge!.map(d => (
-                    <span key={d.id} style={{ padding: '0.25rem 0.78rem', background: '#fee2e2', color: '#991b1b', borderRadius: '20px', fontSize: '0.84rem', fontWeight: 600 }}>
+                    <span key={d.id} style={{ padding: '0.25rem 0.78rem', background: 'var(--color-error-bg)', color: 'var(--color-error-darker)', borderRadius: '20px', fontSize: '0.84rem', fontWeight: 600 }}>
                       {new Date(d.data).toLocaleDateString('ca-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {d.hora && ` · ${d.hora}`}
                       {d.nota && <span style={{ fontWeight: 400, opacity: 0.75 }}> — {d.nota}</span>}
@@ -275,7 +291,7 @@ function ResumTab({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.83rem', fontWeight: 600, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>📦 Entrega</span>
                   {formData.datesEntrega!.map(d => (
-                    <span key={d.id} style={{ padding: '0.25rem 0.78rem', background: d.entregada ? '#d1fae5' : '#fef3c7', color: d.entregada ? '#065f46' : '#92400e', borderRadius: '20px', fontSize: '0.84rem', fontWeight: 600 }}>
+                    <span key={d.id} style={{ padding: '0.25rem 0.78rem', background: d.entregada ? 'var(--color-success-bg)' : 'var(--color-warning-bg)', color: d.entregada ? 'var(--color-success-dark)' : 'var(--color-warning-dark)', borderRadius: '20px', fontSize: '0.84rem', fontWeight: 600 }}>
                       {new Date(d.data).toLocaleDateString('ca-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {d.entregada ? ' ✓' : ''}
                       {d.nota && !d.entregada && <span style={{ fontWeight: 400, opacity: 0.75 }}> — {d.nota}</span>}
@@ -288,23 +304,23 @@ function ResumTab({
         </div>
       </div>
 
-      {/* ── KPI ROW: Pressupost/Factura card + 3 KPI cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', alignItems: 'stretch' }}>
+      {/* ── KPI ROW: Pressupost/Factura card + 3 KPI cards + Hores ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem', alignItems: 'stretch' }}>
 
-        {/* Pressupost + Factura — inside KPI row, subtle warm background */}
+        {/* Pressupost + Factura — inside KPI row */}
         <div style={{
           display: 'flex', flexDirection: 'row', overflow: 'hidden',
-          borderRadius: '10px', border: '1px solid #e9d5a0',
-          background: '#fefce8',
+          borderRadius: '10px', border: '1px solid var(--color-warning-border)',
+          background: 'var(--color-warning-bg)',
         }}>
           {/* Pressupost half */}
-          <div style={{ flex: 1, padding: '0.85rem', borderRight: '1px solid #e9d5a0', display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
+          <div style={{ flex: 1, padding: '0.85rem', borderRight: '1px solid var(--color-warning-border)', display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ ...sectionLabel, color: '#a16207' }}>Pressupost</span>
+              <span style={{ ...sectionLabel, color: 'var(--color-warning-dark)' }}>Pressupost</span>
               {hasPressupost && (
                 <button type="button" onClick={() => onNavigateToPressupost(formData.pressupost!)}
                   title="Veure pressupost"
-                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: '#a16207', opacity: 0.7, lineHeight: 1 }}
+                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--color-warning-dark)', opacity: 0.7, lineHeight: 1 }}
                 >
                   <ExternalLink size={11} />
                 </button>
@@ -312,33 +328,33 @@ function ResumTab({
             </div>
             {hasPressupost ? (
               <>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#78350f' }}>{pressupostVinculat!.codi}</div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1c1917' }}>{pressupostTotal.toFixed(2)}€</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>{pressupostVinculat!.codi}</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>{pressupostTotal.toFixed(2)}€</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   {pressupostVinculat!.estat === 'acceptat'
-                    ? <CheckCircle size={13} color="#10b981" />
+                    ? <CheckCircle size={13} color="var(--color-success)" />
                     : pressupostVinculat!.estat === 'rebutjat'
-                    ? <AlertCircle size={13} color="#ef4444" />
-                    : <Clock size={13} color="#f59e0b" />
+                    ? <AlertCircle size={13} color="var(--color-error)" />
+                    : <Clock size={13} color="var(--color-warning)" />
                   }
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'capitalize', color: pressupostVinculat!.estat === 'acceptat' ? '#10b981' : pressupostVinculat!.estat === 'rebutjat' ? '#ef4444' : '#f59e0b' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'capitalize', color: pressupostVinculat!.estat === 'acceptat' ? 'var(--color-success)' : pressupostVinculat!.estat === 'rebutjat' ? 'var(--color-error)' : 'var(--color-warning)' }}>
                     {pressupostVinculat!.estat}
                   </span>
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: '0.85rem', color: '#a16207', fontStyle: 'italic', marginTop: '0.2rem' }}>Sense pressupost</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--color-warning-dark)', fontStyle: 'italic', marginTop: '0.2rem' }}>Sense pressupost</div>
             )}
           </div>
 
           {/* Factura half */}
           <div style={{ flex: 1, padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ ...sectionLabel, color: '#1e40af' }}>Factura</span>
+              <span style={{ ...sectionLabel, color: 'var(--color-info-dark)' }}>Factura</span>
               {hasFactura && !formData.facturaHistorica && formData.facturaAssociada && (
                 <button type="button" onClick={() => onNavigateToFactura(formData.facturaAssociada!)}
                   title="Veure factura"
-                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: '#1e40af', opacity: 0.7, lineHeight: 1 }}
+                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--color-info-dark)', opacity: 0.7, lineHeight: 1 }}
                 >
                   <ExternalLink size={11} />
                 </button>
@@ -349,7 +365,7 @@ function ResumTab({
                 <>
                   <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{formData.facturaHistorica.numero}</div>
                   <div style={{ fontSize: '0.81rem', color: 'var(--color-text-secondary)' }}>{new Date(formData.facturaHistorica.data).toLocaleDateString('ca-ES')}</div>
-                  <div style={{ fontSize: '0.77rem', color: '#92400e', fontStyle: 'italic' }}>⚠️ Factura històrica</div>
+                  <div style={{ fontSize: '0.77rem', color: 'var(--color-warning-dark)', fontStyle: 'italic' }}>⚠️ Factura històrica</div>
                 </>
               ) : (
                 <>
@@ -358,7 +374,7 @@ function ResumTab({
                     const { Icon, color, label } = getFacturaEstatIcon(facturaVinculada.estat);
                     return (
                       <>
-                        <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1c1917' }}>{facturaVinculada.totalFactura.toFixed(2)}€</div>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>{facturaVinculada.totalFactura.toFixed(2)}€</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                           <Icon size={13} color={color} />
                           <span style={{ fontSize: '0.8rem', fontWeight: 600, color }}>{label}</span>
@@ -369,37 +385,59 @@ function ResumTab({
                 </>
               )
             ) : (
-              <div style={{ fontSize: '0.85rem', color: '#6b7280', fontStyle: 'italic', marginTop: '0.2rem' }}>Sense factura</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', fontStyle: 'italic', marginTop: '0.2rem' }}>Sense factura</div>
             )}
           </div>
         </div>
 
         {/* Ingressos Previstos */}
-        <div className="placeholder-card" style={{ padding: '1rem' }}>
-          <div style={{ ...sectionLabel, marginBottom: '0.5rem' }}>Ingressos Previstos</div>
-          <div style={{ fontSize: '1.42rem', fontWeight: 700, color: 'var(--color-text-primary)', lineHeight: 1 }}>{ingressos.toFixed(2)}€</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginTop: '0.3rem' }}>
-            {formData.tasques.length} {formData.tasques.length === 1 ? 'tasca' : 'tasques'}
-          </div>
-        </div>
-
-        {/* Cost Total */}
-        <div className="placeholder-card" style={{ padding: '1rem' }}>
-          <div style={{ ...sectionLabel, marginBottom: '0.5rem' }}>Cost Total</div>
-          <div style={{ fontSize: '1.42rem', fontWeight: 700, color: costTotal > 0 ? '#ef4444' : 'var(--color-text-primary)', lineHeight: 1 }}>{costTotal.toFixed(2)}€</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginTop: '0.3rem' }}>
-            RH: {costHumans.toFixed(0)}€ · Mat: {costMaterials.toFixed(0)}€
-          </div>
-        </div>
-
-        {/* Benefici */}
-        <div className="placeholder-card" style={{ padding: '1rem' }}>
-          <div style={{ ...sectionLabel, marginBottom: '0.5rem' }}>Benefici</div>
-          <div style={{ fontSize: '1.42rem', fontWeight: 700, color: benefici >= 0 ? '#10b981' : '#ef4444', lineHeight: 1 }}>{benefici.toFixed(2)}€</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginTop: '0.3rem' }}>
-            Marge: {marge.toFixed(1)}%
-          </div>
-        </div>
+        {(() => {
+          const G_GREEN  = 'linear-gradient(135deg, #059669, #10b981, #34d399)';
+          const G_RED    = 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)';
+          const G_INDIGO = 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)';
+          const G_PURPLE = 'linear-gradient(135deg, #7c3aed, #8b5cf6, #a78bfa)';
+          const G_SLATE  = 'linear-gradient(135deg, #475569, #64748b, #94a3b8)';
+          const gB = benefici >= 0 ? G_GREEN : G_RED;
+          const gC = costTotal > 0 ? G_RED : G_INDIGO;
+          const gH = totalMinutsRegistrats > 0 ? G_PURPLE : G_SLATE;
+          const gSpan = (v: React.ReactNode, g: string) => (
+            <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+          );
+          return (<>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_INDIGO }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Ingressos Previstos</div>
+                <div className="stat-card-value">{gSpan(`${ingressos.toFixed(2)}€`, G_INDIGO)}</div>
+                <div className="stat-card-sub">{formData.tasques.length} {formData.tasques.length === 1 ? 'tasca' : 'tasques'}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: gC }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Cost Total</div>
+                <div className="stat-card-value">{gSpan(`${costTotal.toFixed(2)}€`, gC)}</div>
+                <div className="stat-card-sub">RH: {costHumans.toFixed(0)}€ · Mat: {costMaterials.toFixed(0)}€</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: gB }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Benefici</div>
+                <div className="stat-card-value">{gSpan(`${benefici.toFixed(2)}€`, gB)}</div>
+                <div className="stat-card-sub">Marge: {marge.toFixed(1)}%</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: gH }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label"><Timer size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />Hores Registrades</div>
+                <div className="stat-card-value">{gSpan(formatHores(totalMinutsRegistrats), gH)}</div>
+                <div className="stat-card-sub">Parts de treball</div>
+              </div>
+            </div>
+          </>);
+        })()}
       </div>
 
       {/* ── EQUIP HUMÀ + MATERIALS ── */}
@@ -441,15 +479,15 @@ function ResumTab({
                       <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nom}>
                         {nom}
                       </div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ef4444' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-error)' }}>
                         {total.toFixed(2)}€
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                         {paymentStatus === 'pagat'
-                          ? <><CheckCircle size={12} color="#10b981" /><span style={{ fontSize: '0.77rem', color: '#10b981', fontWeight: 600 }}>Pagat</span></>
+                          ? <><CheckCircle size={12} color="var(--color-success)" /><span style={{ fontSize: '0.77rem', color: 'var(--color-success)', fontWeight: 600 }}>Pagat</span></>
                           : paymentStatus === 'pendent'
-                          ? <><AlertCircle size={12} color="#f59e0b" /><span style={{ fontSize: '0.77rem', color: '#f59e0b', fontWeight: 600 }}>Pendent</span></>
-                          : <><Clock size={12} color="#9ca3af" /><span style={{ fontSize: '0.77rem', color: '#9ca3af' }}>Sense albarà</span></>
+                          ? <><AlertCircle size={12} color="var(--color-warning)" /><span style={{ fontSize: '0.77rem', color: 'var(--color-warning)', fontWeight: 600 }}>Pendent</span></>
+                          : <><Clock size={12} color="var(--color-text-tertiary)" /><span style={{ fontSize: '0.77rem', color: 'var(--color-text-tertiary)' }}>Sense albarà</span></>
                         }
                       </div>
                     </div>
@@ -508,7 +546,7 @@ function ResumTab({
                             <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nomMaterial}>
                               {nomMaterial}
                             </div>
-                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ef4444' }}>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-error)' }}>
                               {mat.preuProveidor.toFixed(2)}€
                             </div>
                             <div style={{ fontSize: '0.77rem', color: 'var(--color-text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

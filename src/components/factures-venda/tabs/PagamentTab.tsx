@@ -18,7 +18,6 @@ export default function PagamentTab({
 }: Props) {
 
   const calcularNouEstat = (nouTotalPagat: number): EstatFacturaVenta => {
-    if (formData.estat === 'cancelled') return 'cancelled';
     if (totals.totalFactura <= 0) return formData.estat;
     const pendent = totals.totalFactura - nouTotalPagat;
     if (pendent <= 0.01) return 'pagada';

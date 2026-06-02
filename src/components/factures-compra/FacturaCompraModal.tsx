@@ -67,7 +67,7 @@ export default function FacturaCompraModal({
       ivaPercent: editingFactura.ivaPercent,
       irpfPercent: editingFactura.irpfPercent,
       projectes: editingFactura.projectes,
-      esDesepsaGeneral: editingFactura.esDesepsaGeneral,
+      esDepesaGeneral: editingFactura.esDepesaGeneral,
       concepte: editingFactura.concepte,
       documentPDF: editingFactura.documentPDF,
       documentPDFName: editingFactura.documentPDFName,
@@ -83,7 +83,7 @@ export default function FacturaCompraModal({
       ivaPercent: 21,
       irpfPercent: 0,
       projectes: [],
-      esDesepsaGeneral: false,
+      esDepesaGeneral: false,
       concepte: '',
       documentPDF: undefined,
       documentPDFName: undefined,
@@ -101,7 +101,7 @@ export default function FacturaCompraModal({
   // Vinculació a projecte — pregunta obligatòria
   const [vinculatProjecte, setVinculatProjecte] = useState<boolean | null>(() => {
     if (!editingFactura) return null; // nova: sense resposta
-    if (editingFactura.esDesepsaGeneral) return false;
+    if (editingFactura.esDepesaGeneral) return false;
     return editingFactura.projectes?.length > 0 ? true : false;
   });
   const [albaransLinked, setAlbaransLinked] = useState<AlbaraCompra[]>(() => {
@@ -211,12 +211,12 @@ export default function FacturaCompraModal({
 
     const estat = determinarEstat(totalFactura, totalPagat, formData.dataVenciment);
     const conceptesCombinats = conceptes.map(c => `${c.descripcio}: ${c.base.toFixed(2)}€`).join(' | ');
-    const esDesepsaGeneral = vinculatProjecte === false;
+    const esDepesaGeneral = vinculatProjecte === false;
     const projectesOut = vinculatProjecte ? formData.projectes : [];
 
     return {
       ...formData,
-      esDesepsaGeneral,
+      esDepesaGeneral,
       projectes: projectesOut,
       albaransVinculats: albaransLinked.map(a => a.codi),
       concepte: conceptesCombinats,
@@ -339,7 +339,7 @@ export default function FacturaCompraModal({
               <span style={{
                 marginLeft: '1rem',
                 fontSize: '0.9rem',
-                background: '#10b981',
+                background: 'var(--color-success)',
                 color: 'white',
                 padding: '0.25rem 0.75rem',
                 borderRadius: '4px',
@@ -427,12 +427,12 @@ export default function FacturaCompraModal({
             padding: '1rem 1.25rem',
             background: 'var(--color-bg-tertiary)',
             borderRadius: '8px',
-            border: `1px solid ${vinculatProjecte === null && !camposBloquejats ? '#fbbf24' : 'var(--color-border)'}`
+            border: `1px solid ${vinculatProjecte === null && !camposBloquejats ? 'var(--color-warning-light)' : 'var(--color-border)'}`
           }}>
             <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9rem' }}>
               Aquesta factura està vinculada a un projecte?
               {vinculatProjecte === null && !camposBloquejats && (
-                <span style={{ marginLeft: '0.5rem', color: '#f59e0b', fontSize: '0.8rem' }}>— Requerida</span>
+                <span style={{ marginLeft: '0.5rem', color: 'var(--color-warning)', fontSize: '0.8rem' }}>— Requerida</span>
               )}
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -446,14 +446,14 @@ export default function FacturaCompraModal({
                     disabled={camposBloquejats}
                     onClick={() => {
                       setVinculatProjecte(val);
-                      if (!val) { setFormData(prev => ({ ...prev, projectes: [], esDesepsaGeneral: true })); setAlbaransLinked([]); setShowAlbaransNotif(false); }
-                      else { setFormData(prev => ({ ...prev, esDesepsaGeneral: false })); }
+                      if (!val) { setFormData(prev => ({ ...prev, projectes: [], esDepesaGeneral: true })); setAlbaransLinked([]); setShowAlbaransNotif(false); }
+                      else { setFormData(prev => ({ ...prev, esDepesaGeneral: false })); }
                     }}
                     style={{
                       padding: '0.4rem 1.25rem', borderRadius: 6, fontWeight: 600, fontSize: '0.9rem', cursor: camposBloquejats ? 'not-allowed' : 'pointer',
-                      background: selected ? (val ? '#dbeafe' : '#fef3c7') : 'var(--color-bg-secondary)',
-                      border: `2px solid ${selected ? (val ? '#3b82f6' : '#f59e0b') : 'var(--color-border)'}`,
-                      color: selected ? (val ? '#1e40af' : '#92400e') : 'var(--color-text-secondary)',
+                      background: selected ? (val ? 'var(--color-info-bg)' : 'var(--color-warning-bg)') : 'var(--color-bg-secondary)',
+                      border: `2px solid ${selected ? (val ? 'var(--color-info)' : 'var(--color-warning)') : 'var(--color-border)'}`,
+                      color: selected ? (val ? 'var(--color-info-dark)' : 'var(--color-warning-dark)') : 'var(--color-text-secondary)',
                     }}
                   >
                     {opt}
@@ -478,9 +478,9 @@ export default function FacturaCompraModal({
                   disabled={camposBloquejats}
                 />
                 {showAlbaransNotif && albaransLinked.length > 0 && (
-                  <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, fontSize: '0.85rem' }}>
-                    <strong style={{ color: '#1e40af' }}>Albarans vinculats automàticament ({albaransLinked.length}):</strong>
-                    <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, color: '#1e3a8a' }}>
+                  <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-info-bg-light)', border: '1px solid var(--color-info-border-strong)', borderRadius: 6, fontSize: '0.85rem' }}>
+                    <strong style={{ color: 'var(--color-info-dark)' }}>Albarans vinculats automàticament ({albaransLinked.length}):</strong>
+                    <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0, color: 'var(--color-info-darker)' }}>
                       {albaransLinked.map(a => (
                         <li key={a.codi} style={{ marginBottom: '0.2rem' }}>
                           {a.codi} — {a.tipusLinia === 'rrhh' ? `${a.serveiNom || a.serveiCodi} (${a.quantitat} ${a.unitatNom || a.unitatCodi})` : `${a.materialNom || a.materialCodi}`}
@@ -692,8 +692,8 @@ export default function FacturaCompraModal({
               onClick={handleDelete}
               style={{ 
                 marginRight: 'auto',
-                borderColor: '#dc2626',
-                color: '#dc2626'
+                borderColor: 'var(--color-error-dark)',
+                color: 'var(--color-error-dark)'
               }}
             >
               <Trash2 size={18} />

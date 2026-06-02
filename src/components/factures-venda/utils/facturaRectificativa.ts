@@ -65,15 +65,7 @@ export function validarCrearRectificativa(
     };
   }
 
-  // 2. No se puede rectificar si está cancelada
-  if (factura.estat === 'cancelled') {
-    return {
-      valid: false,
-      error: 'No es pot crear una nota de crèdit d\'una factura cancel·lada'
-    };
-  }
-
-  // 3. Verificar si ya tiene rectificativa total (opcional)
+  // 2. Verificar si ya tiene rectificativa total (opcional)
   const jaTeRectificativa = allFactures.some(f => 
     f.tipus === 'rectificativa' && 
     f.facturaRectificada === factura.codi &&

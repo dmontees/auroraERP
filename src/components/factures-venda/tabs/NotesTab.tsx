@@ -10,6 +10,7 @@ interface Props {
   onTogglePlantilla?: (codi: string) => void;
   clientBlocked: boolean;
   tePagaments: boolean;
+  esBloquejat?: boolean;
 }
 
 export default function NotesTab({
@@ -17,11 +18,12 @@ export default function NotesTab({
   setFormData,
   plantilles,
   clientBlocked,
-  tePagaments
+  tePagaments,
+  esBloquejat = false
 }: Props) {
   const [lang, setLang] = useState<Lang>('ca');
 
-  const disabled = clientBlocked || tePagaments;
+  const disabled = clientBlocked || tePagaments || esBloquejat;
 
   // Lazy-populate ES/EN text from selected plantilles when switching to an empty lang field
   useEffect(() => {
@@ -80,6 +82,17 @@ export default function NotesTab({
       : 'Select templates to see the text here...';
 
   return (
+    <>
+      {esBloquejat && (
+        <div style={{
+          padding: '0.65rem 1rem', marginBottom: '1rem',
+          background: 'var(--color-info-bg)', border: '1px solid var(--color-info-border)',
+          borderRadius: '8px', fontSize: '0.85rem', color: 'var(--color-info-dark)',
+          display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}>
+          🔒 Factura emesa — el contingut no es pot modificar. Per fer correccions, crea una factura rectificativa.
+        </div>
+      )}
     <div style={{ background: 'var(--color-bg-tertiary)', padding: '1.5rem', borderRadius: '8px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 0 }}>
@@ -117,7 +130,7 @@ export default function NotesTab({
                   <span style={{
                     marginLeft: '0.5rem',
                     fontSize: '0.7rem',
-                    background: '#10b981',
+                    background: 'var(--color-success)',
                     color: 'white',
                     padding: '0.15rem 0.4rem',
                     borderRadius: '3px',
@@ -146,5 +159,6 @@ export default function NotesTab({
         />
       </div>
     </div>
+    </>
   );
 }

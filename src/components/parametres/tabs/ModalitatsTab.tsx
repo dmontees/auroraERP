@@ -20,7 +20,7 @@ export default function ModalitatsTab({ hook }: ModalitatsTabProps) {
     eliminarModalitat
   } = hook;
 
-  // Colores predefinidos (solo para auto-asignar al crear)
+  // Colores predefinidos (solo para auto-asignar al crear) — must stay as hex for <input type="color">
   const colorsPredeferts = [
     '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
     '#ec4899', '#14b8a6', '#6366f1', '#f97316', '#06b6d4'

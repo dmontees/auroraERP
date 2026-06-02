@@ -57,12 +57,12 @@ try {
                 $c['nomFiscal']      ?? '',
                 $c['nomComercial']   ?? null,
                 $c['nif']            ?? null,
-                $c['pais']           ?? 'Espanya',
+                safeEnum($c['pais']     ?? null, ['Espanya','UE-VIES','Estranger-exportació','Altres'], 'Espanya'),
                 $c['domicili']       ?? null,
                 $c['telefon']        ?? null,
                 $c['correuElectronic'] ?? null,
                 $c['web']            ?? null,
-                $c['tipusIVA']       ?? 'Normal',
+                safeEnum($c['tipusIVA'] ?? null, ['Normal','Exempt','Reduit','Superreduit'], 'Normal'),
                 safeFloat($c['retencio'] ?? 0),
                 safeDate($c['dataAlta'] ?? null),
                 json_encode(stripHeavyFields($c), JSON_UNESCAPED_UNICODE),
@@ -83,15 +83,15 @@ try {
         foreach ($data['proveidors'] as $p) {
             if (empty($p['codi'])) continue;
             $stripped = stripHeavyFields($p);
-            // Elimina imatge perfil del dades_json per estalviar espai (opcional)
-            // unset($stripped['imatgePerfil']);
+            // Elimina imatge perfil del dades_json (pot ser base64 gran)
+            unset($stripped['imatgePerfil']);
             $rows[] = [
                 $p['codi'],
                 $p['nomFiscal']     ?? '',
                 $p['nomComercial']  ?? null,
                 $p['nif']           ?? null,
-                $p['tipus']         ?? 'Proveïdor',
-                $p['tipusIVA']      ?? 'Normal',
+                safeEnum($p['tipus']    ?? null, ['Proveïdor','Acreedor','Treballador'], 'Proveïdor'),
+                safeEnum($p['tipusIVA'] ?? null, ['Normal','Exempt','Reduit','Superreduit'], 'Normal'),
                 safeFloat($p['retencio'] ?? 0),
                 $p['telefon']       ?? null,
                 $p['correuElectronic'] ?? null,
@@ -149,7 +149,7 @@ try {
                 $p['modalitat']       ?? null,
                 $p['servei']          ?? null,
                 boolToInt($p['esDirect'] ?? false),
-                $p['estat']           ?? 'esborrany',
+                safeEnum($p['estat'] ?? null, ['esborrany','planificat','rodatge','edicio','esperant_feedback','revisio','acabat','facturat'], 'esborrany'),
                 $dataInici,
                 $dataEntrega,
                 safeDate($p['dataFinalitzacio'] ?? null),
@@ -230,11 +230,11 @@ try {
             unset($stripped['documentPDF'], $stripped['documentPDFName']);
             $rows[] = [
                 $f['codi'],
-                $f['tipus']              ?? 'normal',
+                safeEnum($f['tipus'] ?? null, ['normal','rectificativa'], 'normal'),
                 $f['facturaRectificada'] ?? null,
                 $f['client']             ?? null,
                 $f['projecte']           ?? null,
-                $f['estat']              ?? 'borrador',
+                safeEnum($f['estat'] ?? null, ['borrador','enviada','pagada-parcial','pagada','vencuda','cancelled'], 'borrador'),
                 safeDate($f['dataFactura']   ?? null),
                 safeDate($f['dataVenciment'] ?? null),
                 safeDate($f['dataEnviada']   ?? null),
@@ -274,11 +274,11 @@ try {
             unset($stripped['documentPDF'], $stripped['documentPDFName']);
             $rows[] = [
                 $f['codi'],
-                $f['tipus']               ?? 'factura-compra',
+                safeEnum($f['tipus'] ?? null, ['factura-compra','gasto-general'], 'factura-compra'),
                 $f['proveidor']           ?? null,
                 $f['numFacturaProveidor'] ?? null,
                 $f['concepte']            ?? null,
-                $f['estat']               ?? 'pendent',
+                safeEnum($f['estat'] ?? null, ['pendent','pagada-parcial','pagada','vencuda'], 'pendent'),
                 safeDate($f['dataGasto']     ?? null),
                 safeDate($f['dataVenciment'] ?? null),
                 safeFloat($f['baseImposable']   ?? 0),
@@ -309,10 +309,10 @@ try {
             if (empty($o['codi'])) continue;
             $rows[] = [
                 $o['codi'],
-                $o['subtipus']   ?? 'cuota-autonomo',
+                safeEnum($o['subtipus'] ?? null, ['cuota-autonomo','regularitzacio-ss','irpf-trimestral','irpf-anual','iva-trimestral','nomina-treballador'], 'cuota-autonomo'),
                 $o['periode']    ?? null,
                 $o['concepte']   ?? null,
-                $o['estat']      ?? 'pendent',
+                safeEnum($o['estat'] ?? null, ['pendent','pagada-parcial','pagada','vencuda'], 'pendent'),
                 safeDate($o['dataGasto'] ?? null),
                 safeFloat($o['totalGasto']      ?? 0),
                 safeFloat($o['totalPagat']      ?? 0),
@@ -361,8 +361,7 @@ try {
     ]);
 
 } catch (Throwable $e) {
-    $pdo->rollBack();
-    // En producció no exposis el missatge d'error intern
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('Aurora sync error: ' . $e->getMessage());
     apiError('Error intern durant la sincronització. Comprova els logs del servidor.', 500);
 }

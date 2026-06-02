@@ -56,11 +56,12 @@ export default function GraficLinies({
 
   return (
     <div>
-      <svg 
-        width="100%" 
-        height={height} 
+      <svg
+        width="100%"
+        height={height}
         viewBox={`0 0 ${width} ${height}`}
-        style={{ overflow: 'visible' }}
+        preserveAspectRatio="none"
+        style={{ overflow: 'visible', display: 'block' }}
       >
         <g transform={`translate(${padding.left}, ${padding.top})`}>
           {/* Grid horizontal */}

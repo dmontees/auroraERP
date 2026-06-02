@@ -1,0 +1,12 @@
+# Aurora ERP — Protecció de fitxers sensibles
+# Posa aquest fitxer a la mateixa carpeta que sync.php i backup.php al servidor.
+
+# Bloquejar accés directe al fitxer de backup (s'ha de servir sempre via backup.php)
+<Files "aurora-backup.json">
+    Require all denied
+</Files>
+
+# Bloquejar accés directe a fitxers de configuració
+<Files "config.php">
+    Require all denied
+</Files>

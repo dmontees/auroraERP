@@ -73,14 +73,14 @@ function hasRealProjectData(data: any): boolean {
 }
 
 const ESTAT_BG: Record<string, string> = {
-  esborrany: '#fef3c7', planificat: '#fed7aa', rodatge: '#fee2e2',
-  edicio: '#bfdbfe', esperant_feedback: '#f9fafb', revisio: '#3b82f6',
-  acabat: '#d1fae5', facturat: '#059669',
+  esborrany: 'var(--color-warning-bg)', planificat: '#fed7aa', rodatge: 'var(--color-error-bg)',
+  edicio: 'var(--color-info-border)', esperant_feedback: '#f9fafb', revisio: 'var(--color-info)',
+  acabat: 'var(--color-success-bg)', facturat: 'var(--color-success-medium)',
 };
 const ESTAT_COLOR: Record<string, string> = {
-  esborrany: '#92400e', planificat: '#9a3412', rodatge: '#991b1b',
-  edicio: '#1e3a8a', esperant_feedback: '#374151', revisio: '#ffffff',
-  acabat: '#065f46', facturat: '#ffffff',
+  esborrany: 'var(--color-warning-dark)', planificat: '#9a3412', rodatge: 'var(--color-error-darker)',
+  edicio: 'var(--color-info-darker)', esperant_feedback: '#374151', revisio: '#ffffff',
+  acabat: 'var(--color-success-dark)', facturat: '#ffffff',
 };
 
 function ProjecteDetailView({
@@ -88,7 +88,7 @@ function ProjecteDetailView({
 }: ProjecteDetailViewProps) {
   const [activeTab, setActiveTab] = useState<'resum' | 'dades' | 'despeses' | 'tasques' | 'instruccions' | 'feedback' | 'historial' | 'pagaments'>('resum');
   const [recursCopiado, setRecursCopiado] = useState<string | null>(null);
-  const [materialCopiado, setMaterialCopiado] = useState<string | null>(null);
+  const [materialsAgregats, setMaterialsAgregats] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showVincularPressupostModal, setShowVincularPressupostModal] = useState(false);
   const [showVincularFacturaModal, setShowVincularFacturaModal] = useState(false);
@@ -180,13 +180,14 @@ function ProjecteDetailView({
 
   useEffect(() => {
     const gastosHumans = formData.recursosHumans.reduce((sum, r) => sum + r.cost, 0);
-    const gastosMaterials = formData.materials.reduce((sum, m) => sum + m.preuPlatea, 0);
-    const ingresAmbIVA = formData.ingresSenseIVA * (1 + formData.iva / 100);
+    const gastosMaterials = formData.materials.reduce((sum, m) => sum + m.preuProveidor * (m.jornades ?? 1), 0);
+    const ingresSenseIVA = formData.tasques.reduce((sum, t) => sum + t.importe, 0);
+    const ingresAmbIVA = ingresSenseIVA * (1 + formData.iva / 100);
     const gastosTotals = gastosMaterials + gastosHumans;
-    const benefici = ingresAmbIVA - gastosTotals;
-    const percentBenefici = ingresAmbIVA > 0 ? (benefici / ingresAmbIVA) * 100 : 0;
-    setFormData(prev => ({ ...prev, gastosMaterials, gastosHumans, ingresAmbIVA, gastosTotals, benefici, percentBenefici }));
-  }, [formData.ingresSenseIVA, formData.iva, formData.recursosHumans, formData.materials]);
+    const benefici = ingresSenseIVA - gastosTotals;
+    const percentBenefici = ingresSenseIVA > 0 ? (benefici / ingresSenseIVA) * 100 : 0;
+    setFormData(prev => ({ ...prev, ingresSenseIVA, gastosMaterials, gastosHumans, ingresAmbIVA, gastosTotals, benefici, percentBenefici }));
+  }, [formData.tasques, formData.iva, formData.recursosHumans, formData.materials]);
 
   // ─── Tarifes ────────────────────────────────────────────────────────────────
   const selectedClient = clients.find(c => c.codi === formData.client);
@@ -211,7 +212,7 @@ function ProjecteDetailView({
     id: '', categoria: '', servei: '', unitat: '', quantitat: 1, preu: 0, cost: 0, ordre: 0, proveidor: ''
   });
   const [nouMaterialForm, setNouMaterialForm] = useState<MaterialProjecte>({
-    id: '', grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0
+    id: '', grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0, jornades: 1
   });
 
   const afegirRecursHuma = () => {
@@ -339,7 +340,7 @@ function ProjecteDetailView({
 
   // ─── CRUD Materials ──────────────────────────────────────────────────────────
   const afegirMaterial = () => {
-    setNouMaterialForm({ id: `mat-${Date.now()}`, grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0 });
+    setNouMaterialForm({ id: `mat-${Date.now()}-${Math.random()}`, grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0, jornades: 1 });
     setTipusRecurs('material');
     setShowAfegirRecursModal(true);
   };
@@ -353,13 +354,17 @@ function ProjecteDetailView({
 
   const guardarNouMaterial = () => {
     if (!nouMaterialForm.material) { alert('Has de seleccionar un material'); return; }
-    const tdCodi = nouMaterialForm.proveidor ? getNextTdCodi(formData) : undefined;
-    const materialAGuardar = { ...nouMaterialForm, tdCodi };
+    const materialSnapshot = { ...nouMaterialForm };
+    const tdCodi = materialSnapshot.proveidor ? getNextTdCodi(formData) : undefined;
+    const materialAGuardar = { ...materialSnapshot, tdCodi };
     const materialData = parametres?.materials.find(m => m.codi === materialAGuardar.material);
     const nomMaterial = materialData?.material || materialAGuardar.material;
     const nomGrup = parametres?.grupsMaterials.find(g => g.codi === materialAGuardar.grup)?.nom || materialAGuardar.grup;
-    const projecteAmbHistorial = registrarGastoAfegit(formData, `${nomGrup} - ${nomMaterial}`, materialAGuardar.preuProveidor);
-    setFormData({ ...projecteAmbHistorial, materials: [...projecteAmbHistorial.materials, materialAGuardar] });
+    setFormData(prev => {
+      const projecteAmbHistorial = registrarGastoAfegit(prev, `${nomGrup} - ${nomMaterial}`, materialAGuardar.preuProveidor);
+      return { ...projecteAmbHistorial, materials: [...projecteAmbHistorial.materials, materialAGuardar] };
+    });
+    setNouMaterialForm({ id: '', grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0, jornades: 1 });
     setShowAfegirRecursModal(false);
   };
 
@@ -381,21 +386,47 @@ function ProjecteDetailView({
     });
   };
 
-  const trasladarMaterialATaska = (material: MaterialProjecte) => {
-    if (!material.material || !material.grup) return;
-    const materialData = parametres?.materials.find(m => m.codi === material.material);
-    const grupData = parametres?.grupsMaterials.find(g => g.codi === material.grup);
-    if (materialData && grupData) {
-      const novaTasca: TascaProjecte = {
-        id: `task-${Date.now()}-${Math.random()}`, categoria: 'MATERIALS',
-        servei: grupData.nom, descripcio: grupData.nom,
-        quantitat: 1, unitat: '', tarifa: material.preuPlatea,
-        importe: material.preuPlatea, ordre: formData.tasques.length
+  const agregaMaterialsATasques = () => {
+    const materialsValids = formData.materials.filter(m => m.material && m.grup);
+    if (materialsValids.length === 0) return;
+
+    const byGrup = materialsValids.reduce((acc, m) => {
+      if (!acc[m.grup]) acc[m.grup] = [];
+      acc[m.grup].push(m);
+      return acc;
+    }, {} as Record<string, MaterialProjecte[]>);
+
+    const tasquesNonMaterials = formData.tasques.filter(t => t.categoria !== 'MATERIALS');
+
+    const novesTasquesMaterials: TascaProjecte[] = Object.entries(byGrup).map(([grupCodi, mats], i) => {
+      const grupData = parametres?.grupsMaterials.find(g => g.codi === grupCodi);
+      const grupNom = grupData?.nom || grupCodi;
+      const total = mats.reduce((sum, m) => sum + m.preuPlatea * (m.jornades ?? 1), 0);
+      const count = mats.length;
+      const allSameJ = mats.every(m => (m.jornades ?? 1) === (mats[0].jornades ?? 1));
+      const j = mats[0].jornades ?? 1;
+      const descripcio = allSameJ
+        ? `${grupNom} (${j} ${j === 1 ? 'jornada' : 'jornades'})`
+        : grupNom;
+
+      return {
+        id: `task-mat-${grupCodi}-${Date.now()}-${i}`,
+        categoria: 'MATERIALS',
+        servei: grupNom,
+        descripcio,
+        quantitat: count,
+        unitat: '',
+        tarifa: count > 0 ? total / count : 0,
+        importe: total,
+        ordre: tasquesNonMaterials.length + i
       };
-      setFormData({ ...formData, tasques: [...formData.tasques, novaTasca] });
-      setMaterialCopiado(material.id);
-      setTimeout(() => setMaterialCopiado(null), 1500);
-    }
+    });
+
+    const totalMaterials = novesTasquesMaterials.reduce((sum, t) => sum + t.importe, 0);
+    const projecteAmbHistorial = registrarGastoTrasladatATasca(formData, 'Materials', totalMaterials);
+    setFormData({ ...projecteAmbHistorial, tasques: [...tasquesNonMaterials, ...novesTasquesMaterials] });
+    setMaterialsAgregats(true);
+    setTimeout(() => setMaterialsAgregats(false), 2000);
   };
 
   // ─── CRUD Tasques ────────────────────────────────────────────────────────────
@@ -655,7 +686,7 @@ function ProjecteDetailView({
           {formData.titol && (
             <>
               <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.9rem' }}>—</span>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '280px' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formData.titol}
               </span>
             </>
@@ -674,7 +705,7 @@ function ProjecteDetailView({
                     if (onCrearFactura) onCrearFactura(formData);
                   }
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.9rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.9rem', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
               >
                 <FileText size={15} />
                 Crear Factura
@@ -685,7 +716,7 @@ function ProjecteDetailView({
             {formData.pressupost && (
               <div
                 onClick={() => navigateToPressupost(formData.pressupost!)}
-                style={{ padding: '0.35rem 0.75rem', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: '1px solid #fbbf24', whiteSpace: 'nowrap' }}
+                style={{ padding: '0.35rem 0.75rem', background: 'var(--color-warning-bg)', color: 'var(--color-warning-dark)', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: '1px solid var(--color-warning-light)', whiteSpace: 'nowrap' }}
                 title="Clic per obrir el pressupost"
               >
                 📄 {formData.pressupost}
@@ -694,13 +725,13 @@ function ProjecteDetailView({
 
             {/* Factura badge */}
             {formData.facturaHistorica ? (
-              <div style={{ padding: '0.35rem 0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, color: '#92400e', whiteSpace: 'nowrap' }}>
+              <div style={{ padding: '0.35rem 0.75rem', background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-light)', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-warning-dark)', whiteSpace: 'nowrap' }}>
                 📋 {formData.facturaHistorica.numero}
               </div>
             ) : formData.facturaAssociada ? (
               <div
                 onClick={() => navigateToFactura(formData.facturaAssociada!)}
-                style={{ padding: '0.35rem 0.75rem', background: '#dbeafe', color: '#1e40af', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: '1px solid #93c5fd', whiteSpace: 'nowrap' }}
+                style={{ padding: '0.35rem 0.75rem', background: 'var(--color-info-bg)', color: 'var(--color-info-dark)', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: '1px solid var(--color-info-border-strong)', whiteSpace: 'nowrap' }}
                 title="Clic per obrir la factura"
               >
                 🧾 {formData.facturaAssociada}
@@ -748,7 +779,7 @@ function ProjecteDetailView({
                 type="button"
                 onClick={eliminarProjecte}
                 className="btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', borderColor: '#dc2626', color: '#dc2626', padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', borderColor: 'var(--color-error-dark)', color: 'var(--color-error-dark)', padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
               >
                 <Trash2 size={14} />
                 Eliminar
@@ -767,8 +798,8 @@ function ProjecteDetailView({
               style={{
                 padding: '0.65rem 1.25rem', background: 'transparent', border: 'none',
                 borderBottom: activeTab === tab.id ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
-                color: activeTab === tab.id ? 'var(--color-accent-primary)' : 'var(--color-text-secondary)',
-                fontWeight: activeTab === tab.id ? 600 : 400,
+                color: activeTab === tab.id ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                fontWeight: activeTab === tab.id ? 700 : 400,
                 cursor: 'pointer', marginBottom: '-2px', whiteSpace: 'nowrap', fontSize: '0.88rem'
               }}
             >
@@ -801,14 +832,14 @@ function ProjecteDetailView({
             <DespesesTab
               formData={formData} setFormData={setFormData} parametres={parametres}
               proveidors={proveidors} esBloquejat={esBloquejat}
-              recursCopiado={recursCopiado} materialCopiado={materialCopiado}
+              recursCopiado={recursCopiado} materialsAgregats={materialsAgregats}
               onAfegirRecursHuma={afegirRecursHuma}
               onActualitzarRecursHuma={actualitzarRecursHuma}
               onEliminarRecursHuma={eliminarRecursHuma}
               onTrasladarRecursATaska={trasladarRecursATaska}
               onActualitzarMaterial={actualitzarMaterial}
               onEliminarMaterial={eliminarMaterial}
-              onTrasladarMaterialATaska={trasladarMaterialATaska}
+              onAgregarMaterialsATasques={agregaMaterialsATasques}
             />
           )}
 

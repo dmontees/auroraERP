@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Download, Plus, LayoutGrid, List } from 'lucide-react';
+import { Search, Download, Plus, LayoutGrid, List, FileSpreadsheet } from 'lucide-react';
 import type { Projecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import type { Parametres } from '../../types/parametres';
@@ -334,14 +334,14 @@ const projectesFiltrats = projectes
 
 // Colores de estado
 const estatColors: Record<string, { bg: string; text: string }> = {
-  esborrany:        { bg: '#fef3c7', text: '#92400e' },
+  esborrany:        { bg: 'var(--color-warning-bg)', text: 'var(--color-warning-dark)' },
   planificat:       { bg: '#fed7aa', text: '#9a3412' },
-  rodatge:          { bg: '#fee2e2', text: '#991b1b' },
-  edicio:           { bg: '#bfdbfe', text: '#1e3a8a' },
+  rodatge:          { bg: 'var(--color-error-bg)', text: 'var(--color-error-darker)' },
+  edicio:           { bg: 'var(--color-info-border)', text: 'var(--color-info-darker)' },
   esperant_feedback:{ bg: '#f3f4f6', text: '#374151' },
-  revisio:          { bg: '#3b82f6', text: '#ffffff' },
-  acabat:           { bg: '#d1fae5', text: '#065f46' },
-  facturat:         { bg: '#059669', text: '#ffffff' },
+  revisio:          { bg: 'var(--color-info)', text: '#ffffff' },
+  acabat:           { bg: 'var(--color-success-bg)', text: 'var(--color-success-dark)' },
+  facturat:         { bg: 'var(--color-success-medium)', text: '#ffffff' },
 };
 
 const estatLabels: Record<string, string> = {
@@ -393,77 +393,83 @@ const estatLabels: Record<string, string> = {
   marginBottom: '1.5rem'
 }}>
   {/* Card 1: Projectes Actius */}
-  <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-      Projectes Actius
-    </div>
-    <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-accent-primary)', lineHeight: 1 }}>
-      {metriques.projectesActius}
+  <div className="stat-card">
+    <div className="stat-card-stripe" style={{ background: 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)' }} />
+    <div className="stat-card-body">
+      <div className="stat-card-label">Projectes Actius</div>
+      <div className="stat-card-value">
+        <span style={{ background: 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          {metriques.projectesActius}
+        </span>
+      </div>
     </div>
   </div>
 
   {/* Card 2: Endarrerits */}
-  <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-      Endarrerits
-    </div>
-    <div style={{ fontSize: '2rem', fontWeight: 700, color: metriques.endarrerits > 0 ? '#ef4444' : '#10b981', lineHeight: 1 }}>
-      {metriques.endarrerits}
+  <div className="stat-card">
+    <div className="stat-card-stripe" style={{ background: metriques.endarrerits > 0 ? 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)' : 'linear-gradient(135deg, #059669, #10b981, #34d399)' }} />
+    <div className="stat-card-body">
+      <div className="stat-card-label">Endarrerits</div>
+      <div className="stat-card-value" style={{ color: metriques.endarrerits > 0 ? '#ef4444' : '#10b981' }}>
+        {metriques.endarrerits}
+      </div>
     </div>
   </div>
 
   {/* Card 3: Propers Rodatges */}
-  <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-      Propers Rodatges
+  <div className="stat-card">
+    <div className="stat-card-stripe" style={{ background: 'linear-gradient(135deg, #0d5c2e, #14793c, #1aad57)' }} />
+    <div className="stat-card-body">
+      <div className="stat-card-label">Propers Rodatges</div>
+      {metriques.propersRodatges.length === 0 ? (
+        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic', paddingTop: '0.25rem' }}>Cap rodatge proper</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
+          {metriques.propersRodatges.map((r, i) => {
+            const d = new Date(r.data);
+            const diesRestants = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return (
+              <div key={i} style={{ fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: 700, flexShrink: 0, color: diesRestants <= 3 ? '#14793c' : 'var(--color-text-primary)' }}>
+                  {d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
+                </span>
+                <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {r.titol}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
-    {metriques.propersRodatges.length === 0 ? (
-      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic', paddingTop: '0.25rem' }}>Cap rodatge proper</div>
-    ) : (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
-        {metriques.propersRodatges.map((r, i) => {
-          const d = new Date(r.data);
-          const diesRestants = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          return (
-            <div key={i} style={{ fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 700, flexShrink: 0, color: diesRestants <= 3 ? '#ef4444' : 'var(--color-text-primary)' }}>
-                {d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
-              </span>
-              <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {r.titol}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    )}
   </div>
 
   {/* Card 4: Properes Entreges */}
-  <div className="placeholder-card" style={{ padding: '1rem' }}>
-    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-      Properes Entreges
+  <div className="stat-card">
+    <div className="stat-card-stripe" style={{ background: 'linear-gradient(135deg, #c70000, #f5090a, #ff4444)' }} />
+    <div className="stat-card-body">
+      <div className="stat-card-label">Properes Entreges</div>
+      {metriques.properes.length === 0 ? (
+        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic', paddingTop: '0.25rem' }}>Cap entrega propera</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
+          {metriques.properes.map((e, i) => {
+            const d = new Date(e.data);
+            const diesRestants = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return (
+              <div key={i} style={{ fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: 700, flexShrink: 0, color: diesRestants <= 3 ? '#f5090a' : 'var(--color-text-primary)' }}>
+                  {d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
+                </span>
+                <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {e.titol}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
-    {metriques.properes.length === 0 ? (
-      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic', paddingTop: '0.25rem' }}>Cap entrega propera</div>
-    ) : (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
-        {metriques.properes.map((e, i) => {
-          const d = new Date(e.data);
-          const diesRestants = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          return (
-            <div key={i} style={{ fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 700, flexShrink: 0, color: diesRestants < 0 ? '#ef4444' : diesRestants <= 3 ? '#f59e0b' : 'var(--color-text-primary)' }}>
-                {d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit' })}
-              </span>
-              <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {e.titol}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    )}
   </div>
 </div>
 
@@ -521,12 +527,11 @@ const estatLabels: Record<string, string> = {
 
     {/* Exportar Excel */}
     <button
-      className="btn-secondary"
+      className="btn-excel"
       onClick={() => exportarProjectesExcel(projectesFiltrats, clients, parametres)}
       title="Exportar a Excel"
-      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
     >
-      <Download size={18} />
+      <FileSpreadsheet size={16} />
       Excel
     </button>
 
@@ -656,18 +661,18 @@ const estatLabels: Record<string, string> = {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Codi</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Projecte</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Client</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Estat</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Modalitat</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Tipus Producció</th>
-    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '70px' }}>Directe</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Entrega</th>
-    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Despeses</th>
-    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Ingressos</th>
-    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Benefici</th>
-    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Prov.</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Codi</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Projecte</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Client</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Estat</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Modalitat</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Tipus Producció</th>
+    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', width: '70px' }}>Directe</th>
+    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Entrega</th>
+    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Despeses</th>
+    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Ingressos</th>
+    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Benefici</th>
+    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', width: '90px' }}>Prov.</th>
   </tr>
 </thead>
 <tbody>
@@ -733,7 +738,7 @@ const estatLabels: Record<string, string> = {
             fontSize: '0.75rem',
             fontWeight: 600,
             background: estatColors[projecte.estat]?.bg || '#f3f4f6',
-            color: estatColors[projecte.estat]?.text || '#6b7280'
+            color: estatColors[projecte.estat]?.text || 'var(--color-text-secondary)'
           }}>
             {estatLabels[projecte.estat] || projecte.estat}
           </span>
@@ -767,8 +772,8 @@ const estatLabels: Record<string, string> = {
             borderRadius: '4px',
             fontSize: '0.75rem',
             fontWeight: 600,
-            background: projecte.esDirect ? '#dbeafe' : '#f3f4f6',
-            color: projecte.esDirect ? '#1e40af' : '#6b7280'
+            background: projecte.esDirect ? 'var(--color-info-bg)' : '#f3f4f6',
+            color: projecte.esDirect ? 'var(--color-info-dark)' : 'var(--color-text-secondary)'
           }}>
             {projecte.esDirect ? 'Sí' : 'No'}
           </span>
@@ -802,7 +807,7 @@ const estatLabels: Record<string, string> = {
         
         {/* Benefici */}
         <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-          <div style={{ fontWeight: 600, color: benefici >= 0 ? '#10b981' : '#ef4444' }}>
+          <div style={{ fontWeight: 600, color: benefici >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
             {benefici.toFixed(2)}€
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>
@@ -817,13 +822,13 @@ const estatLabels: Record<string, string> = {
             const hasPendent = projAlbarans.some(a => a.estat === 'pendent-factura' || a.estat === 'factura-vinculada');
             if (hasPendent) {
               return (
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400e', background: '#fef3c7', padding: '0.2rem 0.5rem', borderRadius: 4 }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-warning-dark)', background: 'var(--color-warning-bg)', padding: '0.2rem 0.5rem', borderRadius: 4 }}>
                   Pendent
                 </span>
               );
             }
             return (
-              <span style={{ fontSize: '1rem', color: '#10b981' }} title="Tot pagat o sense despeses de proveïdor">✓</span>
+              <span style={{ fontSize: '1rem', color: 'var(--color-success)' }} title="Tot pagat o sense despeses de proveïdor">✓</span>
             );
           })()}
         </td>
@@ -851,12 +856,12 @@ const estatLabels: Record<string, string> = {
 
           const estatInfo: Record<string, { label: string; color: string; bg: string; headerBg: string }> = {
             'planificat':        { label: 'Planificat',        color: '#9a3412', bg: '#fed7aa', headerBg: '#ffedd5' },
-            'rodatge':           { label: 'Rodatge',           color: '#991b1b', bg: '#fee2e2', headerBg: '#fee2e2' },
-            'edicio':            { label: 'Edició',            color: '#1e3a8a', bg: '#bfdbfe', headerBg: '#dbeafe' },
-            'esperant_feedback': { label: 'Esperant Feedback', color: '#374151', bg: '#e5e7eb', headerBg: '#f3f4f6' },
-            'revisio':           { label: 'Revisió',           color: '#ffffff', bg: '#3b82f6', headerBg: '#3b82f6' },
-            'acabat':            { label: 'Acabat',            color: '#065f46', bg: '#d1fae5', headerBg: '#d1fae5' },
-            'facturat':          { label: 'Facturat',          color: '#ffffff', bg: '#059669', headerBg: '#059669' },
+            'rodatge':           { label: 'Rodatge',           color: 'var(--color-error-darker)', bg: 'var(--color-error-bg)', headerBg: 'var(--color-error-bg)' },
+            'edicio':            { label: 'Edició',            color: 'var(--color-info-darker)', bg: 'var(--color-info-border)', headerBg: 'var(--color-info-bg)' },
+            'esperant_feedback': { label: 'Esperant Feedback', color: '#374151', bg: 'var(--color-border)', headerBg: '#f3f4f6' },
+            'revisio':           { label: 'Revisió',           color: '#ffffff', bg: 'var(--color-info)', headerBg: 'var(--color-info)' },
+            'acabat':            { label: 'Acabat',            color: 'var(--color-success-dark)', bg: 'var(--color-success-bg)', headerBg: 'var(--color-success-bg)' },
+            'facturat':          { label: 'Facturat',          color: '#ffffff', bg: 'var(--color-success-medium)', headerBg: 'var(--color-success-medium)' },
           };
 
           const info = estatInfo[estat];
@@ -943,7 +948,7 @@ const estatLabels: Record<string, string> = {
                   borderBottom: '2px solid var(--color-border)'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: info.bg === '#f3f4f6' ? '#9ca3af' : info.bg, border: '2px solid ' + info.color, flexShrink: 0 }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: info.bg === '#f3f4f6' ? 'var(--color-text-tertiary)' : info.bg, border: '2px solid ' + info.color, flexShrink: 0 }} />
                     <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
                       {info.label}
                     </h3>
@@ -1017,7 +1022,7 @@ const estatLabels: Record<string, string> = {
                         >
                           {/* Benefici cantonada superior dreta */}
                           <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: benefici >= 0 ? '#10b981' : '#ef4444' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: benefici >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
                               {benefici.toFixed(0)}€
                             </span>
                             <span style={{ fontSize: '0.65rem', color: 'var(--color-text-tertiary)' }}>

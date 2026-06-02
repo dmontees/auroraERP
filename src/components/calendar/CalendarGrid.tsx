@@ -59,7 +59,10 @@ export default function CalendarGrid({
       background: 'var(--color-bg-secondary)',
       borderRadius: '12px',
       border: '1px solid var(--color-border)',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%'
     }}>
       {/* Headers días semana */}
       <div style={{
@@ -89,7 +92,9 @@ export default function CalendarGrid({
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
-        gridTemplateRows: 'repeat(6, 120px)'
+        gridTemplateRows: 'repeat(6, 1fr)',
+        flex: 1,
+        minHeight: 0
       }}>
         {diesDelMes.map((dia, index) => {
           if (!dia) return null;
@@ -107,7 +112,6 @@ export default function CalendarGrid({
               key={index}
               onClick={() => setDiaSeleccionat(dataStr)}
               style={{
-                height: '120px',
                 overflow: 'hidden',
                 padding: '0.5rem',
                 borderRight: (index + 1) % 7 !== 0 ? '1px solid var(--color-border)' : 'none',
@@ -116,7 +120,7 @@ export default function CalendarGrid({
                 background: diaSeleccionat === dataStr 
                   ? 'var(--color-accent-secondary)' 
                   : esDiaActual 
-                  ? '#fef3c7' 
+                  ? 'var(--color-warning-bg)' 
                   : 'transparent',
                 opacity: esDinsMes ? 1 : 0.4,
                 transition: 'all 0.2s'
@@ -136,7 +140,7 @@ export default function CalendarGrid({
                 fontSize: '0.9rem',
                 fontWeight: esDiaActual ? 700 : 500,
                 marginBottom: '0.5rem',
-                color: esDiaActual ? '#f59e0b' : 'var(--color-text-primary)'
+                color: esDiaActual ? 'var(--color-warning)' : 'var(--color-text-primary)'
               }}>
                 {dia.getDate()}
               </div>

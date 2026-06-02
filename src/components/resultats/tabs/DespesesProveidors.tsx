@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, TrendingDown } from 'lucide-react';
+import { Package, TrendingDown, Info } from 'lucide-react';
 import type { Periode } from '../../../utils/resultatCalculs';
 import { estaEnPeriode, formatCurrency } from '../../../utils/resultatCalculs';
 import type { Gasto } from '../../../types/facturaCompra';
@@ -68,7 +68,7 @@ export default function DespesesProveidors({
   
   projectesImportats.forEach(p => {
     const recursosHumans = p.recursosHumans?.reduce((sum, r) => sum + (r.cost || 0), 0) || 0;
-    const materials = p.materials?.reduce((sum, m) => sum + (m.preuProveidor || 0), 0) || 0;
+    const materials = p.materials?.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0) || 0;
     
     totalRecursosHumansImportats += recursosHumans;
     totalMaterialsImportats += materials;
@@ -130,75 +130,60 @@ export default function DespesesProveidors({
   
   return (
     <div>
-      {/* KPIs */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: '1rem',
-        marginBottom: '2rem'
+      {/* Explanation banner */}
+      <div style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border)',
+        borderLeft: '4px solid var(--color-warning)',
+        borderRadius: '8px',
+        padding: '1rem 1.25rem',
+        marginBottom: '2rem',
+        display: 'flex',
+        gap: '0.75rem',
+        alignItems: 'flex-start',
       }}>
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            marginBottom: '0.5rem',
-            color: 'var(--color-text-tertiary)',
-            fontSize: '0.75rem'
-          }}>
-            <TrendingDown size={16} />
-            Total Despeses
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444' }}>
-            {formatCurrency(totalDespeses)}
-          </div>
-        </div>
-        
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            fontSize: '0.75rem',
-            color: 'var(--color-text-tertiary)',
-            marginBottom: '0.5rem'
-          }}>
-            Categories Actives
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-            {despesesPerCategoria.length}
-          </div>
-        </div>
-        
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            marginBottom: '0.5rem',
-            color: 'var(--color-text-tertiary)',
-            fontSize: '0.75rem'
-          }}>
-            <Package size={16} />
-            Proveïdors Actius
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-            {proveidorsAmbDades.length}
-          </div>
+        <Info size={18} style={{ color: 'var(--color-warning)', flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--color-text-primary)' }}>Despeses per categoria i proveïdor</strong>
+          {' '}— Mostra les factures de compra i despeses generals registrades al sistema, agrupades per categoria.
+          Les despeses de projectes importats (recursos humans i materials) s'afegeixen per coherència
+          amb els informes antics, tot i que no estan en format de factura.
         </div>
       </div>
+
+      {/* KPIs */}
+      {(() => {
+        const G_RED    = 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)';
+        const G_INDIGO = 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)';
+        const gSpan = (v: React.ReactNode, g: string) => (
+          <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+        );
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_RED }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label"><TrendingDown size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />Total Despeses</div>
+                <div className="stat-card-value">{gSpan(formatCurrency(totalDespeses), G_RED)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_INDIGO }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Categories Actives</div>
+                <div className="stat-card-value">{gSpan(despesesPerCategoria.length, G_INDIGO)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_INDIGO }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label"><Package size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />Proveïdors Actius</div>
+                <div className="stat-card-value">{gSpan(proveidorsAmbDades.length, G_INDIGO)}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Despeses per categoria */}
       <div style={{
@@ -259,7 +244,7 @@ export default function DespesesProveidors({
                         <div style={{
                           height: '100%',
                           width: `${percentatge}%`,
-                          background: '#ef4444',
+                          background: 'var(--color-error)',
                           borderRadius: '4px'
                         }} />
                       </div>
@@ -336,7 +321,7 @@ export default function DespesesProveidors({
                         width: '24px',
                         height: '24px',
                         borderRadius: '50%',
-                        background: index < 3 ? '#f59e0b' : 'var(--color-bg-tertiary)',
+                        background: index < 3 ? 'var(--color-warning)' : 'var(--color-bg-tertiary)',
                         color: index < 3 ? 'white' : 'var(--color-text-tertiary)',
                         display: 'flex',
                         alignItems: 'center',
@@ -359,7 +344,7 @@ export default function DespesesProveidors({
                   <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 600 }}>
                     {prov.numFactures}
                   </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>
+                  <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 700, color: 'var(--color-error)' }}>
                     {formatCurrency(prov.volum)}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>

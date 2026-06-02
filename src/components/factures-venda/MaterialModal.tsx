@@ -20,24 +20,23 @@ export default function MaterialModal({
 }: Props) {
 
   const [formData, setFormData] = useState({
-    material: editingMaterial?.servei || '', // Código del material
+    material: editingMaterial?.servei || '',
     descripcio: editingMaterial?.descripcio || '',
     quantitat: editingMaterial?.quantitat || 1,
-    preu: editingMaterial?.preu || 0
+    jornades: 1,
+    preuPerDia: editingMaterial?.preu || 0
   });
 
-  // Cambio de material
   const handleMaterialChange = (codiMaterial: string) => {
     const materialData = materials.find(m => m.codi === codiMaterial);
-    
-    // Buscar nombre del grupo
     const grupData = grups.find(g => g.codi === materialData?.grup);
-    
+    const grupNom = grupData?.nom || materialData?.grup || '';
+    const jornades = formData.jornades;
     setFormData({
+      ...formData,
       material: codiMaterial,
-      descripcio: grupData?.nom || materialData?.grup || '',
-      quantitat: formData.quantitat,
-      preu: materialData?.preuPlatea || 0  // ← USAR preuPlatea
+      descripcio: jornades === 1 ? `${grupNom} (1 jornada)` : `${grupNom} (${jornades} jornades)`,
+      preuPerDia: materialData?.preuPlatea || 0
     });
   };
 
@@ -56,11 +55,11 @@ export default function MaterialModal({
   
     const material: Tasca = {
       id: editingMaterial?.id || `mat-${Date.now()}-${Math.random()}`,
-      servei: grupNom,        // SERVEI = NOMBRE DEL GRUPO
-      descripcio: grupNom, // DESCRIPCIÓ = NOMBRE DEL GRUPO
+      servei: grupNom,
+      descripcio: formData.descripcio || grupNom,
       quantitat: formData.quantitat,
       unitat: '-',
-      preu: formData.preu
+      preu: formData.jornades * formData.preuPerDia
     };
   
     onSave(material);
@@ -106,29 +105,52 @@ export default function MaterialModal({
               />
             </div>
 
-            <div className="form-group">
-              <label>Quantitat *</label>
-              <input
-                type="number"
-                className="form-input"
-                value={formData.quantitat}
-                onChange={(e) => setFormData({ ...formData, quantitat: parseFloat(e.target.value) || 0 })}
-                min="0"
-                step="1"
-                required
-              />
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label>Quantitat *</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.quantitat}
+                  onChange={(e) => setFormData({ ...formData, quantitat: parseInt(e.target.value, 10) || 1 })}
+                  min="1"
+                  step="1"
+                  required
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Preu Unitari (€)</label>
-              <input
-                type="number"
-                className="form-input"
-                value={formData.preu}
-                onChange={(e) => setFormData({ ...formData, preu: parseFloat(e.target.value) || 0 })}
-                min="0"
-                step="0.01"
-              />
+              <div className="form-group">
+                <label>Jornades *</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.jornades}
+                  onChange={(e) => {
+                    const jornades = parseInt(e.target.value, 10) || 1;
+                    const grupNom = formData.descripcio.split(' (')[0];
+                    setFormData({
+                      ...formData,
+                      jornades,
+                      descripcio: jornades === 1 ? `${grupNom} (1 jornada)` : `${grupNom} (${jornades} jornades)`
+                    });
+                  }}
+                  min="1"
+                  step="1"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Preu/dia (€)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={formData.preuPerDia}
+                  onChange={(e) => setFormData({ ...formData, preuPerDia: parseFloat(e.target.value) || 0 })}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
             </div>
 
             <div style={{
@@ -137,7 +159,10 @@ export default function MaterialModal({
               borderRadius: '6px',
               marginTop: '1rem'
             }}>
-              <strong>Import total:</strong> {(formData.quantitat * formData.preu).toFixed(2)}€
+              <strong>Import total:</strong> {(formData.quantitat * formData.jornades * formData.preuPerDia).toFixed(2)}€
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginLeft: '0.75rem' }}>
+                ({formData.quantitat} u. × {formData.jornades} {formData.jornades === 1 ? 'jornada' : 'jornades'} × {formData.preuPerDia.toFixed(2)}€/dia)
+              </span>
             </div>
           </div>
 

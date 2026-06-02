@@ -81,7 +81,15 @@ contextBridge.exposeInMainWorld('electron', {
   startGoogleAuth: (clientId, clientSecret) =>
     ipcRenderer.invoke('google-calendar-start-auth', { clientId, clientSecret }),
   disconnectGoogle: () =>
-    ipcRenderer.invoke('google-calendar-disconnect')
+    ipcRenderer.invoke('google-calendar-disconnect'),
+
+  // Verifactu — enviament a l'AEAT via mTLS (certificat P12 + PIN)
+  verifactuEnviar: ({ xmlPayload, p12Base64, pin, entornTest }) =>
+    ipcRenderer.invoke('verifactu-enviar', { xmlPayload, p12Base64, pin, entornTest }),
+
+  // Tancament controlat — el main avisa el renderer perquè faci sync abans de sortir
+  onAppWillClose: (callback) => ipcRenderer.on('app-will-close', () => callback()),
+  confirmClose: () => ipcRenderer.invoke('confirm-close'),
 });
 
 console.log('✅ Preload script carregat correctament');

@@ -205,6 +205,25 @@ class StorageManager {
   // ============================================================================
 
   getFacturesCompra(): FacturaCompra[] {
+    // V5 lazy migration: rename typo field esDesepsaGeneral → esDepesaGeneral
+    const v5Flag = this.useElectronStore
+      ? this.electronStoreAPI.get('migrationV5Completed')
+      : localStorage.getItem('plateaMigrationV5');
+    if (!v5Flag) {
+      const raw = (this.get('facturesCompra') as any[]) || [];
+      const needsFix = raw.some((g: any) => 'esDesepsaGeneral' in g);
+      if (needsFix) {
+        const fixed = raw.map((g: any) => {
+          if (!('esDesepsaGeneral' in g)) return g;
+          const { esDesepsaGeneral, ...rest } = g;
+          return { ...rest, esDepesaGeneral: esDesepsaGeneral };
+        });
+        this.set('facturesCompra', fixed);
+      }
+      if (this.useElectronStore) this.electronStoreAPI.set('migrationV5Completed', true);
+      else localStorage.setItem('plateaMigrationV5', 'true');
+    }
+
     const data = (this.get('facturesCompra') as any[]) || [];
     return data
       .filter((g: any) => g.tipus !== 'obligacio-fiscal')
@@ -586,6 +605,68 @@ class StorageManager {
   }
 
   // ============================================================================
+  // VERIFACTU CONFIG
+  // ============================================================================
+
+  getVerifactuConfig(): import('../types/verifactu').VerifactuConfig {
+    const DEFAULT = { enabled: false, mode: 'no-verifactu' as const, entornTest: true, idSistema: '' };
+    try {
+      // 'verifactuConfig' is outside StoreSchema — read directly from the underlying store
+      let stored: any;
+      if (this.useElectronStore) {
+        stored = this.electronStoreAPI.get('verifactuConfig');
+      } else {
+        const raw = localStorage.getItem('verifactuConfig');
+        stored = raw ? JSON.parse(raw) : undefined;
+      }
+      return stored ?? DEFAULT;
+    } catch {
+      return DEFAULT;
+    }
+  }
+
+  setVerifactuConfig(config: import('../types/verifactu').VerifactuConfig): void {
+    try {
+      if (this.useElectronStore) {
+        this.electronStoreAPI.set('verifactuConfig', config);
+      } else {
+        localStorage.setItem('verifactuConfig', JSON.stringify(config));
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Certificat P12/PFX — emmagatzemat en base64 (el format P12 ja xifra amb PIN)
+  getVerifactuCertificatP12(): string | null {
+    try {
+      if (this.useElectronStore) {
+        return (this.electronStoreAPI.get('verifactuCertificatP12') as string | undefined) ?? null;
+      } else {
+        return localStorage.getItem('verifactuCertificatP12');
+      }
+    } catch { return null; }
+  }
+
+  setVerifactuCertificatP12(p12Base64: string): void {
+    try {
+      if (this.useElectronStore) {
+        this.electronStoreAPI.set('verifactuCertificatP12', p12Base64);
+      } else {
+        localStorage.setItem('verifactuCertificatP12', p12Base64);
+      }
+    } catch { /* ignore */ }
+  }
+
+  deleteVerifactuCertificatP12(): void {
+    try {
+      if (this.useElectronStore) {
+        this.electronStoreAPI.delete('verifactuCertificatP12');
+      } else {
+        localStorage.removeItem('verifactuCertificatP12');
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ============================================================================
   // UTILITATS
   // ============================================================================
 
@@ -629,6 +710,26 @@ class StorageManager {
 
   setWebSyncConfig(config: StoreSchema['webSyncConfig']): void {
     this.set('webSyncConfig', config);
+  }
+
+  // ============================================================================
+  // CLOUD BACKUP — timestamp de l'última còpia al servidor
+  // ============================================================================
+
+  getLastCloudBackup(): string | null {
+    try {
+      if (this.useElectronStore) {
+        return (this.electronStoreAPI.get('lastCloudBackup') as string | undefined) ?? null;
+      }
+      return localStorage.getItem('lastCloudBackup');
+    } catch { return null; }
+  }
+
+  setLastCloudBackup(iso: string): void {
+    try {
+      if (this.useElectronStore) this.electronStoreAPI.set('lastCloudBackup', iso);
+      else localStorage.setItem('lastCloudBackup', iso);
+    } catch { /* ignore */ }
   }
 }
 

@@ -85,8 +85,8 @@ export default function PDFUploader({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderColor: '#dc2626',
-                color: '#dc2626'
+                borderColor: 'var(--color-error-dark)',
+                color: 'var(--color-error-dark)'
               }}
               disabled={disabled}
               title="Eliminar PDF"

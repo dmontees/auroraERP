@@ -92,7 +92,7 @@ export default function SimulacioTab({ hook }: SimulacioTabProps) {
             <span style={{ color: 'var(--color-text-secondary)' }}>
               SS càrrec empresa ({pctSSEmpresa.toFixed(1)}%)
             </span>
-            <span style={{ color: '#dc2626' }}>+{fmt(ssEmpresa)}</span>
+            <span style={{ color: 'var(--color-error-dark)' }}>+{fmt(ssEmpresa)}</span>
           </div>
           <div style={{
             ...rowStyle,
@@ -107,8 +107,8 @@ export default function SimulacioTab({ hook }: SimulacioTabProps) {
             <span style={{
               fontWeight: 700,
               fontSize: '1.1rem',
-              color: '#dc2626',
-              background: '#fee2e2',
+              color: 'var(--color-error-dark)',
+              background: 'var(--color-error-bg)',
               padding: '0.25rem 0.75rem',
               borderRadius: '6px'
             }}>
@@ -131,17 +131,17 @@ export default function SimulacioTab({ hook }: SimulacioTabProps) {
             <span style={{ color: 'var(--color-text-secondary)' }}>
               SS treballador ({pctSSTreballador.toFixed(2)}%)
             </span>
-            <span style={{ color: '#f59e0b' }}>-{fmt(ssTreballador)}</span>
+            <span style={{ color: 'var(--color-warning)' }}>-{fmt(ssTreballador)}</span>
           </div>
           <div style={rowStyle}>
             <span style={{ color: 'var(--color-text-secondary)' }}>
               IRPF retingut ({pctIRPF.toFixed(1)}%)
             </span>
-            <span style={{ color: '#f59e0b' }}>-{fmt(irpfRetingut)}</span>
+            <span style={{ color: 'var(--color-warning)' }}>-{fmt(irpfRetingut)}</span>
           </div>
           <div style={{ ...rowStyle, borderBottom: 'none', fontWeight: 600 }}>
             <span style={{ color: 'var(--color-text-primary)' }}>Salari net al treballador</span>
-            <span style={{ color: '#10b981', fontSize: '1rem' }}>{fmt(salariNet)}</span>
+            <span style={{ color: 'var(--color-success)', fontSize: '1rem' }}>{fmt(salariNet)}</span>
           </div>
         </div>
 
@@ -158,15 +158,15 @@ export default function SimulacioTab({ hook }: SimulacioTabProps) {
           </div>
           <div style={rowStyle}>
             <span style={{ color: 'var(--color-text-secondary)' }}>→ Al treballador</span>
-            <span style={{ fontWeight: 600, color: '#10b981' }}>{fmt(salariNet)}</span>
+            <span style={{ fontWeight: 600, color: 'var(--color-success)' }}>{fmt(salariNet)}</span>
           </div>
           <div style={rowStyle}>
             <span style={{ color: 'var(--color-text-secondary)' }}>→ A SS (empresa + treballador)</span>
-            <span style={{ fontWeight: 600, color: '#3b82f6' }}>{fmt(totalSS)}</span>
+            <span style={{ fontWeight: 600, color: 'var(--color-info)' }}>{fmt(totalSS)}</span>
           </div>
           <div style={{ ...rowStyle, borderBottom: 'none' }}>
             <span style={{ color: 'var(--color-text-secondary)' }}>→ A Hisenda (IRPF retingut)</span>
-            <span style={{ fontWeight: 600, color: '#f59e0b' }}>{fmt(irpfRetingut)}</span>
+            <span style={{ fontWeight: 600, color: 'var(--color-warning)' }}>{fmt(irpfRetingut)}</span>
           </div>
         </div>
 

@@ -214,7 +214,7 @@ export default function GastoGeneralModal({
               <span style={{
                 marginLeft: '1rem',
                 fontSize: '0.9rem',
-                background: '#10b981',
+                background: 'var(--color-success)',
                 color: 'white',
                 padding: '0.25rem 0.75rem',
                 borderRadius: '4px',
@@ -441,8 +441,8 @@ export default function GastoGeneralModal({
               onClick={handleDelete}
               style={{ 
                 marginRight: 'auto',
-                borderColor: '#dc2626',
-                color: '#dc2626'
+                borderColor: 'var(--color-error-dark)',
+                color: 'var(--color-error-dark)'
               }}
             >
               <Trash2 size={18} />

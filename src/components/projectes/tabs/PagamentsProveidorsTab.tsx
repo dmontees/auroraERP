@@ -116,6 +116,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
       <span>
         <span style={{ fontWeight: 600 }}>{provNom(a.proveidorCodi, proveidors)}</span>
         <span style={{ color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>— {albaraLabel(a, parametres)}</span>
+        {a.tdCodi && <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-tertiary)', fontFamily: 'monospace' }}>{a.tdCodi}</span>}
       </span>
       <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(albaraImport(a))}</span>
       <span style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>estimat</span>
@@ -129,7 +130,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
       <div key={f.codi} style={{
         ...rowStyle,
         gridTemplateColumns: '1fr 2fr 1fr 1fr',
-        background: estat === 'pagada' ? '#f0fdf4' : '#eff6ff',
+        background: estat === 'pagada' ? 'var(--color-success-bg)' : 'var(--color-info-bg)',
         marginBottom: 4,
       }}>
         <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-tertiary)' }}>{f.codi}</span>
@@ -138,7 +139,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
           <span style={{ color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>— {f.numFacturaProveidor}</span>
         </span>
         <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(f.totalGasto || 0)}</span>
-        <span style={{ textAlign: 'right', fontWeight: 600, color: estat === 'pagada' ? '#10b981' : '#f59e0b' }}>
+        <span style={{ textAlign: 'right', fontWeight: 600, color: estat === 'pagada' ? 'var(--color-success)' : 'var(--color-warning)' }}>
           {estat === 'pagada' ? 'Pagada' : `Pendent: ${fmt(f.pendentPagament || 0)}`}
         </span>
       </div>
@@ -149,7 +150,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
     <div key={n.codi} style={{
       ...rowStyle,
       gridTemplateColumns: '1fr 2fr 1fr 1fr',
-      background: estat === 'pagada' ? '#f0fdf4' : '#eff6ff',
+      background: estat === 'pagada' ? 'var(--color-success-bg)' : 'var(--color-info-bg)',
       marginBottom: 4,
     }}>
       <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-tertiary)' }}>{n.codi}</span>
@@ -158,7 +159,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
         <span style={{ color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>— Nòmina {n.periode}</span>
       </span>
       <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(n.totalGasto || 0)}</span>
-      <span style={{ textAlign: 'right', fontWeight: 600, color: estat === 'pagada' ? '#10b981' : '#f59e0b' }}>
+      <span style={{ textAlign: 'right', fontWeight: 600, color: estat === 'pagada' ? 'var(--color-success)' : 'var(--color-warning)' }}>
         {estat === 'pagada' ? 'Pagada' : `Pendent: ${fmt(n.pendentPagament || 0)}`}
       </span>
     </div>
@@ -211,7 +212,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
       ) : (
         <>
           {/* Pendents de factura */}
-          {sectionTitle('Pendent de factura', pendents.length, '#f59e0b')}
+          {sectionTitle('Pendent de factura', pendents.length, 'var(--color-warning)')}
           {pendents.length === 0 ? (
             <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.875rem', paddingLeft: '1rem' }}>Cap albarà pendent</p>
           ) : (
@@ -219,12 +220,12 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '0.5rem', padding: '0 0.75rem', marginBottom: '0.5rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase' }}>
                 <span>Albarà</span><span>Proveïdor — Servei/Material</span><span style={{ textAlign: 'right' }}>Import</span><span />
               </div>
-              {pendents.map(a => renderAlbaraRow(a, '#fffbeb'))}
+              {pendents.map(a => renderAlbaraRow(a, 'var(--color-warning-bg)'))}
             </>
           )}
 
           {/* Factures / Nòmines vinculades (pendent de pagar) */}
-          {sectionTitle('Factura o Nòmina vinculada — pendent de pagar', totalVinculadesCount, '#3b82f6')}
+          {sectionTitle('Factura o Nòmina vinculada — pendent de pagar', totalVinculadesCount, 'var(--color-info)')}
           {totalVinculadesCount === 0 ? (
             <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.875rem', paddingLeft: '1rem' }}>Cap factura pendent</p>
           ) : (
@@ -235,7 +236,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
           )}
 
           {/* Pagades */}
-          {sectionTitle('Pagades', totalPagadesCount, '#10b981')}
+          {sectionTitle('Pagades', totalPagadesCount, 'var(--color-success)')}
           {totalPagadesCount === 0 ? (
             <p style={{ color: 'var(--color-text-tertiary)', fontSize: '0.875rem', paddingLeft: '1rem' }}>Cap factura pagada</p>
           ) : (
@@ -249,13 +250,13 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
           <div style={{
             marginTop: '2rem',
             padding: '1rem 1.5rem',
-            background: totalPendent > 0 ? '#fef3c7' : '#f0fdf4',
+            background: totalPendent > 0 ? 'var(--color-warning-bg)' : 'var(--color-success-bg)',
             borderRadius: 8,
-            border: `1px solid ${totalPendent > 0 ? '#fbbf24' : '#6ee7b7'}`,
+            border: `1px solid ${totalPendent > 0 ? 'var(--color-warning-light)' : 'var(--color-success-border)'}`,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
             <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Total pendent de pagar (estimat)</span>
-            <span style={{ fontWeight: 800, fontSize: '1.5rem', color: totalPendent > 0 ? '#92400e' : '#065f46' }}>
+            <span style={{ fontWeight: 800, fontSize: '1.5rem', color: totalPendent > 0 ? 'var(--color-warning-dark)' : 'var(--color-success-dark)' }}>
               {fmt(totalPendent)}
             </span>
           </div>

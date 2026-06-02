@@ -118,24 +118,36 @@ function getJsonBody(): array {
 /**
  * Converteix un valor TypeScript boolean (true/false/1/0/null) a int per a MySQL.
  */
-function boolToInt(mixed $val): int {
+function boolToInt($val): int {
     return $val ? 1 : 0;
 }
 
 /**
- * Retorna una data ISO (YYYY-MM-DD) o null si el valor és buit.
+ * Retorna una data ISO (YYYY-MM-DD) o null si el valor és buit o invàlid.
+ * Rebutja serials numèrics d'Excel (p. ex. '46161') i altres formats incorrectes.
  */
-function safeDate(?string $val): ?string {
-    if (!$val) return null;
-    // Accepta 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:MM:SS...'
-    return substr($val, 0, 10) ?: null;
+function safeDate($val): ?string {
+    if ($val === null || $val === '' || $val === false) return null;
+    $s = substr((string)$val, 0, 10);
+    // Requereix format YYYY-MM-DD
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) return null;
+    return $s;
 }
 
 /**
  * Retorna un float net o 0.
  */
-function safeFloat(mixed $val): float {
+function safeFloat($val): float {
     return (float)($val ?? 0);
+}
+
+/**
+ * Retorna el valor si és un dels permesos, sinó retorna el valor per defecte.
+ * Evita errors MySQL ENUM quan l'app desktop té valors d'una versió antiga.
+ */
+function safeEnum($val, array $allowed, string $default): string {
+    $s = (string)($val ?? '');
+    return in_array($s, $allowed, true) ? $s : $default;
 }
 
 /**

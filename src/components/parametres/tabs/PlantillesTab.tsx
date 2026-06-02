@@ -134,7 +134,7 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
                             <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                               {plantilla.perDefecte ? (
                                 <span style={{
-                                  background: '#10b981',
+                                  background: 'var(--color-success)',
                                   color: 'white',
                                   padding: '0.25rem 0.6rem',
                                   borderRadius: '4px',
@@ -181,7 +181,7 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
           {parametres.plantilles.filter((p: any) => !p.tipusPlantilla).length > 0 && (
             <div style={{ marginBottom: '2rem' }}>
               <div style={{ 
-                background: '#6b7280', 
+                background: 'var(--color-text-secondary)', 
                 color: 'white',
                 padding: '0.75rem 1rem',
                 fontWeight: 700,
@@ -294,8 +294,8 @@ export default function PlantillesTab({ hook }: PlantillesTabProps) {
                           <span style={{
                             marginLeft: '0.5rem',
                             fontSize: '0.7rem',
-                            background: '#dbeafe',
-                            color: '#1e40af',
+                            background: 'var(--color-info-bg)',
+                            color: 'var(--color-info-dark)',
                             padding: '0.15rem 0.4rem',
                             borderRadius: '3px',
                             fontWeight: 600

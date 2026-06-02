@@ -31,4 +31,5 @@ export interface Client {
   tipusIVA: 'Normal' | 'Exempt'; | 'Reduit' | 'Superreduit';
   retencio: number;
   tarifesEspecials: Tarifa[];
+  imatgePerfil?: string;
 }

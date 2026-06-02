@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Trash2 } from 'lucide-react';
+import { Check, Trash2, ArrowDownToLine } from 'lucide-react';
 import SearchableSelect from '../../common/SearchableSelect';
 
 interface GastosTabProps {
@@ -14,12 +14,12 @@ export default function GastosTab({ hook }: GastosTabProps) {
     parametres,
     proveidors,
     totalGastos,
-    materialCopiado,
+    materialsAgregats,
     recursCopiado,
     afegirMaterial,
     actualitzarMaterial,
     eliminarMaterial,
-    trasladarMaterialATaska,
+    agregaMaterialsATasques,
     afegirRecursHuma,
     actualitzarRecursHuma,
     eliminarRecursHuma,
@@ -50,14 +50,42 @@ export default function GastosTab({ hook }: GastosTabProps) {
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
             Materials
           </h3>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={afegirMaterial}
-            disabled={clientBlocked || pressupostBloquejat}
-          >
-            + Afegir Material
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {formData.materials.some((m: any) => m.material && m.grup) && !pressupostBloquejat && (
+              <button
+                type="button"
+                onClick={agregaMaterialsATasques}
+                title="Agrupa tots els materials per grup i els afegeix a Tasques de Venda (substitueix les tasques de Materials existents)"
+                style={{
+                  background: materialsAgregats ? 'var(--color-success)' : 'transparent',
+                  border: `1px solid ${materialsAgregats ? 'var(--color-success)' : 'var(--color-accent-primary)'}`,
+                  borderRadius: '4px',
+                  color: materialsAgregats ? 'white' : 'var(--color-accent-primary)',
+                  cursor: 'pointer',
+                  padding: '0.4rem 0.75rem',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {materialsAgregats ? (
+                  <><Check size={14} /> Generat!</>
+                ) : (
+                  <><ArrowDownToLine size={14} /> Generar Tasques</>
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={afegirMaterial}
+              disabled={clientBlocked || pressupostBloquejat}
+            >
+              + Afegir Material
+            </button>
+          </div>
         </div>
 
         {formData.materials.length === 0 ? (
@@ -71,9 +99,11 @@ export default function GastosTab({ hook }: GastosTabProps) {
                 <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Grup</th>
                 <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Material</th>
                 <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Proveïdor</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '100px' }}>Preu Prov.</th>
-                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '100px' }}>Preu Platea</th>
-                <th style={{ width: '50px' }}></th>
+                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Preu Prov.</th>
+                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '65px' }}>Jorns.</th>
+                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Total Cost</th>
+                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, width: '90px' }}>Preu Platea</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -109,7 +139,7 @@ export default function GastosTab({ hook }: GastosTabProps) {
                         disabled={pressupostBloquejat}
                       />
                     </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '100px' }}>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '90px' }}>
                       <input
                         type="number"
                         className="form-input"
@@ -117,15 +147,28 @@ export default function GastosTab({ hook }: GastosTabProps) {
                         onChange={(e) => actualitzarMaterial(material.id, 'preuProveidor', parseFloat(e.target.value) || 0)}
                         min="0"
                         step="0.01"
-                        style={{ 
-                          textAlign: 'right',
-                          MozAppearance: 'textfield'
-                        }}
+                        style={{ textAlign: 'right', MozAppearance: 'textfield' }}
                         onWheel={(e) => e.currentTarget.blur()}
                         disabled={pressupostBloquejat}
                       />
                     </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '100px' }}>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '65px' }}>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={material.jornades ?? 1}
+                        onChange={(e) => actualitzarMaterial(material.id, 'jornades', parseInt(e.target.value, 10) || 1)}
+                        min="1"
+                        step="1"
+                        style={{ textAlign: 'right', MozAppearance: 'textfield' }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        disabled={pressupostBloquejat}
+                      />
+                    </td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, width: '90px', color: 'var(--color-text-secondary)' }}>
+                      {(material.preuProveidor * (material.jornades ?? 1)).toFixed(2)}€
+                    </td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', width: '90px' }}>
                       <input
                         type="number"
                         className="form-input"
@@ -133,61 +176,27 @@ export default function GastosTab({ hook }: GastosTabProps) {
                         onChange={(e) => actualitzarMaterial(material.id, 'preuPlatea', parseFloat(e.target.value) || 0)}
                         min="0"
                         step="0.01"
-                        style={{ 
-                          textAlign: 'right',
-                          MozAppearance: 'textfield'
-                        }}
+                        style={{ textAlign: 'right', MozAppearance: 'textfield' }}
                         onWheel={(e) => e.currentTarget.blur()}
                         disabled={pressupostBloquejat}
                       />
                     </td>
                     <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => trasladarMaterialATaska(material)}
-                          disabled={!material.material || !material.grup || pressupostBloquejat}
-                          style={{
-                            background: materialCopiado === material.id ? '#10b981' : 'transparent',
-                            border: `1px solid ${materialCopiado === material.id ? '#10b981' : 'var(--color-border)'}`,
-                            borderRadius: '4px',
-                            color: materialCopiado === material.id ? 'white' : 'var(--color-accent-primary)',
-                            cursor: material.material ? 'pointer' : 'not-allowed',
-                            padding: '0.25rem 0.5rem',
-                            fontSize: '0.85rem',
-                            opacity: (material.material && material.grup) ? 1 : 0.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            transition: 'all 0.3s ease'
-                          }}
-                          title="Trasladar a tasques"
-                        >
-                          {materialCopiado === material.id ? (
-                            <>
-                              <Check size={14} />
-                              Copiat
-                            </>
-                          ) : (
-                            '→ Tasques'
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => eliminarMaterial(material.id)}
-                          disabled={pressupostBloquejat}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--color-error)',
-                            cursor: 'pointer',
-                            padding: '0.25rem',
-                            opacity: pressupostBloquejat ? 0.5 : 1
-                          }}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => eliminarMaterial(material.id)}
+                        disabled={pressupostBloquejat}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--color-error)',
+                          cursor: 'pointer',
+                          padding: '0.25rem',
+                          opacity: pressupostBloquejat ? 0.5 : 1
+                        }}
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -324,8 +333,8 @@ export default function GastosTab({ hook }: GastosTabProps) {
                           onClick={() => trasladarRecursATaska(recurs)}
                           disabled={!recurs.servei || !recurs.unitat || pressupostBloquejat}
                           style={{
-                            background: recursCopiado === recurs.id ? '#10b981' : 'transparent',
-                            border: `1px solid ${recursCopiado === recurs.id ? '#10b981' : 'var(--color-border)'}`,
+                            background: recursCopiado === recurs.id ? 'var(--color-success)' : 'transparent',
+                            border: `1px solid ${recursCopiado === recurs.id ? 'var(--color-success)' : 'var(--color-border)'}`,
                             borderRadius: '4px',
                             color: recursCopiado === recurs.id ? 'white' : 'var(--color-accent-primary)',
                             cursor: (recurs.servei && recurs.unitat) ? 'pointer' : 'not-allowed',

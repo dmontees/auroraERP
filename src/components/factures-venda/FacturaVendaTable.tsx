@@ -76,7 +76,7 @@ export default function FacturaVendaTable({
             factures.map(factura => {
               const estatInfo = ESTAT_FACTURA_COLORS[factura.estat] || ESTAT_FACTURA_COLORS['borrador'];
               const esRectificativa = factura.tipus === 'rectificativa';
-              const potCrearRectificativa = factura.tipus !== 'rectificativa' && factura.estat !== 'cancelled';
+              const potCrearRectificativa = factura.tipus !== 'rectificativa';
               
               return (
                 <tr 
@@ -90,7 +90,7 @@ export default function FacturaVendaTable({
                   <td style={{ padding: '0.75rem' }}>
                     {esRectificativa ? (
                       <span style={{
-                        background: '#dc2626',
+                        background: 'var(--color-error-dark)',
                         color: 'white',
                         padding: '0.25rem 0.5rem',
                         borderRadius: '4px',
@@ -162,7 +162,7 @@ export default function FacturaVendaTable({
                       padding: '0.75rem',
                       textAlign: 'right',
                       fontWeight: 600,
-                      color: factura.totalFactura < 0 ? '#dc2626' : 'inherit',
+                      color: factura.totalFactura < 0 ? 'var(--color-error-dark)' : 'inherit',
                       cursor: 'pointer',
                       position: 'relative'
                     }}
@@ -184,7 +184,7 @@ export default function FacturaVendaTable({
                       padding: '0.75rem', 
                       textAlign: 'right', 
                       fontWeight: 600,
-                      color: factura.pendentCobrar > 0 ? '#dc2626' : '#10b981',
+                      color: factura.pendentCobrar > 0 ? 'var(--color-error-dark)' : 'var(--color-success)',
                       cursor: 'pointer'
                     }}
                     onClick={() => onEdit(factura)}

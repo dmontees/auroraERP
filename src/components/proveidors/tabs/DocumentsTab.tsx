@@ -82,10 +82,10 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
         padding: '1rem',
         background: '#f0f9ff',
         borderRadius: '6px',
-        border: '1px solid #bfdbfe',
+        border: '1px solid var(--color-info-border)',
         marginBottom: '2rem',
         fontSize: '0.875rem',
-        color: '#1e40af'
+        color: 'var(--color-info-dark)'
       }}>
         <strong>📎 Gestió de documents</strong><br />
         Pots adjuntar contractes, assegurances, certificats i altres documents relacionats amb aquest proveïdor.
@@ -132,8 +132,8 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                     <span style={{
                       padding: '0.125rem 0.5rem',
                       borderRadius: '12px',
-                      background: '#dbeafe',
-                      color: '#1e40af',
+                      background: 'var(--color-info-bg)',
+                      color: 'var(--color-info-dark)',
                       fontSize: '0.75rem',
                       fontWeight: 600
                     }}>
@@ -197,7 +197,7 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                             gap: '0.5rem',
                             marginBottom: '0.25rem'
                           }}>
-                            <FileText size={16} style={{ color: '#6b7280', flexShrink: 0 }} />
+                            <FileText size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
                             <span style={{
                               fontSize: '0.875rem',
                               fontWeight: 500,
@@ -223,9 +223,9 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                                 gap: '0.25rem',
                                 fontSize: '0.7rem',
                                 fontWeight: 600,
-                                background: '#eff6ff',
+                                background: 'var(--color-info-bg-light)',
                                 color: '#1d4ed8',
-                                border: '1px solid #bfdbfe',
+                                border: '1px solid var(--color-info-border)',
                                 borderRadius: '4px',
                                 padding: '0.1rem 0.4rem',
                               }}>
@@ -241,7 +241,7 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                             style={{
                               background: 'transparent',
                               border: 'none',
-                              color: '#1e40af',
+                              color: 'var(--color-info-dark)',
                               cursor: 'pointer',
                               padding: '0.25rem'
                             }}
@@ -255,7 +255,7 @@ export default function DocumentsTab({ hook }: DocumentsTabProps) {
                               style={{
                                 background: 'transparent',
                                 border: 'none',
-                                color: '#dc2626',
+                                color: 'var(--color-error-dark)',
                                 cursor: 'pointer',
                                 padding: '0.25rem'
                               }}

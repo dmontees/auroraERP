@@ -1,14 +1,6 @@
-export interface TascaProjecte {
-  id: string;
-  categoria: string;
-  servei: string;
-  descripcio: string;
-  quantitat: number;
-  unitat: string;
-  tarifa: number;
-  importe: number;
-  ordre: number;
-}
+export type { TascaVenda } from './tascaVenda';
+// Backward-compatible alias — existing imports keep working unchanged
+export type TascaProjecte = import('./tascaVenda').TascaVenda;
 
 export interface RecursHumaProjecte {
   id: string;
@@ -25,12 +17,13 @@ export interface RecursHumaProjecte {
 
 export interface MaterialProjecte {
   id: string;
-  tdCodi?: string; // TD-0000001 — codi de tasca despesa, assignat en crear si hi ha proveïdor
+  tdCodi?: string;
   grup: string;
   material: string;
   proveidor: string;
-  preuProveidor: number;
-  preuPlatea: number;
+  preuProveidor: number;  // cost price per day
+  preuPlatea: number;     // sale price per day
+  jornades: number;       // days this material is used in the project
 }
 
 export interface DataRodatge {
@@ -98,15 +91,18 @@ export interface Projecte {
 recursosHumans: RecursHumaProjecte[];
 materials: MaterialProjecte[];
 
-  // Financiero
-  ingresSenseIVA: number;
+  // Financiero — source fields
+  ingresSenseIVA: number;  // sum(tasques[].importe), recalculated from tasks on form load
   iva: number;
-  ingresAmbIVA: number; // calculat
-  gastosMaterials: number;
-  gastosHumans: number;
-  gastosTotals: number; // calculat
-  benefici: number; // calculat
-  percentBenefici: number; // calculat
+
+  // Cached derived fields — always recomputed from recursosHumans/materials/tasques on form load.
+  // Never read these from storage directly; use the source arrays instead.
+  ingresAmbIVA?: number;
+  gastosMaterials?: number;
+  gastosHumans?: number;
+  gastosTotals?: number;
+  benefici?: number;
+  percentBenefici?: number;
   
   // Instrucciones
   instruccionsClient: string;

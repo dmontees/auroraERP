@@ -1,6 +1,7 @@
 import React from 'react';
 import SearchableSelect from '../../common/SearchableSelect';
 import type { Client } from '../../../types/client';
+import ClientImageCrop from '../ClientImageCrop';
 
 interface DadesTabProps {
   formData: Client;
@@ -10,24 +11,37 @@ interface DadesTabProps {
 export default function DadesTab({ formData, setFormData }: DadesTabProps) {
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-        <div className="form-group">
-          <label>Codi</label>
-          <input
-            type="text"
-            className="form-input"
-            value={formData.codi}
-            disabled
-            style={{ background: 'var(--color-bg-tertiary)', cursor: 'not-allowed' }}
-          />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px', gap: '1.5rem', alignItems: 'start', marginBottom: '1rem' }}>
+        {/* Left: codi + data d'alta apilats */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="form-group">
+            <label>Codi</label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.codi}
+              disabled
+              style={{ background: 'var(--color-bg-tertiary)', cursor: 'not-allowed' }}
+            />
+          </div>
+          <div className="form-group">
+            <label>Data d'alta</label>
+            <input
+              type="date"
+              className="form-input"
+              value={formData.dataAlta}
+              onChange={(e) => setFormData({ ...formData, dataAlta: e.target.value })}
+            />
+          </div>
         </div>
-        <div className="form-group">
-          <label>Data d'alta</label>
-          <input
-            type="date"
-            className="form-input"
-            value={formData.dataAlta}
-            onChange={(e) => setFormData({ ...formData, dataAlta: e.target.value })}
+
+        {/* Right: imatge de perfil */}
+        <div>
+          <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Imatge de perfil</label>
+          <ClientImageCrop
+            currentImage={formData.imatgePerfil}
+            onSave={(b64) => setFormData({ ...formData, imatgePerfil: b64 })}
+            onRemove={() => setFormData({ ...formData, imatgePerfil: undefined })}
           />
         </div>
       </div>

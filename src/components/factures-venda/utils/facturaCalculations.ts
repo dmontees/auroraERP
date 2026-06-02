@@ -16,9 +16,9 @@ export function determinarEstat(
 ): EstatFacturaVenta {
   const pendent = totalFactura - totalCobrat;
 
-  // No cambiar si está cancelada
-  if (estatActual === 'cancelled') {
-    return 'cancelled';
+  // Encara no emesa: roman com a borrador (no es determina automàticament)
+  if (estatActual === 'borrador') {
+    return 'borrador';
   }
 
   // Totalmente cobrada
@@ -39,8 +39,8 @@ export function determinarEstat(
     return 'vencuda';
   }
 
-  // Por defecto: enviada (si ya estaba enviada) o borrador
-  return estatActual === 'borrador' ? 'borrador' : 'enviada';
+  // Emesa i sense cobrar dins de termini
+  return 'enviada';
 }
 
 export function formatCurrency(value: number | undefined): string {

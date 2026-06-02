@@ -179,7 +179,7 @@ export default function ProveidorImageCrop({ currentImage, onSave, onRemove }: P
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button type="button" onClick={handleConfirm} disabled={natW === 0}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', padding: '0.4rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: natW === 0 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.8rem', opacity: natW === 0 ? 0.5 : 1 }}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', padding: '0.4rem', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: '6px', cursor: natW === 0 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.8rem', opacity: natW === 0 ? 0.5 : 1 }}
           >
             <Check size={13} /> Confirmar
           </button>
@@ -214,7 +214,7 @@ export default function ProveidorImageCrop({ currentImage, onSave, onRemove }: P
               Canviar
             </button>
             <button type="button" onClick={onRemove}
-              style={{ padding: '0.38rem 0.6rem', background: 'var(--color-bg-secondary)', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer' }}
+              style={{ padding: '0.38rem 0.6rem', background: 'var(--color-bg-secondary)', color: 'var(--color-error-dark)', border: '1px solid var(--color-error-border)', borderRadius: '6px', cursor: 'pointer' }}
               title="Eliminar imatge"
             >
               <X size={13} />

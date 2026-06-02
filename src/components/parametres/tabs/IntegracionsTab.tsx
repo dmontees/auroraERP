@@ -113,15 +113,15 @@ export default function IntegracionsTab() {
         gap: '0.5rem',
         padding: '0.4rem 0.9rem',
         borderRadius: '999px',
-        background: connected ? '#d1fae5' : '#fee2e2',
-        color: connected ? '#065f46' : '#991b1b',
+        background: connected ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
+        color: connected ? 'var(--color-success-dark)' : 'var(--color-error-darker)',
         fontWeight: 600,
         fontSize: '0.85rem',
         marginBottom: '1.5rem'
       }}>
         <span style={{
           width: 8, height: 8, borderRadius: '50%',
-          background: connected ? '#10b981' : '#ef4444',
+          background: connected ? 'var(--color-success)' : 'var(--color-error)',
           flexShrink: 0
         }} />
         {connected ? 'Connectat' : 'No connectat'}
@@ -193,9 +193,9 @@ export default function IntegracionsTab() {
           borderRadius: '6px',
           marginBottom: '1rem',
           fontSize: '0.88rem',
-          background: status === 'success' ? '#d1fae5' : status === 'error' ? '#fee2e2' : '#eff6ff',
-          color: status === 'success' ? '#065f46' : status === 'error' ? '#991b1b' : '#1e40af',
-          border: `1px solid ${status === 'success' ? '#6ee7b7' : status === 'error' ? '#fca5a5' : '#93c5fd'}`
+          background: status === 'success' ? 'var(--color-success-bg)' : status === 'error' ? 'var(--color-error-bg)' : 'var(--color-info-bg-light)',
+          color: status === 'success' ? 'var(--color-success-dark)' : status === 'error' ? 'var(--color-error-darker)' : 'var(--color-info-dark)',
+          border: `1px solid ${status === 'success' ? 'var(--color-success-border)' : status === 'error' ? 'var(--color-error-border)' : 'var(--color-info-border-strong)'}`
         }}>
           {statusMsg}
         </div>
@@ -217,7 +217,7 @@ export default function IntegracionsTab() {
             type="button"
             className="btn-secondary"
             onClick={handleDisconnect}
-            style={{ borderColor: '#dc2626', color: '#dc2626' }}
+            style={{ borderColor: 'var(--color-error-dark)', color: 'var(--color-error-dark)' }}
           >
             Desconnectar
           </button>

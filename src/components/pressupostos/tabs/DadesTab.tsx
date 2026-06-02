@@ -124,11 +124,11 @@ export default function DadesTab({ hook }: DadesTabProps) {
       {clientBlocked && (
         <div style={{ 
           padding: '1rem', 
-          background: '#fef3c7', 
-          border: '1px solid #fbbf24',
+          background: 'var(--color-warning-bg)', 
+          border: '1px solid var(--color-warning-light)',
           borderRadius: '8px',
           marginBottom: '1rem',
-          color: '#92400e'
+          color: 'var(--color-warning-dark)'
         }}>
           ⚠️ Selecciona un client per continuar
         </div>

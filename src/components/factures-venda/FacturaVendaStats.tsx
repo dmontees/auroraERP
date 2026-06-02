@@ -57,6 +57,14 @@ export default function FacturaVendaStats({ factures, clients }: Props) {
   const fmt = (n: number) =>
     n.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '€';
 
+  const G_GREEN = 'linear-gradient(135deg, #059669, #10b981, #34d399)';
+  const G_AMBER = 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)';
+  const G_RED   = 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)';
+  const G_BLUE  = 'linear-gradient(135deg, #1d4ed8, #3b82f6, #60a5fa)';
+  const gSpan = (v: React.ReactNode, g: string) => (
+    <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+  );
+
   return (
     <div style={{
       display: 'grid',
@@ -64,32 +72,40 @@ export default function FacturaVendaStats({ factures, clients }: Props) {
       gap: '1rem',
       marginBottom: '1.5rem',
     }}>
-      {/* Pendent de Cobrar */}
-      <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #f59e0b' }}>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>💰 Pendent de Cobrar</div>
-        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f59e0b' }}>{fmt(totalPendent)}</div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>{numFacturesPendents} factures</div>
+      <div className="stat-card">
+        <div className="stat-card-stripe" style={{ background: G_AMBER }} />
+        <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+          <div className="stat-card-label">💰 Pendent de Cobrar</div>
+          <div className="stat-card-value">{gSpan(fmt(totalPendent), G_AMBER)}</div>
+          <div className="stat-card-sub">{numFacturesPendents} factures</div>
+        </div>
       </div>
 
-      {/* Vençudes */}
-      <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #dc2626' }}>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>🔴 Vençudes</div>
-        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#dc2626' }}>{numFacturesVencudes}</div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>{fmt(totalVencudes)}</div>
+      <div className="stat-card">
+        <div className="stat-card-stripe" style={{ background: G_RED }} />
+        <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+          <div className="stat-card-label">🔴 Vençudes</div>
+          <div className="stat-card-value">{gSpan(numFacturesVencudes, G_RED)}</div>
+          <div className="stat-card-sub">{fmt(totalVencudes)}</div>
+        </div>
       </div>
 
-      {/* Enviades */}
-      <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #3b82f6' }}>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>📤 Enviades</div>
-        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#3b82f6' }}>{numFacturesEnviades}</div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>{fmt(totalEnviades)}</div>
+      <div className="stat-card">
+        <div className="stat-card-stripe" style={{ background: G_BLUE }} />
+        <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+          <div className="stat-card-label">📤 Enviades</div>
+          <div className="stat-card-value">{gSpan(numFacturesEnviades, G_BLUE)}</div>
+          <div className="stat-card-sub">{fmt(totalEnviades)}</div>
+        </div>
       </div>
 
-      {/* Cobrat Aquest Mes */}
-      <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #10b981' }}>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>✅ Cobrat Aquest Mes</div>
-        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#10b981' }}>{fmt(totalCobratAquestMes)}</div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>{numFacturesCobrades} factures</div>
+      <div className="stat-card">
+        <div className="stat-card-stripe" style={{ background: G_GREEN }} />
+        <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+          <div className="stat-card-label">✅ Cobrat Aquest Mes</div>
+          <div className="stat-card-value">{gSpan(fmt(totalCobratAquestMes), G_GREEN)}</div>
+          <div className="stat-card-sub">{numFacturesCobrades} factures</div>
+        </div>
       </div>
 
       {/* Exportar ZIP */}

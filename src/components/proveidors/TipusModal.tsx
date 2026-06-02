@@ -38,7 +38,7 @@ export default function TipusModal({ onClose, onSelect }: TipusModalProps) {
             <button
               className="btn-secondary"
               onClick={() => onSelect('Treballador')}
-              style={{ textAlign: 'left', padding: '0.75rem 1rem', borderColor: '#8b5cf6', color: '#8b5cf6' }}
+              style={{ textAlign: 'left', padding: '0.75rem 1rem', borderColor: 'var(--color-purple)', color: 'var(--color-purple)' }}
             >
               👷 Treballador — empleat ocasional (RRHH)
             </button>

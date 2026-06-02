@@ -161,8 +161,8 @@ export default function ProveidorModal({
               onClick={handleDelete}
               className="btn-secondary"
               style={{
-                borderColor: '#dc2626',
-                color: '#dc2626',
+                borderColor: 'var(--color-error-dark)',
+                color: 'var(--color-error-dark)',
                 marginRight: 'auto'
               }}
             >

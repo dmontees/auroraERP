@@ -89,12 +89,12 @@ export default function KPICard({
           fontSize: '0.85rem'
         }}>
           {esPositiu ? (
-            <TrendingUp size={16} color="#10b981" />
+            <TrendingUp size={16} color="var(--color-success)" />
           ) : (
-            <TrendingDown size={16} color="#ef4444" />
+            <TrendingDown size={16} color="var(--color-error)" />
           )}
           <span style={{ 
-            color: esPositiu ? '#10b981' : '#ef4444',
+            color: esPositiu ? 'var(--color-success)' : 'var(--color-error)',
             fontWeight: 600
           }}>
             {esPositiu ? '+' : ''}{variacio.toFixed(1)}%

@@ -21,4 +21,6 @@ declare global {
     electronStore: ElectronStore;
     electron: ElectronAPI;
   }
+  // Injectat per Vite en temps de compilació des de package.json
+  const __APP_VERSION__: string;
 }

@@ -136,9 +136,9 @@ export default function FacturacioTab({ hook }: FacturacioTabProps) {
             padding: '1rem',
             background: '#f0f9ff',
             borderRadius: '6px',
-            border: '1px solid #bfdbfe',
+            border: '1px solid var(--color-info-border)',
             fontSize: '0.875rem',
-            color: '#1e40af'
+            color: 'var(--color-info-dark)'
           }}>
             Aquest proveïdor té <strong>{formData.tarifesEspecials.length} tarifes especials</strong> configurades
           </div>

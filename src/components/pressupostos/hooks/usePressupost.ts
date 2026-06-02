@@ -43,7 +43,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
 
   const [plantillesSeleccionades, setPlantillesSeleccionades] = useState<string[]>([]);
   const [recursCopiado, setRecursCopiado] = useState<string | null>(null);
-  const [materialCopiado, setMaterialCopiado] = useState<string | null>(null);
+  const [materialsAgregats, setMaterialsAgregats] = useState(false);
 
   // ============================================================================
   // DATOS RELACIONADOS
@@ -153,7 +153,8 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
       material: '',
       proveidor: '',
       preuProveidor: 0,
-      preuPlatea: 0
+      preuPlatea: 0,
+      jornades: 1
     };
     setFormData(prev => ({ ...prev, materials: [...prev.materials, nouMaterial] }));
   }, []);
@@ -184,31 +185,46 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
     setFormData(prev => ({ ...prev, materials: prev.materials.filter(m => m.id !== id) }));
   }, []);
 
-  const trasladarMaterialATaska = useCallback((material: MaterialPressupost) => {
-    if (!material.material || !material.grup) return;
-    
-    const materialData = parametres?.materials.find((m: any) => m.codi === material.material);
-    const grupData = parametres?.grupsMaterials.find((g: any) => g.codi === material.grup);
-    
-    if (materialData && grupData) {
-      const novaTasca: TascaPressupost = {
-        id: `task-${Date.now()}-${Math.random()}`,
+  const agregaMaterialsATasques = useCallback(() => {
+    const materialsValids = formData.materials.filter(m => m.material && m.grup);
+    if (materialsValids.length === 0) return;
+
+    const byGrup = materialsValids.reduce((acc, m) => {
+      if (!acc[m.grup]) acc[m.grup] = [];
+      acc[m.grup].push(m);
+      return acc;
+    }, {} as Record<string, MaterialPressupost[]>);
+
+    const tasquesNonMaterials = formData.tasques.filter(t => t.categoria !== 'MATERIALS');
+
+    const novesTasquesMaterials: TascaPressupost[] = Object.entries(byGrup).map(([grupCodi, mats], i) => {
+      const grupData = parametres?.grupsMaterials.find((g: any) => g.codi === grupCodi);
+      const grupNom = grupData?.nom || grupCodi;
+      const total = mats.reduce((sum, m) => sum + m.preuPlatea * (m.jornades ?? 1), 0);
+      const count = mats.length;
+      const allSameJ = mats.every(m => (m.jornades ?? 1) === (mats[0].jornades ?? 1));
+      const j = mats[0].jornades ?? 1;
+      const descripcio = allSameJ
+        ? `${grupNom} (${j} ${j === 1 ? 'jornada' : 'jornades'})`
+        : grupNom;
+
+      return {
+        id: `task-mat-${grupCodi}-${Date.now()}-${i}`,
         categoria: 'MATERIALS',
-        servei: grupData.nom,
-        descripcio: grupData.nom,
-        quantitat: 1,
+        servei: grupNom,
+        descripcio,
+        quantitat: count,
         unitat: '',
-        tarifa: material.preuPlatea,
-        importe: material.preuPlatea,
-        ordre: formData.tasques.length
+        tarifa: count > 0 ? total / count : 0,
+        importe: total,
+        ordre: tasquesNonMaterials.length + i
       };
-      
-      setFormData(prev => ({ ...prev, tasques: [...prev.tasques, novaTasca] }));
-      
-      setMaterialCopiado(material.id);
-      setTimeout(() => setMaterialCopiado(null), 1500);
-    }
-  }, [formData.tasques.length, parametres]);
+    });
+
+    setFormData(prev => ({ ...prev, tasques: [...tasquesNonMaterials, ...novesTasquesMaterials] }));
+    setMaterialsAgregats(true);
+    setTimeout(() => setMaterialsAgregats(false), 2000);
+  }, [formData.materials, formData.tasques, parametres]);
 
   // ============================================================================
   // FUNCIONES: RECURSOS HUMANS
@@ -480,17 +496,18 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
         material: m.material,
         proveidor: m.proveidor || '',
         preuProveidor: m.preuProveidor || 0,
-        preuPlatea: m.preuPlatea || 0
+        preuPlatea: m.preuPlatea || 0,
+        jornades: m.jornades ?? 1
       })),
       ingresSenseIVA: (formData as any).baseImposable,
       iva: formData.iva,
       ingresAmbIVA: (formData as any).totalAmbIVA,
-      gastosMaterials: formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0), 0),
+      gastosMaterials: formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0),
       gastosHumans: formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0),
-      gastosTotals: formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) + 
-                    formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0), 0),
-      benefici: (formData as any).totalAmbIVA - (formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) + 
-                                        formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0), 0)),
+      gastosTotals: formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) +
+                    formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0),
+      benefici: (formData as any).totalAmbIVA - (formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) +
+                                        formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0)),
       percentBenefici: 0,
       instruccionsClient: '',
       instruccionsProveidors: '',
@@ -531,7 +548,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
   // CÁLCULOS TOTALES
   // ============================================================================
 
-  const totalGastos = formData.materials.reduce((sum, m) => sum + m.preuProveidor, 0) +
+  const totalGastos = formData.materials.reduce((sum, m) => sum + m.preuProveidor * (m.jornades ?? 1), 0) +
     formData.recursosHumans.reduce((sum, r) => sum + r.importe, 0);
   
   const totalPressupost = formData.tasques.reduce((sum, t) => sum + t.importe, 0);
@@ -578,7 +595,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
     plantillesSeleccionades,
     setPlantillesSeleccionades,
     recursCopiado,
-    materialCopiado,
+    materialsAgregats,
     
     // Datos relacionados
     clients,
@@ -597,7 +614,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
     afegirMaterial,
     actualitzarMaterial,
     eliminarMaterial,
-    trasladarMaterialATaska,
+    agregaMaterialsATasques,
     
     // Funciones recursos humans
     afegirRecursHuma,

@@ -106,7 +106,7 @@ export default function PressupostModal({
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.5rem 1rem',
-                background: '#dc2626',
+                background: 'var(--color-error-dark)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -129,7 +129,7 @@ export default function PressupostModal({
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.5rem 1rem',
-                  background: '#10b981',
+                  background: 'var(--color-success)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -161,8 +161,8 @@ export default function PressupostModal({
                 }}
                 style={{
                   padding: '0.5rem 1rem',
-                  background: '#dbeafe',
-                  color: '#1e40af',
+                  background: 'var(--color-info-bg)',
+                  color: 'var(--color-info-dark)',
                   borderRadius: '6px',
                   fontSize: '0.85rem',
                   fontWeight: 600,
@@ -187,12 +187,12 @@ export default function PressupostModal({
                 padding: '0.5rem',
                 borderRadius: '6px',
                 fontWeight: 600,
-                background: formData.estat === 'esborrany' ? '#fef3c7' :
-                           formData.estat === 'enviat' ? '#dbeafe' :
-                           formData.estat === 'acceptat' ? '#d1fae5' : '#fee2e2',
-                color: formData.estat === 'esborrany' ? '#92400e' :
-                       formData.estat === 'enviat' ? '#1e40af' :
-                       formData.estat === 'acceptat' ? '#065f46' : '#991b1b',
+                background: formData.estat === 'esborrany' ? 'var(--color-warning-bg)' :
+                           formData.estat === 'enviat' ? 'var(--color-info-bg)' :
+                           formData.estat === 'acceptat' ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
+                color: formData.estat === 'esborrany' ? 'var(--color-warning-dark)' :
+                       formData.estat === 'enviat' ? 'var(--color-info-dark)' :
+                       formData.estat === 'acceptat' ? 'var(--color-success-dark)' : 'var(--color-error-darker)',
                 border: 'none'
               }}
             >
@@ -290,8 +290,8 @@ export default function PressupostModal({
               onClick={handleDelete}
               className="btn-secondary"
               style={{
-                borderColor: '#dc2626',
-                color: '#dc2626'
+                borderColor: 'var(--color-error-dark)',
+                color: 'var(--color-error-dark)'
               }}
             >
               <Trash2 size={18} />

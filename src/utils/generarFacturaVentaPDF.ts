@@ -2,14 +2,18 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { FacturaVenta } from '../types/facturaVenta';
 import type { Client } from '../types/client';
+import type { VerifactuConfig } from '../types/verifactu';
 import { storage } from './storageManager';
+import { generarQRVerifactu, generarQRPlaceholder } from './verifactuQR';
 
-export const generarFacturaVentaPDF = (
+export const generarFacturaVentaPDF = async (
   formData: FacturaVenta,
   clients: Client[],
   projectes: any[],
-  idioma: 'ca' | 'es' | 'en'
-) => {
+  idioma: 'ca' | 'es' | 'en',
+  esBorrador: boolean = false,
+  verifactuConfig?: VerifactuConfig
+): Promise<string> => {
   
   const doc = new jsPDF();
   
@@ -78,10 +82,19 @@ export const generarFacturaVentaPDF = (
   };
 
   const tr = t[idioma];
-  
+
   // Obtener datos
   const parametresData = storage.getParametres();
   const client = clients.find(c => c.codi === formData.client);
+
+  // Generar QR Verifactu anticipadament (cal fer-ho abans de dibuixar)
+  let qrBase64: string | null = null;
+  if (verifactuConfig?.enabled) {
+    const nifEmisor = parametresData?.dadesEmpresa?.nif ?? '';
+    qrBase64 = esBorrador
+      ? await generarQRPlaceholder(formData)
+      : await generarQRVerifactu(formData, nifEmisor, verifactuConfig);
+  }
   
   // Colores
   const colorPrimary = [71, 85, 105];
@@ -207,21 +220,68 @@ export const generarFacturaVentaPDF = (
   yPos = Math.max(yMaxClient, yMaxEmpresa) + 12;
   
   // ==================== TÍTULO ====================
-  
+
   const [year, month, day] = formData.dataFactura.split('-');
   const fechaFormateada = `${day}-${month}-${year}`;
-  
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colorPrimary);
-  doc.text(`${tr.factura} ${formData.codi}`, 105, yPos, { align: 'center' });
-  yPos += 6;
-  
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100);
-  doc.text(`${tr.dataFactura} ${fechaFormateada}`, 105, yPos, { align: 'center' });
-  yPos += 12;
+
+  if (qrBase64) {
+    // Taula invisible de dues columnes iguals, centrada a la pàgina
+    // Àrea de contingut: colIzq(15) → margenDer(195) = 180mm → cada columna 90mm
+    const qrSize = 22;
+    const totalWidth = margenDer - colIzq;         // 180mm
+    const colWidth = totalWidth / 2;               // 90mm per columna
+    const gap = 4;                                 // 2mm a cada costat de la línia central
+    const colBoundary = colIzq + colWidth;         // 105mm — frontera entre columnes
+
+    // Col 1: text alineat a la dreta, ancla a la frontera menys el mig gap
+    const textAnchorX = colBoundary - gap / 2;    // 103mm
+
+    // Col 2: QR alineat a l'esquerra, ancla a la frontera més el mig gap
+    const qrX = colBoundary + gap / 2;            // 107mm
+
+    // Menys marge superior, més marge inferior
+    yPos -= 8;
+    const qrY = yPos;
+
+    // Centrat vertical del text usant baseline:'middle' — evita l'offset de línia de base
+    // Títol al ~7mm del QR, data al ~14mm (de les 22mm totals del QR)
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colorPrimary);
+    doc.text(`${tr.factura} ${formData.codi}`, textAnchorX, qrY + 7, { align: 'right', baseline: 'middle' });
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    doc.text(`${tr.dataFactura} ${fechaFormateada}`, textAnchorX, qrY + 14, { align: 'right', baseline: 'middle' });
+
+    // QR
+    doc.addImage(qrBase64, 'PNG', qrX, qrY, qrSize, qrSize);
+
+    // Vorera puntejada al borrador per indicar que és una mostra
+    if (esBorrador) {
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([1, 1], 0);
+      doc.rect(qrX - 0.5, qrY - 0.5, qrSize + 1, qrSize + 1);
+      doc.setLineDashPattern([], 0);
+    }
+
+    yPos += qrSize + 10;
+  } else {
+    // Layout original: títol i data centrats
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colorPrimary);
+    doc.text(`${tr.factura} ${formData.codi}`, 105, yPos, { align: 'center' });
+    yPos += 6;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    doc.text(`${tr.dataFactura} ${fechaFormateada}`, 105, yPos, { align: 'center' });
+    yPos += 12;
+  }
   
 // ==================== NOMBRE DEL PROYECTO ====================
 
@@ -488,8 +548,28 @@ yPos = Math.max(finalRecuadro, finalTotales) + 5;
     doc.text(`${tr.pagina} ${i}/${pageCount}`, margenDer, 287, { align: 'right' });
   }
 
+// Marca d'aigua ESBORRANY (fase 1 Verifactu)
+if (esBorrador) {
+  const { width, height } = doc.internal.pageSize;
+  doc.setPage(1);
+  doc.setFontSize(72);
+  doc.setFont('helvetica', 'bold');
+  // Dibuixem el text rotant la pàgina per simular diagonal
+  const textX = width / 2;
+  const textY = height / 2;
+  // jsPDF text angle (en graus, sentit antihorari)
+  doc.setTextColor(220, 38, 38); // vermell
+  doc.setGState(new (doc as any).GState({ opacity: 0.10 }));
+  doc.text('ESBORRANY', textX, textY, { align: 'center', angle: 45 });
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  doc.setTextColor(0, 0, 0);
+}
+
 // Descargar PDF
-doc.save(`${formData.codi}_factura.pdf`);
+const nomFitxer = esBorrador
+  ? `borrador-${formData.codi}.pdf`
+  : `${formData.codi}_factura.pdf`;
+doc.save(nomFitxer);
 
 // Retornar PDF en base64 para guardarlo
 return doc.output('dataurlstring');

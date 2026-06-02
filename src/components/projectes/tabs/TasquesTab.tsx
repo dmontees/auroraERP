@@ -28,38 +28,55 @@ export default function TasquesTab({
 }: Props) {
   const totalFacturacio = formData.tasques.reduce((sum, t) => sum + t.importe, 0);
   const totalDespeses = formData.recursosHumans.reduce((sum, r) => sum + r.cost, 0) +
-    formData.materials.reduce((sum, m) => sum + m.preuProveidor, 0);
+    formData.materials.reduce((sum, m) => sum + m.preuProveidor * (m.jornades ?? 1), 0);
   const benefici = totalFacturacio - totalDespeses;
   const percentBenefici = totalFacturacio > 0 ? (benefici / totalFacturacio) * 100 : 0;
 
   return (
     <div>
       {/* Cards resum */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div style={{ padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem' }}>TOTAL DESPESES</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444' }}>{totalDespeses.toFixed(2)}€</div>
-        </div>
-
-        <div style={{ padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem' }}>TOTAL FACTURACIÓ</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-accent-primary)' }}>{totalFacturacio.toFixed(2)}€</div>
-        </div>
-
-        <div style={{ padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem' }}>BENEFICI</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: benefici >= 0 ? '#10b981' : '#ef4444' }}>
-            {benefici.toFixed(2)}€
+      {(() => {
+        const G_RED    = 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)';
+        const G_INDIGO = 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)';
+        const G_GREEN  = 'linear-gradient(135deg, #059669, #10b981, #34d399)';
+        const gB = benefici >= 0 ? G_GREEN : G_RED;
+        const gP = percentBenefici >= 0 ? G_GREEN : G_RED;
+        const gSpan = (v: React.ReactNode, g: string) => (
+          <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+        );
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_RED }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Total Despeses</div>
+                <div className="stat-card-value">{gSpan(`${totalDespeses.toFixed(2)}€`, G_RED)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_INDIGO }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Total Facturació</div>
+                <div className="stat-card-value">{gSpan(`${totalFacturacio.toFixed(2)}€`, G_INDIGO)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: gB }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Benefici</div>
+                <div className="stat-card-value">{gSpan(`${benefici.toFixed(2)}€`, gB)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: gP }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">% Benefici</div>
+                <div className="stat-card-value">{gSpan(`${percentBenefici.toFixed(1)}%`, gP)}</div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div style={{ padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.5rem' }}>% BENEFICI</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: percentBenefici >= 0 ? '#10b981' : '#ef4444' }}>
-            {percentBenefici.toFixed(1)}%
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Taula de tasques */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

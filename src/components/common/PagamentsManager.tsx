@@ -116,7 +116,7 @@ export default function PagamentsManager({
             borderRadius: '6px'
           }}>
             <span>Pendent:</span>
-            <span style={{ color: pendentPagament > 0 ? '#dc2626' : '#10b981' }}>
+            <span style={{ color: pendentPagament > 0 ? 'var(--color-error-dark)' : 'var(--color-success)' }}>
               {pendentPagament.toFixed(2)}€
             </span>
           </div>

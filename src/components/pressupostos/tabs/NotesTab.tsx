@@ -115,7 +115,7 @@ export default function NotesTab({ hook }: NotesTabProps) {
                           <span style={{
                             marginLeft: '0.5rem',
                             fontSize: '0.7rem',
-                            background: '#10b981',
+                            background: 'var(--color-success)',
                             color: 'white',
                             padding: '0.15rem 0.4rem',
                             borderRadius: '3px',

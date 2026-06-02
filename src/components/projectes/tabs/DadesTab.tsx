@@ -301,8 +301,8 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
                   onClick={() => toggleEntregada(d.id)}
                   title={d.entregada ? 'Marcar com a pendent' : 'Marcar com entregada'}
                   style={{
-                    background: d.entregada ? '#10b981' : 'transparent',
-                    border: `1px solid ${d.entregada ? '#10b981' : 'var(--color-border)'}`,
+                    background: d.entregada ? 'var(--color-success)' : 'transparent',
+                    border: `1px solid ${d.entregada ? 'var(--color-success)' : 'var(--color-border)'}`,
                     color: d.entregada ? 'white' : 'var(--color-text-tertiary)',
                     cursor: 'pointer', borderRadius: '4px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -336,13 +336,13 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
         marginTop: '1rem',
         padding: '0.75rem 1rem',
         borderRadius: '8px',
-        border: `1px solid ${formData.avisFacturacio?.actiu ? '#fbbf24' : 'var(--color-border)'}`,
+        border: `1px solid ${formData.avisFacturacio?.actiu ? 'var(--color-warning-light)' : 'var(--color-border)'}`,
         background: formData.avisFacturacio?.actiu ? '#fffbeb' : 'var(--color-bg-secondary)',
         transition: 'all 0.2s'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>⚠️</span>
-          <span style={{ fontWeight: 600, fontSize: '0.9rem', flex: 1, color: formData.avisFacturacio?.actiu ? '#92400e' : 'var(--color-text-secondary)' }}>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem', flex: 1, color: formData.avisFacturacio?.actiu ? 'var(--color-warning-dark)' : 'var(--color-text-secondary)' }}>
             Avís de facturació
           </span>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
@@ -359,7 +359,7 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
               }}
               style={{
                 width: '40px', height: '22px', borderRadius: '11px',
-                background: formData.avisFacturacio?.actiu ? '#f59e0b' : '#d1d5db',
+                background: formData.avisFacturacio?.actiu ? 'var(--color-warning)' : 'var(--color-border-strong)',
                 position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
               }}
             >
@@ -371,7 +371,7 @@ export default function DadesTab({ formData, setFormData, clients, parametres, e
                 boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
               }} />
             </div>
-            <span style={{ fontSize: '0.82rem', color: formData.avisFacturacio?.actiu ? '#92400e' : 'var(--color-text-tertiary)', fontWeight: 500 }}>
+            <span style={{ fontSize: '0.82rem', color: formData.avisFacturacio?.actiu ? 'var(--color-warning-dark)' : 'var(--color-text-tertiary)', fontWeight: 500 }}>
               {formData.avisFacturacio?.actiu ? 'Actiu' : 'Inactiu'}
             </span>
           </label>

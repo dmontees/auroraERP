@@ -183,7 +183,7 @@ export default function AfegirRecursModal({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label>Preu Proveïdor (€)</label>
                   <input
@@ -205,6 +205,18 @@ export default function AfegirRecursModal({
                     onChange={(e) => setNouMaterialForm({ ...nouMaterialForm, preuPlatea: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                     min="0"
                     step="0.01"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Jornades</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={nouMaterialForm.jornades ?? 1}
+                    onChange={(e) => setNouMaterialForm({ ...nouMaterialForm, jornades: parseInt(e.target.value, 10) || 1 })}
+                    min="1"
+                    step="1"
                   />
                 </div>
               </div>

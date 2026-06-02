@@ -1,7 +1,7 @@
 import React from 'react';
-import { Users, TrendingUp, Award } from 'lucide-react';
+import { Users, TrendingUp, Award, Info } from 'lucide-react';
 import type { Periode } from '../../../utils/resultatCalculs';
-import { estaEnPeriode, formatCurrency } from '../../../utils/resultatCalculs';
+import { estaEnPeriode, formatCurrency, getProjecteIngressos } from '../../../utils/resultatCalculs';
 import type { Client } from '../../../types/client';
 import type { Projecte } from '../../../types/projecte';
 import type { FacturaVenta } from '../../../types/facturaVenda';
@@ -32,29 +32,15 @@ export default function AnalisiClients({
     let pendent = 0;
     
     projectesClient.forEach(p => {
-      // 1. Buscar factura vinculada
       const factura = facturesVenda.find(f => f.projecte === p.codi);
-      
+      const ingressos = getProjecteIngressos(p, facturesVenda);
+
+      facturacio += ingressos;
+
       if (factura) {
-        // Proyecto con factura real
-        facturacio += factura.totalFactura;
         pendent += factura.pendentCobrar;
-      } else {
-        // Proyecto sin factura: calcular desde tasques o campo directo
-        let ingressos = 0;
-        
-        if (p.tasques && p.tasques.length > 0) {
-          ingressos = p.tasques.reduce((sum, t) => sum + (t.importe || 0), 0);
-        } else if (p.ingresSenseIVA) {
-          ingressos = p.ingresSenseIVA;
-        }
-        
-        facturacio += ingressos;
-        // Proyectos importados con factura histórica se consideran cobrados
-        if (!p.facturaHistorica) {
-          pendent += ingressos; // Sin factura = todo pendiente
-        }
-        // Si tiene facturaHistorica, pendent += 0 (ya cobrado)
+      } else if (!p.facturaHistorica) {
+        pendent += ingressos;
       }
     });
     
@@ -63,24 +49,11 @@ export default function AnalisiClients({
     // Calcular margen promedio
     const projectesAmbDades = projectesClient.map(p => {
       const recursosHumans = p.recursosHumans?.reduce((sum, r) => sum + (r.cost || 0), 0) || 0;
-      const materials = p.materials?.reduce((sum, m) => sum + (m.preuProveidor || 0), 0) || 0;
+      const materials = p.materials?.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0) || 0;
       const despeses = recursosHumans + materials;
-      
-      // Calcular ingressos con misma lógica
-      const factura = facturesVenda.find(f => f.projecte === p.codi);
-      let ingressos = factura?.totalFactura || 0;
-      
-      if (ingressos === 0 && p.tasques && p.tasques.length > 0) {
-        ingressos = p.tasques.reduce((sum, t) => sum + (t.importe || 0), 0);
-      }
-      
-      if (ingressos === 0 && p.ingresSenseIVA) {
-        ingressos = p.ingresSenseIVA;
-      }
-      
+      const ingressos = getProjecteIngressos(p, facturesVenda);
       const benefici = ingressos - despeses;
       const marge = ingressos > 0 ? (benefici / ingressos * 100) : 0;
-      
       return marge;
     });
       
@@ -124,93 +97,69 @@ export default function AnalisiClients({
   
   return (
     <div>
-      {/* KPIs */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, 1fr)', 
-        gap: '1rem',
-        marginBottom: '2rem'
+      {/* Explanation banner */}
+      <div style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border)',
+        borderLeft: '4px solid #8b5cf6',
+        borderRadius: '8px',
+        padding: '1rem 1.25rem',
+        marginBottom: '2rem',
+        display: 'flex',
+        gap: '0.75rem',
+        alignItems: 'flex-start',
       }}>
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            marginBottom: '0.5rem',
-            color: 'var(--color-text-tertiary)',
-            fontSize: '0.75rem'
-          }}>
-            <Users size={16} />
-            Clients Actius
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-            {totalClients}
-          </div>
-        </div>
-        
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            fontSize: '0.75rem',
-            color: 'var(--color-text-tertiary)',
-            marginBottom: '0.5rem'
-          }}>
-            Facturació Mitjana
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
-            {formatCurrency(facturacioMitja)}
-          </div>
-        </div>
-        
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            fontSize: '0.75rem',
-            color: 'var(--color-text-tertiary)',
-            marginBottom: '0.5rem'
-          }}>
-            Projectes Mitjans
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#3b82f6' }}>
-            {projectesMitjos.toFixed(1)}
-          </div>
-        </div>
-        
-        <div style={{
-          background: 'var(--color-bg-secondary)',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            marginBottom: '0.5rem',
-            color: 'var(--color-text-tertiary)',
-            fontSize: '0.75rem'
-          }}>
-            <Award size={16} />
-            Clients VIP
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
-            {segmentacio.VIP}
-          </div>
+        <Info size={18} style={{ color: 'var(--color-purple)', flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--color-text-primary)' }}>Anàlisi de clients</strong>
+          {' '}— Rànquing de clients per volum de facturació en el període. La columna <em>Pendent</em>{' '}
+          indica quant d'aquell client no has cobrat encara. El <em>Marge mig</em> és la rendibilitat
+          promig dels seus projectes (ingressos menys costos interns).
         </div>
       </div>
+
+      {/* KPIs */}
+      {(() => {
+        const G_INDIGO = 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)';
+        const G_GREEN  = 'linear-gradient(135deg, #059669, #10b981, #34d399)';
+        const G_BLUE   = 'linear-gradient(135deg, #1d4ed8, #3b82f6, #60a5fa)';
+        const G_AMBER  = 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)';
+        const gSpan = (v: React.ReactNode, g: string) => (
+          <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+        );
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_INDIGO }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label"><Users size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />Clients Actius</div>
+                <div className="stat-card-value">{gSpan(totalClients, G_INDIGO)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_GREEN }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Facturació Mitjana</div>
+                <div className="stat-card-value">{gSpan(formatCurrency(facturacioMitja), G_GREEN)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_BLUE }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label">Projectes Mitjans</div>
+                <div className="stat-card-value">{gSpan(projectesMitjos.toFixed(1), G_BLUE)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_AMBER }} />
+              <div className="stat-card-body">
+                <div className="stat-card-label"><Award size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />Clients VIP</div>
+                <div className="stat-card-value">{gSpan(segmentacio.VIP, G_AMBER)}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Segmentación */}
       <div style={{
@@ -229,31 +178,31 @@ export default function AnalisiClients({
           Segmentació de Clients
         </h3>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-          {[
-            { segment: 'VIP', count: segmentacio.VIP, color: '#f59e0b', desc: '>50.000€' },
-            { segment: 'Habitual', count: segmentacio.Habitual, color: '#3b82f6', desc: '3-10 projectes' },
-            { segment: 'Nou', count: segmentacio.Nou, color: '#10b981', desc: '1-2 projectes' },
-            { segment: 'Inactiu', count: segmentacio.Inactiu, color: '#6b7280', desc: 'Sense projectes' }
-          ].map(s => (
-            <div key={s.segment} style={{
-              padding: '1rem',
-              borderRadius: '8px',
-              background: 'var(--color-bg-tertiary)',
-              border: `2px solid ${s.color}`
-            }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.25rem' }}>
-                {s.desc}
-              </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: s.color, marginBottom: '0.25rem' }}>
-                {s.count}
-              </div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                {s.segment}
-              </div>
+        {(() => {
+          const segs = [
+            { segment: 'VIP',     count: segmentacio.VIP,     gradient: 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)', desc: '>50.000€' },
+            { segment: 'Habitual',count: segmentacio.Habitual, gradient: 'linear-gradient(135deg, #1d4ed8, #3b82f6, #60a5fa)', desc: '3-10 projectes' },
+            { segment: 'Nou',     count: segmentacio.Nou,      gradient: 'linear-gradient(135deg, #059669, #10b981, #34d399)', desc: '1-2 projectes' },
+            { segment: 'Inactiu', count: segmentacio.Inactiu,  gradient: 'linear-gradient(135deg, #475569, #64748b, #94a3b8)', desc: 'Sense projectes' },
+          ];
+          const gSpan = (v: React.ReactNode, g: string) => (
+            <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+          );
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+              {segs.map(s => (
+                <div key={s.segment} className="stat-card">
+                  <div className="stat-card-stripe" style={{ background: s.gradient }} />
+                  <div className="stat-card-body">
+                    <div className="stat-card-label">{s.desc}</div>
+                    <div className="stat-card-value">{gSpan(s.count, s.gradient)}</div>
+                    <div className="stat-card-sub" style={{ fontWeight: 600 }}>{s.segment}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
       </div>
 
       {/* Tabla de clientes */}
@@ -315,14 +264,14 @@ export default function AnalisiClients({
                   <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 600 }}>
                     {client.numProjectes}
                   </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
+                  <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>
                     {formatCurrency(client.facturacio)}
                   </td>
                   <td style={{ 
                     padding: '0.75rem', 
                     textAlign: 'right', 
                     fontWeight: 600,
-                    color: client.pendent > 0 ? '#f59e0b' : 'var(--color-text-tertiary)'
+                    color: client.pendent > 0 ? 'var(--color-warning)' : 'var(--color-text-tertiary)'
                   }}>
                     {formatCurrency(client.pendent)}
                   </td>
@@ -336,13 +285,13 @@ export default function AnalisiClients({
                       fontSize: '0.75rem',
                       fontWeight: 600,
                       background: 
-                        client.segment === 'VIP' ? '#fef3c7' :
-                        client.segment === 'Habitual' ? '#dbeafe' :
-                        client.segment === 'Nou' ? '#d1fae5' : '#f3f4f6',
+                        client.segment === 'VIP' ? 'var(--color-warning-bg)' :
+                        client.segment === 'Habitual' ? 'var(--color-info-bg)' :
+                        client.segment === 'Nou' ? 'var(--color-success-bg)' : '#f3f4f6',
                       color:
-                        client.segment === 'VIP' ? '#92400e' :
-                        client.segment === 'Habitual' ? '#1e40af' :
-                        client.segment === 'Nou' ? '#065f46' : '#4b5563'
+                        client.segment === 'VIP' ? 'var(--color-warning-dark)' :
+                        client.segment === 'Habitual' ? 'var(--color-info-dark)' :
+                        client.segment === 'Nou' ? 'var(--color-success-dark)' : '#4b5563'
                     }}>
                       {client.segment}
                     </span>

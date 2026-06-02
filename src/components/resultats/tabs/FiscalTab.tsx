@@ -120,15 +120,15 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
         <h3 style={h3Style}>Compte d'Explotació</h3>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>Ingressos bruts (base imposable sense IVA)</span>
-          <span style={{ fontWeight: 600, color: '#10b981' }}>{fmt(calculs.ingresosbruts)}</span>
+          <span style={{ fontWeight: 600, color: 'var(--color-success)' }}>{fmt(calculs.ingresosbruts)}</span>
         </div>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>Despeses operatives (factures + despeses generals)</span>
-          <span style={{ fontWeight: 600, color: '#dc2626' }}>-{fmt(calculs.gastosOperatius)}</span>
+          <span style={{ fontWeight: 600, color: 'var(--color-error-dark)' }}>-{fmt(calculs.gastosOperatius)}</span>
         </div>
         <div style={{ ...rowStyle, borderBottom: 'none', fontWeight: 700, fontSize: '1rem', marginTop: '0.25rem' }}>
           <span style={{ color: 'var(--color-text-primary)' }}>Rendiment net</span>
-          <span style={{ color: calculs.rendimentNet >= 0 ? '#10b981' : '#dc2626' }}>
+          <span style={{ color: calculs.rendimentNet >= 0 ? 'var(--color-success)' : 'var(--color-error-dark)' }}>
             {fmt(calculs.rendimentNet)}
           </span>
         </div>
@@ -139,32 +139,32 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
         <h3 style={h3Style}>Obligacions Fiscals Registrades</h3>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>👤 Quota autònom pagada (RETA)</span>
-          <span style={{ color: '#dc2626' }}>{fmt(calculs.cuotaAutonomPagada)}</span>
+          <span style={{ color: 'var(--color-error-dark)' }}>{fmt(calculs.cuotaAutonomPagada)}</span>
         </div>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>📊 Regularitzacions SS</span>
-          <span style={{ color: '#dc2626' }}>{fmt(calculs.regularitzacioSS)}</span>
+          <span style={{ color: 'var(--color-error-dark)' }}>{fmt(calculs.regularitzacioSS)}</span>
         </div>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>📋 IRPF pagat (fraccionats + anual)</span>
-          <span style={{ color: '#dc2626' }}>{fmt(calculs.irpfPagat)}</span>
+          <span style={{ color: 'var(--color-error-dark)' }}>{fmt(calculs.irpfPagat)}</span>
         </div>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>👷 Nòmines (cost empresa)</span>
-          <span style={{ color: '#dc2626' }}>{fmt(calculs.nominalesCostEmpresa)}</span>
+          <span style={{ color: 'var(--color-error-dark)' }}>{fmt(calculs.nominalesCostEmpresa)}</span>
         </div>
         <div style={{ ...rowStyle, borderBottom: 'none', fontWeight: 700, marginTop: '0.25rem' }}>
           <span style={{ color: 'var(--color-text-primary)' }}>Total obligacions fiscals</span>
-          <span style={{ color: '#dc2626' }}>-{fmt(calculs.totalObligacionsFiscals)}</span>
+          <span style={{ color: 'var(--color-error-dark)' }}>-{fmt(calculs.totalObligacionsFiscals)}</span>
         </div>
       </div>
 
       {/* RESULTAT FISCAL NET */}
       <div style={{
         ...cardStyle,
-        borderColor: calculs.resultatFiscalNet >= 0 ? '#10b981' : '#dc2626',
+        borderColor: calculs.resultatFiscalNet >= 0 ? 'var(--color-success)' : 'var(--color-error-dark)',
         borderWidth: '2px',
-        background: calculs.resultatFiscalNet >= 0 ? '#f0fdf4' : '#fef2f2'
+        background: calculs.resultatFiscalNet >= 0 ? '#f0fdf4' : 'var(--color-error-bg)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -178,7 +178,7 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
           <div style={{
             fontWeight: 800,
             fontSize: '2rem',
-            color: calculs.resultatFiscalNet >= 0 ? '#10b981' : '#dc2626'
+            color: calculs.resultatFiscalNet >= 0 ? 'var(--color-success)' : 'var(--color-error-dark)'
           }}>
             {fmt(calculs.resultatFiscalNet)}
           </div>
@@ -190,11 +190,11 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
         <h3 style={h3Style}>Resum IVA (informatiu per al gestor)</h3>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>IVA repercutit (calculat de factures venda)</span>
-          <span style={{ color: '#10b981' }}>{fmt(calculs.ivaRepercutit)}</span>
+          <span style={{ color: 'var(--color-success)' }}>{fmt(calculs.ivaRepercutit)}</span>
         </div>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>IVA suportat (calculat de factures compra)</span>
-          <span style={{ color: '#dc2626' }}>-{fmt(calculs.ivaSuportat)}</span>
+          <span style={{ color: 'var(--color-error-dark)' }}>-{fmt(calculs.ivaSuportat)}</span>
         </div>
         <div style={rowStyle}>
           <span style={{ color: 'var(--color-text-secondary)' }}>IVA net a liquidar (calculat)</span>
@@ -207,11 +207,11 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
         {Math.abs(calculs.diferIva) > 0.01 && (
           <div style={{ ...rowStyle, borderBottom: 'none' }}>
             <span style={{ color: 'var(--color-text-secondary)' }}>Diferència (calculat − registrat)</span>
-            <span style={{ fontWeight: 600, color: '#f59e0b' }}>{fmt(calculs.diferIva)}</span>
+            <span style={{ fontWeight: 600, color: 'var(--color-warning)' }}>{fmt(calculs.diferIva)}</span>
           </div>
         )}
         {Math.abs(calculs.diferIva) <= 0.01 && calculs.ivaRegistratGestor > 0 && (
-          <div style={{ ...rowStyle, borderBottom: 'none', color: '#10b981' }}>
+          <div style={{ ...rowStyle, borderBottom: 'none', color: 'var(--color-success)' }}>
             <span>Les xifres coincideixen amb el gestor</span>
             <span>✓</span>
           </div>
@@ -232,7 +232,7 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
           </div>
           <div style={{ ...rowStyle, borderBottom: 'none' }}>
             <span style={{ color: 'var(--color-text-secondary)' }}>Import net pagat als treballadors</span>
-            <span style={{ color: '#10b981' }}>{fmt(calculs.salariNetPagat)}</span>
+            <span style={{ color: 'var(--color-success)' }}>{fmt(calculs.salariNetPagat)}</span>
           </div>
         </div>
       )}

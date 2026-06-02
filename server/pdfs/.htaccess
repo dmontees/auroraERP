@@ -1,0 +1,3 @@
+# Bloquejar accés HTTP directe a tots els fitxers d'aquesta carpeta.
+# Els documents es serveixen sempre via pdf-sync.php (amb autenticació).
+Require all denied

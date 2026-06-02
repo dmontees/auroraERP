@@ -182,7 +182,7 @@ export default function MaterialsTab({ hook }: MaterialsTabProps) {
                   style={{
                     padding: '1rem',
                     background: '#f5f5f5',
-                    border: '1px solid #d1d5db',
+                    border: '1px solid var(--color-border-strong)',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     opacity: 0.7,
@@ -194,7 +194,7 @@ export default function MaterialsTab({ hook }: MaterialsTabProps) {
                     position: 'absolute',
                     top: '0.5rem',
                     right: '0.5rem',
-                    background: '#6b7280',
+                    background: 'var(--color-text-secondary)',
                     color: 'white',
                     padding: '0.15rem 0.4rem',
                     borderRadius: '3px',
@@ -298,8 +298,8 @@ export default function MaterialsTab({ hook }: MaterialsTabProps) {
                           <span style={{
                             marginLeft: '0.5rem',
                             fontSize: '0.7rem',
-                            background: '#dbeafe',
-                            color: '#1e40af',
+                            background: 'var(--color-info-bg)',
+                            color: 'var(--color-info-dark)',
                             padding: '0.15rem 0.4rem',
                             borderRadius: '3px',
                             fontWeight: 600

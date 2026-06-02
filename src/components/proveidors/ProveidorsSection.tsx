@@ -109,7 +109,7 @@ export default function ProveidorsSection() {
   };
 
   const getCategoriaColor = (codi: string) =>
-    totesCategories.find((c: any) => c.codi === codi)?.color || '#6b7280';
+    totesCategories.find((c: any) => c.codi === codi)?.color || 'var(--color-text-secondary)';
 
   const getCategoriaNom = (codi: string) =>
     totesCategories.find((c: any) => c.codi === codi)?.nom || codi;
@@ -184,7 +184,7 @@ export default function ProveidorsSection() {
             {showDropProv && (
               <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100, background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: '0.5rem', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 {filterCatProveidor.length > 0 && (
-                  <button onClick={() => setFilterCatProveidor([])} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'left', padding: '0.2rem 0.4rem' }}>
+                  <button onClick={() => setFilterCatProveidor([])} style={{ background: 'none', border: 'none', color: 'var(--color-error-dark)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'left', padding: '0.2rem 0.4rem' }}>
                     Netejar selecció
                   </button>
                 )}
@@ -228,7 +228,7 @@ export default function ProveidorsSection() {
             {showDropAcr && (
               <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100, background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: '0.5rem', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 {filterCatAcreedor.length > 0 && (
-                  <button onClick={() => setFilterCatAcreedor([])} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'left', padding: '0.2rem 0.4rem' }}>
+                  <button onClick={() => setFilterCatAcreedor([])} style={{ background: 'none', border: 'none', color: 'var(--color-error-dark)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'left', padding: '0.2rem 0.4rem' }}>
                     Netejar selecció
                   </button>
                 )}
@@ -252,11 +252,10 @@ export default function ProveidorsSection() {
         )}
 
         <button
-          className="btn-secondary"
+          className="btn-excel"
           onClick={exportarExcel}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          <FileSpreadsheet size={18} />
+          <FileSpreadsheet size={16} />
           Excel
         </button>
 
@@ -314,8 +313,8 @@ export default function ProveidorsSection() {
                         borderRadius: '4px',
                         fontSize: '0.72rem',
                         fontWeight: 600,
-                        background: proveidor.tipus === 'Proveïdor' ? '#dbeafe' : proveidor.tipus === 'Acreedor' ? '#fef3c7' : '#f3e8ff',
-                        color: proveidor.tipus === 'Proveïdor' ? '#1e40af' : proveidor.tipus === 'Acreedor' ? '#92400e' : '#6b21a8',
+                        background: proveidor.tipus === 'Proveïdor' ? 'var(--color-info-bg)' : proveidor.tipus === 'Acreedor' ? 'var(--color-warning-bg)' : '#f3e8ff',
+                        color: proveidor.tipus === 'Proveïdor' ? 'var(--color-info-dark)' : proveidor.tipus === 'Acreedor' ? 'var(--color-warning-dark)' : '#6b21a8',
                         whiteSpace: 'nowrap'
                       }}>
                         {proveidor.tipus === 'Treballador' ? '👷 ' : ''}{proveidor.tipus}
@@ -326,8 +325,8 @@ export default function ProveidorsSection() {
                           borderRadius: '4px',
                           fontSize: '0.65rem',
                           fontWeight: 600,
-                          background: proveidor.actiu !== false ? '#d1fae5' : '#fee2e2',
-                          color: proveidor.actiu !== false ? '#065f46' : '#991b1b',
+                          background: proveidor.actiu !== false ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
+                          color: proveidor.actiu !== false ? 'var(--color-success-dark)' : 'var(--color-error-darker)',
                           whiteSpace: 'nowrap'
                         }}>
                           {proveidor.actiu !== false ? 'Actiu' : 'Inactiu'}
@@ -360,7 +359,7 @@ export default function ProveidorsSection() {
                           </span>
                         ))}
                         {proveidor.categories.length > 6 && (
-                          <span style={{ padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600, background: '#e5e7eb', color: '#6b7280' }}>
+                          <span style={{ padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600, background: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                             +{proveidor.categories.length - 6}
                           </span>
                         )}

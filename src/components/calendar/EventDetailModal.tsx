@@ -263,8 +263,8 @@ export default function EventDetailModal({
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.4rem',
                   padding: '0.5rem 1rem', background: 'transparent',
-                  border: '1px solid #ef4444', borderRadius: '6px',
-                  color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500
+                  border: '1px solid var(--color-error)', borderRadius: '6px',
+                  color: 'var(--color-error)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500
                 }}
               >
                 <Trash2 size={15} />

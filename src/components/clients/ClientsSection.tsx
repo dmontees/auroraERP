@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { Client } from '../../types/client';
 import ClientModal from './ClientModal';
@@ -88,7 +89,10 @@ function ClientsSection() {
           className="form-input"
           style={{ flex: '1', minWidth: '200px' }}
         />
-        <button className="btn-secondary" onClick={exportarExcel}>Exportar Excel</button>
+        <button className="btn-excel" onClick={exportarExcel}>
+          <FileSpreadsheet size={16} />
+          Excel
+        </button>
         <button className="btn-primary" onClick={() => setShowModal(true)}>
           Nou Client
         </button>

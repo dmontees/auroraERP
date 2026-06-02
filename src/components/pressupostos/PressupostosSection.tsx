@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { Pressupost } from '../../types/pressupost';
 import type { Client } from '../../types/client';
@@ -77,7 +78,7 @@ function PressupostosSection() {
   // Calcular totales de un presupuesto
   const calcularTotals = (pressupost: Pressupost) => {
     const totalGastos = 
-      pressupost.materials.reduce((sum, m) => sum + m.preuProveidor, 0) +
+      pressupost.materials.reduce((sum, m) => sum + m.preuProveidor * (m.jornades ?? 1), 0) +
       pressupost.recursosHumans.reduce((sum, r) => sum + r.importe, 0);
     
     const totalPressupost = pressupost.tasques.reduce((sum, t) => sum + t.importe, 0);
@@ -151,7 +152,10 @@ function PressupostosSection() {
           <option value="acceptat">Acceptat</option>
           <option value="rebutjat">Rebutjat</option>
         </select>
-        <button className="btn-secondary" onClick={exportarExcel}>Exportar Excel</button>
+        <button className="btn-excel" onClick={exportarExcel}>
+          <FileSpreadsheet size={16} />
+          Excel
+        </button>
         <button className="btn-primary" onClick={() => {
           setEditingPressupost(null);
           setShowModal(true);
@@ -187,10 +191,10 @@ function PressupostosSection() {
                 const totals = calcularTotals(pressupost);
                 
                 const estatColors = {
-                  esborrany: { bg: '#f3f4f6', text: '#6b7280' },
-                  enviat: { bg: '#dbeafe', text: '#1e40af' },
-                  acceptat: { bg: '#d1fae5', text: '#065f46' },
-                  rebutjat: { bg: '#fee2e2', text: '#991b1b' }
+                  esborrany: { bg: '#f3f4f6', text: 'var(--color-text-secondary)' },
+                  enviat: { bg: 'var(--color-info-bg)', text: 'var(--color-info-dark)' },
+                  acceptat: { bg: 'var(--color-success-bg)', text: 'var(--color-success-dark)' },
+                  rebutjat: { bg: 'var(--color-error-bg)', text: 'var(--color-error-darker)' }
                 };
                 
                 return (
@@ -225,7 +229,7 @@ function PressupostosSection() {
                     <td style={{ 
                       padding: '0.75rem', 
                       textAlign: 'right',
-                      color: totals.benefici >= 0 ? '#065f46' : '#991b1b',
+                      color: totals.benefici >= 0 ? 'var(--color-success-dark)' : 'var(--color-error-darker)',
                       fontWeight: 600
                     }}>
                       {totals.benefici.toFixed(2)}€ ({totals.percentBenefici.toFixed(1)}%)

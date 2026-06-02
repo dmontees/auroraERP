@@ -123,8 +123,8 @@ export default function FeedbackTab({ formData, setFormData, esBloquejat, onMarc
             {feedback.validat || formData.estat === 'acabat' || formData.estat === 'facturat' ? (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.75rem 1rem', background: '#d1fae5', borderRadius: '8px',
-                color: '#065f46', fontWeight: 600, border: '1px solid #6ee7b7'
+                padding: '0.75rem 1rem', background: 'var(--color-success-bg)', borderRadius: '8px',
+                color: 'var(--color-success-dark)', fontWeight: 600, border: '1px solid #6ee7b7'
               }}>
                 <CheckCircle size={20} />
                 Projecte validat pel client
@@ -136,9 +136,9 @@ export default function FeedbackTab({ formData, setFormData, esBloquejat, onMarc
                 disabled={esBloquejat}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '0.75rem 1.25rem', background: '#10b981', color: 'white',
+                  padding: '0.75rem 1.25rem', background: 'var(--color-success)', color: 'white',
                   border: 'none', borderRadius: '8px', cursor: 'pointer',
-                  fontWeight: 600, fontSize: '0.95rem', width: '100%', justifyContent: 'center'
+                  fontWeight: 600, fontSize: '0.95rem'
                 }}
               >
                 <CheckCircle size={18} />

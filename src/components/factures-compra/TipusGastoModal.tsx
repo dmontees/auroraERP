@@ -50,14 +50,14 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
               <div style={{
                 width: '48px',
                 height: '48px',
-                background: '#dbeafe',
+                background: 'var(--color-info-bg)',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                <FileText size={24} color="#3b82f6" />
+                <FileText size={24} color="var(--color-info)" />
               </div>
               <div>
                 <div style={{ 
@@ -105,14 +105,14 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
               <div style={{
                 width: '48px',
                 height: '48px',
-                background: '#fef3c7',
+                background: 'var(--color-warning-bg)',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                <CreditCard size={24} color="#f59e0b" />
+                <CreditCard size={24} color="var(--color-warning)" />
               </div>
               <div>
                 <div style={{ 

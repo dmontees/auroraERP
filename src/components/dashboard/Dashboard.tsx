@@ -6,6 +6,7 @@ import type { Projecte } from '../../types/projecte';
 import type { Pressupost } from '../../types/pressupost';
 import type { Client } from '../../types/client';
 import { storage } from '../../utils/storageManager';
+import { getDataEfectivaGasto } from '../../utils/resultatCalculs';
 
 const MESOS_CURTS = ['Gen', 'Feb', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Des'];
 
@@ -115,7 +116,7 @@ export default function Dashboard() {
     .filter(g => {
       if (g.tipus !== 'factura-compra') return false;
       const fc = g as FacturaCompra;
-      return fc.esDesepsaGeneral === true && g.dataGasto?.startsWith(String(selectedYear));
+      return fc.esDepesaGeneral === true && getDataEfectivaGasto(g).startsWith(String(selectedYear));
     })
     .reduce((sum, g) => sum + (g.baseImposable || 0), 0);
 
@@ -177,7 +178,7 @@ export default function Dashboard() {
       }),
   ]
     .sort((a, b) => a.data.localeCompare(b.data))
-    .slice(0, 4);
+    .slice(0, 5);
 
   // ── ACTIVITAT RECENT ──────────────────────────────────────────────────────
   const activitatRecent = [
@@ -195,40 +196,35 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 6);
 
-  const colorBenefici = (n: number) => (n >= 0 ? '#10b981' : '#ef4444');
+  const colorBenefici = (n: number) => (n >= 0 ? 'var(--color-success)' : 'var(--color-error)');
+
+  const G_GREEN  = 'linear-gradient(135deg, #059669, #10b981, #34d399)';
+  const G_AMBER  = 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)';
+  const G_RED    = 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)';
 
   const kpiCard = (
     icon: React.ReactNode,
-    color: string,
+    gradient: string,
     label: string,
     value: string,
     sub?: string,
   ) => (
     <div
-      style={{
-        background: 'var(--color-bg-secondary)',
-        padding: '1.5rem',
-        borderRadius: '12px',
-        border: `2px solid ${color}`,
-        transition: 'transform 0.2s, box-shadow 0.2s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
+      className="stat-card"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-        <div style={{ background: `${color}20`, padding: '0.75rem', borderRadius: '8px', display: 'flex' }}>
-          {icon}
+      <div className="stat-card-stripe" style={{ background: gradient }} />
+      <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+          <div style={{ background: 'var(--color-bg-tertiary)', padding: '0.75rem', borderRadius: '8px', display: 'flex' }}>
+            {icon}
+          </div>
+          <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</span>
         </div>
-        <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</span>
+        <div className="stat-card-value" style={{ fontSize: '2rem', marginBottom: sub ? '0.25rem' : 0 }}>
+          <span style={{ background: gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{value}</span>
+        </div>
+        {sub && <div className="stat-card-sub">{sub}</div>}
       </div>
-      <div style={{ fontSize: '2rem', fontWeight: 700, color, marginBottom: sub ? '0.25rem' : 0 }}>{value}</div>
-      {sub && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{sub}</div>}
     </div>
   );
 
@@ -241,10 +237,10 @@ export default function Dashboard() {
 
       {/* ── KPIs ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
-        {kpiCard(<TrendingUp size={20} color="#f59e0b" />, '#f59e0b', 'Pendent de Cobrar', fmtEur2(pendentCobrar))}
-        {kpiCard(<TrendingDown size={20} color="#ef4444" />, '#ef4444', 'Pendent de Pagar', fmtEur2(pendentPagar))}
-        {kpiCard(<AlertCircle size={20} color="#dc2626" />, '#dc2626', 'Factures Vençudes', String(facturesVencudes.length), facturesVencudes.length > 0 ? fmtEur2(totalVencudes) : undefined)}
-        {kpiCard(<Briefcase size={20} color="#10b981" />, '#10b981', 'Projectes Actius', String(projectesActius))}
+        {kpiCard(<TrendingUp size={20} color="var(--color-warning)" />, G_AMBER, 'Pendent de Cobrar', fmtEur2(pendentCobrar))}
+        {kpiCard(<TrendingDown size={20} color="var(--color-error)" />, G_RED, 'Pendent de Pagar', fmtEur2(pendentPagar))}
+        {kpiCard(<AlertCircle size={20} color="var(--color-error-dark)" />, G_RED, 'Factures Vençudes', String(facturesVencudes.length), facturesVencudes.length > 0 ? fmtEur2(totalVencudes) : undefined)}
+        {kpiCard(<Briefcase size={20} color="var(--color-success)" />, G_GREEN, 'Projectes Actius', String(projectesActius))}
       </div>
 
       {/* ── GRÀFIC + CARDS + TASQUES ─────────────────────────────────────── */}
@@ -318,8 +314,8 @@ export default function Dashboard() {
             {selectedYear < nowYear && (
               <div style={{
                 fontSize: '0.74rem',
-                color: '#92400e',
-                background: '#fef3c7',
+                color: 'var(--color-warning-dark)',
+                background: 'var(--color-warning-bg)',
                 border: '1px solid #fcd34d',
                 borderRadius: '6px',
                 padding: '0.35rem 0.55rem',
@@ -333,11 +329,11 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Total facturat</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#10b981' }}>+{fmtEur2(totalFacturatAny)}</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-success)' }}>+{fmtEur2(totalFacturatAny)}</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Obligacions fiscals</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#dc2626' }}>-{fmtEur2(obligaciosFiscalsAny)}</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-error-dark)' }}>-{fmtEur2(obligaciosFiscalsAny)}</div>
               </div>
             </div>
 
@@ -364,8 +360,8 @@ export default function Dashboard() {
             {selectedYear < nowYear && (
               <div style={{
                 fontSize: '0.74rem',
-                color: '#92400e',
-                background: '#fef3c7',
+                color: 'var(--color-warning-dark)',
+                background: 'var(--color-warning-bg)',
                 border: '1px solid #fcd34d',
                 borderRadius: '6px',
                 padding: '0.35rem 0.55rem',
@@ -385,7 +381,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Despeses estructurals</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#dc2626' }}>-{fmtEur2(despesesEstructuralsAny)}</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-error-dark)' }}>-{fmtEur2(despesesEstructuralsAny)}</div>
               </div>
             </div>
 
@@ -404,22 +400,27 @@ export default function Dashboard() {
 
         {/* ── TASQUES URGENTS (3a columna del grid) ──────────────────────── */}
         <div style={{ background: 'var(--color-bg-secondary)', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1rem 1.1rem', overflow: 'visible' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>⚡ Tasques Urgents</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>🗓️ Properes Tasques</h3>
 
           {tascasUrgents.map(t => {
-            const color = t.tipus === 'factura' ? '#dc2626' : t.tipus === 'rodatge' ? '#6366f1' : '#f59e0b';
+            const gradient =
+              t.tipus === 'factura' ? 'linear-gradient(180deg, #dc2626, #ef4444)' :
+              t.tipus === 'rodatge' ? 'linear-gradient(180deg, #0d5c2e, #14793c, #1aad57)' :
+              'linear-gradient(180deg, #c70000, #f5090a, #ff4444)';
             const icon = t.tipus === 'factura' ? '🧾' : t.tipus === 'rodatge' ? '🎬' : '📦';
             return (
               <div key={t.id} style={{
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.85rem',
-                borderLeft: `3px solid ${color}`,
+                display: 'flex',
                 marginBottom: '0.5rem',
+                borderRadius: '4px',
+                overflow: 'hidden',
                 background: 'var(--color-bg-tertiary)',
-                borderRadius: '0 4px 4px 0',
               }}>
-                <div style={{ fontWeight: 600 }}>{icon} {t.titol}</div>
-                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>{t.subtitol}</div>
+                <div style={{ width: 3, flexShrink: 0, background: gradient }} />
+                <div style={{ flex: 1, padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}>
+                  <div style={{ fontWeight: 600 }}>{icon} {t.titol}</div>
+                  <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>{t.subtitol}</div>
+                </div>
               </div>
             );
           })}
@@ -526,7 +527,7 @@ function GraficBarresBenefici({ data }: { data: number[] }) {
           const x = PL + i * barW + barGap / 2;
           const y = PT + chartH - barH;
           const bw = barW - barGap;
-          const color = val > 0 ? '#3b82f6' : val < 0 ? '#ef4444' : '#d1d5db';
+          const color = val > 0 ? 'var(--color-info)' : val < 0 ? 'var(--color-error)' : 'var(--color-border-strong)';
 
           return (
             <g key={i}>

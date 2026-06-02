@@ -82,9 +82,9 @@ export default function FacturesCompraSection() {
     a.tipusLinia === 'rrhh' ? (a.cost || 0) : (a.preuProveidor || 0);
 
   const albaraEstatInfo = (estat: AlbaraCompra['estat']) => {
-    if (estat === 'pendent-factura') return { label: 'Pendent factura', color: '#f59e0b' };
-    if (estat === 'factura-vinculada') return { label: 'Factura vinculada', color: '#3b82f6' };
-    return { label: 'Pagat', color: '#10b981' };
+    if (estat === 'pendent-factura') return { label: 'Pendent factura', color: 'var(--color-warning)' };
+    if (estat === 'factura-vinculada') return { label: 'Factura vinculada', color: 'var(--color-info)' };
+    return { label: 'Pagat', color: 'var(--color-success)' };
   };
 
   const albaransFiltrats = albarans.filter(a => {
@@ -129,10 +129,10 @@ export default function FacturesCompraSection() {
 
   const getEstatIcon = (estat: EstatGasto) => {
     switch (estat) {
-      case 'vencuda': return <AlertCircle size={18} color="#dc2626" />;
-      case 'pendent': return <Clock size={18} color="#f59e0b" />;
-      case 'pagada-parcial': return <Clock size={18} color="#3b82f6" />;
-      case 'pagada': return <CheckCircle size={18} color="#10b981" />;
+      case 'vencuda': return <AlertCircle size={18} color="var(--color-error-dark)" />;
+      case 'pendent': return <Clock size={18} color="var(--color-warning)" />;
+      case 'pagada-parcial': return <Clock size={18} color="var(--color-info)" />;
+      case 'pagada': return <CheckCircle size={18} color="var(--color-success)" />;
     }
   };
 
@@ -165,21 +165,38 @@ export default function FacturesCompraSection() {
         gap: '1rem',
         marginBottom: '1.5rem'
       }}>
-        <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #f59e0b' }}>
-          <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>💸 Pendent de Pagament</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f59e0b' }}>{formatCurrency(metricas.totalPendent)}</div>
-        </div>
-
-        <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #dc2626' }}>
-          <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>🔴 Vençudes</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#dc2626' }}>{metricas.numVencudes}</div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>{formatCurrency(metricas.importVencudes)}</div>
-        </div>
-
-        <div style={{ background: 'var(--color-bg-secondary)', padding: '1.5rem', borderRadius: '12px', border: '2px solid #10b981' }}>
-          <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>✅ Pagat Aquest Mes</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#10b981' }}>{formatCurrency(metricas.pagatMes)}</div>
-        </div>
+        {(() => {
+          const G_GREEN = 'linear-gradient(135deg, #059669, #10b981, #34d399)';
+          const G_AMBER = 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)';
+          const G_RED   = 'linear-gradient(135deg, #dc2626, #ef4444, #f97316)';
+          const gSpan = (v: React.ReactNode, g: string) => (
+            <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+          );
+          return (<>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_AMBER }} />
+              <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+                <div className="stat-card-label">💸 Pendent de Pagament</div>
+                <div className="stat-card-value">{gSpan(formatCurrency(metricas.totalPendent), G_AMBER)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_RED }} />
+              <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+                <div className="stat-card-label">🔴 Vençudes</div>
+                <div className="stat-card-value">{gSpan(metricas.numVencudes, G_RED)}</div>
+                <div className="stat-card-sub">{formatCurrency(metricas.importVencudes)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-stripe" style={{ background: G_GREEN }} />
+              <div className="stat-card-body" style={{ padding: '1.5rem' }}>
+                <div className="stat-card-label">✅ Pagat Aquest Mes</div>
+                <div className="stat-card-value">{gSpan(formatCurrency(metricas.pagatMes), G_GREEN)}</div>
+              </div>
+            </div>
+          </>);
+        })()}
 
         <div style={{ background: 'var(--color-bg-secondary)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>📦 Exportar Documents (ZIP)</div>
@@ -331,7 +348,7 @@ export default function FacturesCompraSection() {
                       <td style={{ padding: '0.75rem' }}>{gasto.dataGasto}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 500, color: 'var(--color-text-secondary)' }}>{formatCurrency(gasto.baseImposable)}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{formatCurrency(gasto.totalGasto)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: Math.round(gasto.pendentPagament * 100) / 100 > 0 ? '#dc2626' : '#10b981' }}>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: Math.round(gasto.pendentPagament * 100) / 100 > 0 ? 'var(--color-error-dark)' : 'var(--color-success)' }}>
                         {formatCurrency(Math.round(gasto.pendentPagament * 100) / 100)}
                       </td>
                     </tr>

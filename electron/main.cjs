@@ -7,6 +7,7 @@ const Store = require('electron-store');
 let backupInterval = null;
 let mainWindow = null;
 let pendingUpdateInfo = null; // cache per si el renderer no estava llest quan va arribar l'event
+let isQuitting = false;       // flag per al tancament controlat via sync
 
 // Inicializar electron-store
 const store = new Store({
@@ -82,19 +83,28 @@ function createWindow() {
     }
   }, 30000);
 
-  // Backup final al cerrar
-  mainWindow.on('close', () => {
-    if (backupInterval) {
-      clearInterval(backupInterval);
-      backupInterval = null;
-    }
-    
-    if (!mainWindow.isDestroyed()) {
-      try {
-        backupElectronStore();
-        console.log('✅ Backup final guardado antes de cerrar');
-      } catch (error) {
-        console.error('❌ Error al hacer backup final:', error);
+  // Interceptar el tancament per donar temps al renderer de sincronitzar
+  mainWindow.on('close', (e) => {
+    if (backupInterval) { clearInterval(backupInterval); backupInterval = null; }
+
+    if (!isQuitting) {
+      e.preventDefault(); // atura el tancament
+      mainWindow.webContents.send('app-will-close');
+      console.log('🔄 Esperant sync del renderer abans de tancar...');
+
+      // Timeout de seguretat: si el renderer no respon en 10 s, tanquem igualment
+      setTimeout(() => {
+        if (!isQuitting) {
+          console.warn('⚠️  Timeout sync en tancar — forçant tancament');
+          isQuitting = true;
+          backupElectronStore();
+          mainWindow.destroy();
+        }
+      }, 10000);
+    } else {
+      // Tancament confirmat pel renderer — backup local final
+      if (!mainWindow.isDestroyed()) {
+        try { backupElectronStore(); } catch { /* ignore */ }
       }
     }
   });
@@ -365,6 +375,91 @@ ipcMain.handle('import-data', (_, data) => {
     console.error('❌ Error importando datos:', error);
     return { success: false, error: error.message };
   }
+});
+
+// ============================================
+// TANCAMENT CONTROLAT — sync abans de sortir
+// ============================================
+
+ipcMain.handle('confirm-close', () => {
+  console.log('✅ Sync completat — tancant Aurora ERP');
+  isQuitting = true;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+});
+
+// ============================================
+// VERIFACTU — Enviament a l'AEAT (mTLS)
+// ============================================
+
+ipcMain.handle('verifactu-enviar', async (_, { xmlPayload, p12Base64, pin, entornTest }) => {
+  const https = require('https');
+
+  const hostname = entornTest ? 'prewww1.aeat.es' : 'www1.aeat.es';
+  const path = '/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSistemaFacturacion';
+
+  let p12Buffer;
+  try {
+    p12Buffer = Buffer.from(p12Base64, 'base64');
+  } catch (e) {
+    console.error('❌ Verifactu: error decodificant P12:', e);
+    return { ok: false, error: 'Error descodificant el certificat P12.' };
+  }
+
+  return new Promise((resolve) => {
+    const xmlBuf = Buffer.from(xmlPayload, 'utf8');
+
+    const req = https.request(
+      {
+        hostname,
+        port: 443,
+        path,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'Content-Length': xmlBuf.length,
+          'SOAPAction': '""',
+          'Accept': 'text/xml, application/xml, */*',
+        },
+        pfx: p12Buffer,
+        passphrase: pin,
+        // En entorn de test, acceptar certificats autosignats de la AEAT
+        rejectUnauthorized: !entornTest,
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk.toString(); });
+        res.on('end', () => {
+          console.log(`🔗 Verifactu AEAT → HTTP ${res.statusCode}`);
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            // Cercar el CSV al cos de la resposta SOAP
+            const csvMatch = data.match(/<(?:[^:>]+:)?CSV>([^<]+)<\/(?:[^:>]+:)?CSV>/i);
+            const csv = csvMatch?.[1]?.trim();
+            console.log('✅ Verifactu: resposta acceptada, CSV:', csv);
+            resolve({ ok: true, csv });
+          } else {
+            // Intentar extreure missatge d'error del XML
+            const errMatch = data.match(/<(?:[^:>]+:)?DescripcionError>([^<]+)<\/(?:[^:>]+:)?DescripcionError>/i)
+              || data.match(/<(?:[^:>]+:)?faultstring>([^<]+)<\/(?:[^:>]+:)?faultstring>/i);
+            const errMsg = errMatch?.[1]?.trim() || `HTTP ${res.statusCode}`;
+            console.error('❌ Verifactu AEAT error:', errMsg, '\n', data.substring(0, 400));
+            resolve({ ok: false, error: errMsg });
+          }
+        });
+      }
+    );
+
+    req.on('error', (e) => {
+      console.error('❌ Verifactu xarxa error:', e.message);
+      resolve({ ok: false, error: e.message });
+    });
+
+    req.setTimeout(30000, () => {
+      req.destroy(new Error('Timeout de 30 s en connectar amb l\'AEAT'));
+    });
+
+    req.write(xmlBuf);
+    req.end();
+  });
 });
 
 // ============================================

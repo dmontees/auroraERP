@@ -198,8 +198,8 @@ function MaterialModal({
                 }}
                 style={{ 
                   marginRight: 'auto',
-                  borderColor: '#dc2626',
-                  color: '#dc2626'
+                  borderColor: 'var(--color-error-dark)',
+                  color: 'var(--color-error-dark)'
                 }}
               >
                 Eliminar

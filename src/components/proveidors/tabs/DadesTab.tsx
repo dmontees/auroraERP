@@ -89,7 +89,7 @@ export default function DadesTab({ hook }: DadesTabProps) {
           }}>
             <div className="form-group">
               <label className="form-label">
-                Nom fiscal <span style={{ color: '#dc2626' }}>*</span>
+                Nom fiscal <span style={{ color: 'var(--color-error-dark)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -163,7 +163,7 @@ export default function DadesTab({ hook }: DadesTabProps) {
                 onClick={() => setFormData(prev => ({ ...prev, actiu: !(prev.actiu !== false) }))}
                 style={{
                   width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
-                  background: formData.actiu !== false ? '#10b981' : '#e5e7eb',
+                  background: formData.actiu !== false ? 'var(--color-success)' : 'var(--color-border)',
                   position: 'relative', transition: 'background 0.2s', flexShrink: 0
                 }}
               >
@@ -174,7 +174,7 @@ export default function DadesTab({ hook }: DadesTabProps) {
                   transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                 }} />
               </button>
-              <span style={{ fontSize: '0.9rem', color: formData.actiu !== false ? '#065f46' : 'var(--color-text-tertiary)', fontWeight: 500 }}>
+              <span style={{ fontSize: '0.9rem', color: formData.actiu !== false ? 'var(--color-success-dark)' : 'var(--color-text-tertiary)', fontWeight: 500 }}>
                 {formData.actiu !== false ? 'Actiu' : 'Inactiu'}
               </span>
             </div>

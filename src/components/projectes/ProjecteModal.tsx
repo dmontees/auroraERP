@@ -87,7 +87,7 @@ function ProjecteModal({
 }: ProjecteModalProps) {
   const [activeTab, setActiveTab] = useState<'dades' | 'despeses' | 'tasques' | 'instruccions' | 'feedback' | 'historial' | 'pagaments'>('dades');
   const [recursCopiado, setRecursCopiado] = useState<string | null>(null);
-  const [materialCopiado, setMaterialCopiado] = useState<string | null>(null);
+  const [materialsAgregats, setMaterialsAgregats] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showVincularPressupostModal, setShowVincularPressupostModal] = useState(false);
   const [showVincularFacturaModal, setShowVincularFacturaModal] = useState(false);
@@ -200,7 +200,7 @@ function ProjecteModal({
   // Càlculs automàtics
   useEffect(() => {
     const gastosHumans = formData.recursosHumans.reduce((sum, r) => sum + r.cost, 0);
-    const gastosMaterials = formData.materials.reduce((sum, m) => sum + m.preuPlatea, 0);
+    const gastosMaterials = formData.materials.reduce((sum, m) => sum + m.preuProveidor * (m.jornades ?? 1), 0);
     const ingresAmbIVA = formData.ingresSenseIVA * (1 + formData.iva / 100);
     const gastosTotals = gastosMaterials + gastosHumans;
     const benefici = ingresAmbIVA - gastosTotals;
@@ -234,7 +234,7 @@ function ProjecteModal({
     id: '', categoria: '', servei: '', unitat: '', quantitat: 1, preu: 0, cost: 0, ordre: 0, proveidor: ''
   });
   const [nouMaterialForm, setNouMaterialForm] = useState<MaterialProjecte>({
-    id: '', grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0
+    id: '', grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0, jornades: 1
   });
 
   const afegirRecursHuma = () => {
@@ -370,7 +370,7 @@ function ProjecteModal({
   // ─── CRUD Materials ──────────────────────────────────────────────────────────
 
   const afegirMaterial = () => {
-    setNouMaterialForm({ id: `mat-${Date.now()}`, grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0 });
+    setNouMaterialForm({ id: `mat-${Date.now()}`, grup: '', material: '', proveidor: '', preuProveidor: 0, preuPlatea: 0, jornades: 1 });
     setTipusRecurs('material');
     setShowAfegirRecursModal(true);
   };
@@ -414,26 +414,47 @@ function ProjecteModal({
     }
   };
 
-  const trasladarMaterialATaska = (material: MaterialProjecte) => {
-    if (!material.material || !material.grup) return;
-    const materialData = parametres?.materials.find(m => m.codi === material.material);
-    const grupData = parametres?.grupsMaterials.find(g => g.codi === material.grup);
-    if (materialData && grupData) {
-      const novaTasca: TascaProjecte = {
-        id: `task-${Date.now()}-${Math.random()}`,
+  const agregaMaterialsATasques = () => {
+    const materialsValids = formData.materials.filter(m => m.material && m.grup);
+    if (materialsValids.length === 0) return;
+
+    const byGrup = materialsValids.reduce((acc, m) => {
+      if (!acc[m.grup]) acc[m.grup] = [];
+      acc[m.grup].push(m);
+      return acc;
+    }, {} as Record<string, MaterialProjecte[]>);
+
+    const tasquesNonMaterials = formData.tasques.filter(t => t.categoria !== 'MATERIALS');
+
+    const novesTasquesMaterials: TascaProjecte[] = Object.entries(byGrup).map(([grupCodi, mats], i) => {
+      const grupData = parametres?.grupsMaterials.find(g => g.codi === grupCodi);
+      const grupNom = grupData?.nom || grupCodi;
+      const total = mats.reduce((sum, m) => sum + m.preuPlatea * (m.jornades ?? 1), 0);
+      const count = mats.length;
+      const allSameJ = mats.every(m => (m.jornades ?? 1) === (mats[0].jornades ?? 1));
+      const j = mats[0].jornades ?? 1;
+      const descripcio = allSameJ
+        ? `${grupNom} (${j} ${j === 1 ? 'jornada' : 'jornades'})`
+        : grupNom;
+
+      return {
+        id: `task-mat-${grupCodi}-${Date.now()}-${i}`,
         categoria: 'MATERIALS',
-        servei: grupData.nom,
-        descripcio: grupData.nom,
-        quantitat: 1,
+        servei: grupNom,
+        descripcio,
+        quantitat: count,
         unitat: '',
-        tarifa: material.preuPlatea,
-        importe: material.preuPlatea,
-        ordre: formData.tasques.length
+        tarifa: count > 0 ? total / count : 0,
+        importe: total,
+        ordre: tasquesNonMaterials.length + i
       };
-      setFormData({ ...formData, tasques: [...formData.tasques, novaTasca] });
-      setMaterialCopiado(material.id);
-      setTimeout(() => setMaterialCopiado(null), 1500);
-    }
+    });
+
+    const totalMaterials = novesTasquesMaterials.reduce((sum, t) => sum + t.importe, 0);
+    const projecteAmbHistorial = registrarGastoTrasladatATasca(formData, 'Materials', totalMaterials);
+    setFormData({ ...projecteAmbHistorial, tasques: [...tasquesNonMaterials, ...novesTasquesMaterials] });
+    setMaterialsAgregats(true);
+    setTimeout(() => setMaterialsAgregats(false), 2000);
   };
 
   // ─── CRUD Tasques ────────────────────────────────────────────────────────────
@@ -691,7 +712,7 @@ function ProjecteModal({
                     if (onCrearFactura) onCrearFactura(formData);
                   }
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
               >
                 <FileText size={18} />
                 Crear Factura
@@ -706,7 +727,7 @@ function ProjecteModal({
                   onClose();
                   setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'pressupostos', codi: formData.pressupost } })), 100);
                 }}
-                style={{ padding: '0.5rem 1rem', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                style={{ padding: '0.5rem 1rem', background: 'var(--color-warning-bg)', color: 'var(--color-warning-dark)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 title="Clic per obrir el pressupost"
@@ -717,7 +738,7 @@ function ProjecteModal({
 
             {/* Indicador Factura */}
             {formData.facturaHistorica ? (
-              <div style={{ padding: '0.75rem 1rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#92400e' }}>
+              <div style={{ padding: '0.75rem 1rem', background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-light)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-warning-dark)' }}>
                 <div style={{ marginBottom: '0.25rem' }}>📋 Factura: {formData.facturaHistorica.numero}</div>
                 <div style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Data: {new Date(formData.facturaHistorica.data).toLocaleDateString('ca-ES')}</div>
                 <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', fontStyle: 'italic', opacity: 0.8 }}>⚠️ Factura històrica (importada)</div>
@@ -729,7 +750,7 @@ function ProjecteModal({
                   onClose();
                   setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'factures-venda', codi: formData.facturaAssociada } })), 100);
                 }}
-                style={{ padding: '0.5rem 1rem', background: '#dbeafe', color: '#1e40af', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                style={{ padding: '0.5rem 1rem', background: 'var(--color-info-bg)', color: 'var(--color-info-dark)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 title="Clic per obrir la factura"
@@ -759,22 +780,22 @@ function ProjecteModal({
                 style={{
                   padding: '0.5rem', borderRadius: '6px', fontWeight: 600, fontSize: '0.85rem', border: '1px solid var(--color-border)', cursor: 'pointer',
                   background:
-                    formData.estat === 'esborrany' ? '#fef3c7' :
+                    formData.estat === 'esborrany' ? 'var(--color-warning-bg)' :
                     formData.estat === 'planificat' ? '#fed7aa' :
-                    formData.estat === 'rodatge' ? '#fee2e2' :
-                    formData.estat === 'edicio' ? '#bfdbfe' :
+                    formData.estat === 'rodatge' ? 'var(--color-error-bg)' :
+                    formData.estat === 'edicio' ? 'var(--color-info-border)' :
                     formData.estat === 'esperant_feedback' ? '#f9fafb' :
-                    formData.estat === 'revisio' ? '#3b82f6' :
-                    formData.estat === 'acabat' ? '#d1fae5' :
-                    '#059669',
+                    formData.estat === 'revisio' ? 'var(--color-info)' :
+                    formData.estat === 'acabat' ? 'var(--color-success-bg)' :
+                    'var(--color-success-medium)',
                   color:
-                    formData.estat === 'esborrany' ? '#92400e' :
+                    formData.estat === 'esborrany' ? 'var(--color-warning-dark)' :
                     formData.estat === 'planificat' ? '#9a3412' :
-                    formData.estat === 'rodatge' ? '#991b1b' :
-                    formData.estat === 'edicio' ? '#1e3a8a' :
+                    formData.estat === 'rodatge' ? 'var(--color-error-darker)' :
+                    formData.estat === 'edicio' ? 'var(--color-info-darker)' :
                     formData.estat === 'esperant_feedback' ? '#374151' :
                     formData.estat === 'revisio' ? '#ffffff' :
-                    formData.estat === 'acabat' ? '#065f46' :
+                    formData.estat === 'acabat' ? 'var(--color-success-dark)' :
                     '#ffffff',
                 }}
               >
@@ -807,8 +828,8 @@ function ProjecteModal({
                 background: 'transparent',
                 border: 'none',
                 borderBottom: activeTab === tab.id ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
-                color: activeTab === tab.id ? 'var(--color-accent-primary)' : 'var(--color-text-secondary)',
-                fontWeight: activeTab === tab.id ? 600 : 400,
+                color: activeTab === tab.id ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                fontWeight: activeTab === tab.id ? 700 : 400,
                 cursor: 'pointer',
                 marginBottom: '-2px',
                 whiteSpace: 'nowrap'
@@ -839,14 +860,14 @@ function ProjecteModal({
               proveidors={proveidors}
               esBloquejat={esBloquejat}
               recursCopiado={recursCopiado}
-              materialCopiado={materialCopiado}
+              materialsAgregats={materialsAgregats}
               onAfegirRecursHuma={afegirRecursHuma}
               onActualitzarRecursHuma={actualitzarRecursHuma}
               onEliminarRecursHuma={eliminarRecursHuma}
               onTrasladarRecursATaska={trasladarRecursATaska}
               onActualitzarMaterial={actualitzarMaterial}
               onEliminarMaterial={eliminarMaterial}
-              onTrasladarMaterialATaska={trasladarMaterialATaska}
+              onAgregarMaterialsATasques={agregaMaterialsATasques}
             />
           )}
 
@@ -910,7 +931,7 @@ function ProjecteModal({
               type="button"
               onClick={eliminarProjecte}
               className="btn-secondary"
-              style={{ borderColor: '#dc2626', color: '#dc2626', marginRight: 'auto' }}
+              style={{ borderColor: 'var(--color-error-dark)', color: 'var(--color-error-dark)', marginRight: 'auto' }}
             >
               <Trash2 size={18} />
               Eliminar

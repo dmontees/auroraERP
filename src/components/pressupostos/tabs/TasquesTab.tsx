@@ -129,7 +129,7 @@ export default function TasquesTab({ hook }: TasquesTabProps) {
         
         <div style={{ 
           padding: '1rem', 
-          background: benefici >= 0 ? '#d1fae5' : '#fee2e2', 
+          background: benefici >= 0 ? 'var(--color-success-bg)' : 'var(--color-error-bg)', 
           borderRadius: '8px',
           textAlign: 'center'
         }}>
@@ -139,7 +139,7 @@ export default function TasquesTab({ hook }: TasquesTabProps) {
           <div style={{ 
             fontSize: '1.25rem', 
             fontWeight: 700, 
-            color: benefici >= 0 ? '#065f46' : '#991b1b'
+            color: benefici >= 0 ? 'var(--color-success-dark)' : 'var(--color-error-darker)'
           }}>
             {benefici.toFixed(2)}€
           </div>
@@ -147,7 +147,7 @@ export default function TasquesTab({ hook }: TasquesTabProps) {
         
         <div style={{ 
           padding: '1rem', 
-          background: benefici >= 0 ? '#d1fae5' : '#fee2e2', 
+          background: benefici >= 0 ? 'var(--color-success-bg)' : 'var(--color-error-bg)', 
           borderRadius: '8px',
           textAlign: 'center'
         }}>
@@ -157,7 +157,7 @@ export default function TasquesTab({ hook }: TasquesTabProps) {
           <div style={{ 
             fontSize: '1.25rem', 
             fontWeight: 700, 
-            color: benefici >= 0 ? '#065f46' : '#991b1b'
+            color: benefici >= 0 ? 'var(--color-success-dark)' : 'var(--color-error-darker)'
           }}>
             {percentBenefici.toFixed(1)}%
           </div>

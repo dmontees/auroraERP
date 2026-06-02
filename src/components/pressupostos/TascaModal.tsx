@@ -128,7 +128,7 @@ export default function TascaModal({
             {/* Categoria */}
             <div>
               <label className="form-label">
-                Categoria <span style={{ color: '#dc2626' }}>*</span>
+                Categoria <span style={{ color: 'var(--color-error-dark)' }}>*</span>
               </label>
               <select
                 value={formData.categoria}
@@ -148,7 +148,7 @@ export default function TascaModal({
             {/* Servei */}
             <div>
               <label className="form-label">
-                Servei <span style={{ color: '#dc2626' }}>*</span>
+                Servei <span style={{ color: 'var(--color-error-dark)' }}>*</span>
               </label>
               <SearchableSelect
                 value={formData.servei}

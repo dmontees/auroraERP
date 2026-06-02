@@ -19,13 +19,8 @@ export interface Pagament {
 export type EstatGasto = 'pendent' | 'pagada-parcial' | 'pagada' | 'vencuda';
 export type TipusGasto = 'factura-compra' | 'gasto-general' | 'obligacio-fiscal';
 
-export type SubtipusObligacioFiscal =
-  | 'cuota-autonomo'
-  | 'regularitzacio-ss'
-  | 'irpf-trimestral'
-  | 'irpf-anual'
-  | 'iva-trimestral'
-  | 'nomina-treballador';
+export type { SubtipusObligacioFiscal, ObligacioFiscal } from './obligacioFiscal';
+export { SUBTIPUS_OBLIGACIO_FISCAL } from './obligacioFiscal';
 
 export interface GastoBase {
   codi: string;
@@ -63,7 +58,7 @@ export interface FacturaCompra extends GastoBase {
   proveidor: string;               // Código del proveedor
   numFacturaProveidor: string;     // Número de factura del proveedor
   projectes: string[];             // Array de códigos de proyectos
-  esDesepsaGeneral: boolean;       // Si no es imputable a proyecto
+  esDepesaGeneral: boolean;       // Si no es imputable a proyecto
   albaransVinculats?: string[];    // Codis ALC-XXXXX vinculats a aquesta factura
 }
 
@@ -80,31 +75,6 @@ export interface GastoGeneral extends GastoBase {
   mesImputacion: string;           // YYYY-MM
 }
 
-// OBLIGACIÓ FISCAL
-export interface ObligacioFiscal extends GastoBase {
-  tipus: 'obligacio-fiscal';
-  subtipus: SubtipusObligacioFiscal;
-  periode: string;              // 'YYYY-MM' per mensual, 'YYYY-QN' per trimestral
-  // nomina-treballador only:
-  treballadorCodi?: string;
-  treballadorNom?: string;
-  diesTreballats?: number;
-  salariDiariBrut?: number;
-  salariTotalBrut?: number;
-  ssEmpresa?: number;
-  ssTreballador?: number;
-  irpfRetingut?: number;
-  salariNet?: number;
-  costTotalEmpresa?: number;
-  projecteCodi?: string;
-  albaransVinculats?: string[];    // ALC-XXXXX codis vinculats (nomina-treballador)
-  // iva-trimestral only:
-  ivaRepercutitCalculat?: number;
-  ivaSuportatCalculat?: number;
-  ivaNetCalculat?: number;
-  ivaRegistratGestor?: number;
-}
-
 export type Gasto = FacturaCompra | GastoGeneral | ObligacioFiscal;
 
 // Configuració de categories
@@ -114,11 +84,3 @@ export const CATEGORIES_GASTO_GENERAL = [
   { codi: 'otros',        nom: 'Altres Despeses amb Rebut',     icon: '📄' },
 ] as const;
 
-export const SUBTIPUS_OBLIGACIO_FISCAL = [
-  { codi: 'cuota-autonomo',     nom: 'Quota Autònom (RETA)',           icon: '👤' },
-  { codi: 'regularitzacio-ss',  nom: 'Regularització anual SS',        icon: '📊' },
-  { codi: 'irpf-trimestral',    nom: 'IRPF Trimestral (Mod. 130)',     icon: '📋' },
-  { codi: 'irpf-anual',         nom: 'Liquidació Anual IRPF (Renda)',  icon: '📅' },
-  { codi: 'iva-trimestral',     nom: 'IVA Trimestral (Mod. 303)',      icon: '💶' },
-  { codi: 'nomina-treballador', nom: 'Nòmina Treballador',             icon: '👷' },
-] as const;

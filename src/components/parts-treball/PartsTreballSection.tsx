@@ -32,6 +32,10 @@ export default function PartsTreballSection({ clients }: PartsTreballSectionProp
   useEffect(() => {
     setParts(storage.getPartsTreball());
     setProjectes(storage.getProjectes());
+
+    const onPartsUpdated = () => setParts(storage.getPartsTreball());
+    window.addEventListener('parts-treball-updated', onPartsUpdated);
+    return () => window.removeEventListener('parts-treball-updated', onPartsUpdated);
   }, []);
 
   const saveParts = (newParts: PartTreball[]) => {
@@ -354,14 +358,14 @@ export default function PartsTreballSection({ clients }: PartsTreballSectionProp
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Codi</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Data</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Projecte</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Tasca</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Client</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Hora Inici</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Hora Fi</th>
-                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>Temps</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Codi</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Data</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Projecte</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Tasca</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Client</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Hora Inici</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Hora Fi</th>
+                <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Temps</th>
                 <th style={{ width: '50px' }}></th>
               </tr>
             </thead>
@@ -392,7 +396,7 @@ export default function PartsTreballSection({ clients }: PartsTreballSectionProp
                     </td>
                     <td style={{ padding: '0.75rem', fontWeight: 500 }}>
                       {part.projecte === 'ADMIN' ? (
-                        <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Tasca administrativa</span>
+                        <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>Tasca administrativa</span>
                       ) : (
                         projecte?.titol || '-'
                       )}
@@ -401,7 +405,7 @@ export default function PartsTreballSection({ clients }: PartsTreballSectionProp
                       {part.projecte === 'ADMIN' ? (
                         part.tasca || '-'
                       ) : (
-                        tasca?.servei || '-'
+                        tasca?.descripcio || tasca?.servei || '-'
                       )}
                     </td>
                     <td style={{ padding: '0.75rem' }}>

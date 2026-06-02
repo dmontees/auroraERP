@@ -182,7 +182,7 @@ export default function HistorialTab({
                     onClick={() => onDescarregarDocument(doc)}
                     style={{
                       padding: '0.25rem 0.5rem',
-                      background: '#3b82f6',
+                      background: 'var(--color-info)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
@@ -198,7 +198,7 @@ export default function HistorialTab({
                     onClick={() => onEliminarDocument(doc.id)}
                     style={{
                       padding: '0.25rem 0.5rem',
-                      background: '#dc2626',
+                      background: 'var(--color-error-dark)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',

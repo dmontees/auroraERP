@@ -43,21 +43,21 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
     return (
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-          <div style={{ padding: '1.25rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+          <div style={{ padding: '1.25rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid var(--color-info-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Briefcase size={18} style={{ color: '#1e40af' }} />
-              <span style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 600 }}>PROJECTES VINCULATS</span>
+              <Briefcase size={18} style={{ color: 'var(--color-info-dark)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-info-dark)', fontWeight: 600 }}>PROJECTES VINCULATS</span>
             </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#1e40af' }}>
+            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-info-dark)' }}>
               {historial.projectes.length}
             </div>
           </div>
-          <div style={{ padding: '1.25rem', background: '#f3f4f6', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <div style={{ padding: '1.25rem', background: '#f3f4f6', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <FileText size={18} style={{ color: '#6b7280' }} />
-              <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>PRESSUPOSTOS</span>
+              <FileText size={18} style={{ color: 'var(--color-text-secondary)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>PRESSUPOSTOS</span>
             </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#6b7280' }}>
+            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
               {historial.pressupostos.length}
             </div>
           </div>
@@ -83,7 +83,7 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
                       <td style={{ padding: '0.75rem', fontWeight: 500 }}>{projecte.codi}</td>
                       <td style={{ padding: '0.75rem' }}>{projecte.nom || projecte.titol || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>
-                        <span style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, background: '#dbeafe', color: '#1e40af' }}>
+                        <span style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, background: 'var(--color-info-bg)', color: 'var(--color-info-dark)' }}>
                           {projecte.estat?.toUpperCase() || 'ACTIU'}
                         </span>
                       </td>
@@ -116,7 +116,7 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
           padding: '1.25rem',
           background: '#f0f9ff',
           borderRadius: '8px',
-          border: '1px solid #bfdbfe'
+          border: '1px solid var(--color-info-border)'
         }}>
           <div style={{
             display: 'flex',
@@ -124,12 +124,12 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
-            <TrendingUp size={18} style={{ color: '#1e40af' }} />
-            <span style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 600 }}>
+            <TrendingUp size={18} style={{ color: 'var(--color-info-dark)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-info-dark)', fontWeight: 600 }}>
               TOTAL FACTURAT
             </span>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#1e40af' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-info-dark)' }}>
             {historial.totalFacturat.toFixed(2)}€
           </div>
         </div>
@@ -158,9 +158,9 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
 
         <div style={{
           padding: '1.25rem',
-          background: '#fef3c7',
+          background: 'var(--color-warning-bg)',
           borderRadius: '8px',
-          border: '1px solid #fde68a'
+          border: '1px solid var(--color-warning-border)'
         }}>
           <div style={{
             display: 'flex',
@@ -168,12 +168,12 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
-            <Briefcase size={18} style={{ color: '#92400e' }} />
-            <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 600 }}>
+            <Briefcase size={18} style={{ color: 'var(--color-warning-dark)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-warning-dark)', fontWeight: 600 }}>
               MITJANA FACTURA
             </span>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#92400e' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-warning-dark)' }}>
             {historial.mitjanaFactura.toFixed(2)}€
           </div>
         </div>
@@ -182,7 +182,7 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
           padding: '1.25rem',
           background: '#f3f4f6',
           borderRadius: '8px',
-          border: '1px solid #e5e7eb'
+          border: '1px solid var(--color-border)'
         }}>
           <div style={{
             display: 'flex',
@@ -190,12 +190,12 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
             gap: '0.5rem',
             marginBottom: '0.5rem'
           }}>
-            <Calendar size={18} style={{ color: '#6b7280' }} />
-            <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>
+            <Calendar size={18} style={{ color: 'var(--color-text-secondary)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
               ÚLTIMA FACTURA
             </span>
           </div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#6b7280' }}>
+          <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
             {historial.ultimaFactura
               ? new Date(historial.ultimaFactura).toLocaleDateString('ca-ES')
               : 'Cap'}
@@ -323,8 +323,8 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        background: pressupost.estat === 'acceptat' ? '#d1fae5' : '#f3f4f6',
-                        color: pressupost.estat === 'acceptat' ? '#065f46' : '#6b7280'
+                        background: pressupost.estat === 'acceptat' ? 'var(--color-success-bg)' : '#f3f4f6',
+                        color: pressupost.estat === 'acceptat' ? 'var(--color-success-dark)' : 'var(--color-text-secondary)'
                       }}>
                         {pressupost.estat.toUpperCase()}
                       </span>
@@ -389,8 +389,8 @@ export default function HistorialTab({ hook }: HistorialTabProps) {
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        background: '#dbeafe',
-                        color: '#1e40af'
+                        background: 'var(--color-info-bg)',
+                        color: 'var(--color-info-dark)'
                       }}>
                         {projecte.estat?.toUpperCase() || 'ACTIU'}
                       </span>
