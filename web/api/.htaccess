@@ -9,6 +9,13 @@
 # Evita llistat de directoris
 Options -Indexes
 
+# Evita acces directe als fitxers generats pels endpoints de backup/documents.
+# Els fitxers nomes s'han de llegir a traves de backup.php i pdf-sync.php.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(backups|pdfs)/ - [F,L]
+</IfModule>
+
 # Capçaleres de seguretat
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"

@@ -137,8 +137,15 @@ export function useWebSync(): WebSyncState {
     electronAPI.onAppWillClose(async () => {
       try {
         await syncToWeb(config.url, config.apiKey);
-        await syncDocuments(config.url, config.apiKey);
-        await uploadCloudBackup(config.url, config.apiKey);
+        const results = await Promise.allSettled([
+          syncDocuments(config.url, config.apiKey),
+          uploadCloudBackup(config.url, config.apiKey),
+        ]);
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            console.warn('[webSync] Error en tasca secundaria al tancar:', result.reason);
+          }
+        }
       } catch (e) {
         console.warn('[webSync] Error al tancar:', e);
       } finally {

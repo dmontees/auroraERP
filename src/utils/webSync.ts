@@ -4,6 +4,13 @@ export interface SyncResult {
   ok: boolean;
   synced_at: string;
   stats: Record<string, number>;
+  dry_run?: boolean;
+  sync_id?: string;
+  schema_version?: number | null;
+}
+
+interface SyncOptions {
+  dryRun?: boolean;
 }
 
 // ── Strip de contingut binari ─────────────────────────────────────────────────
@@ -41,10 +48,16 @@ function stripFacturesVenda(factures: any[]): any[] {
  * Sincronitza totes les dades estructurals al servidor web.
  * Exclou contingut binari (base64): el delta sync de documents s'encarrega de sincronitzar-los.
  */
-export async function syncToWeb(apiUrl: string, apiKey: string): Promise<SyncResult> {
-  const base = apiUrl.replace(/\/+$/, '');
+export function buildSyncPayload() {
+  const syncId = `aurora-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-  const payload = {
+  return {
+    _syncMeta: {
+      syncId,
+      appVersion: __APP_VERSION__,
+      dataSchemaVersion: storage.get('dataSchemaVersion'),
+      createdAt: new Date().toISOString(),
+    },
     clients:            storage.getClients(),
     proveidors:         stripProveidors(storage.getProveidors() as any[]),
     projectes:          stripProjectes(storage.getProjectes() as any[]),
@@ -53,8 +66,14 @@ export async function syncToWeb(apiUrl: string, apiKey: string): Promise<SyncRes
     obligacionsFiscals: storage.getObligacionsFiscals(),
     parametres:         storage.getParametres(),
   };
+}
 
-  const response = await fetch(`${base}/sync.php`, {
+export async function syncToWeb(apiUrl: string, apiKey: string, options: SyncOptions = {}): Promise<SyncResult> {
+  const base = apiUrl.replace(/\/+$/, '');
+  const endpoint = `${base}/sync.php${options.dryRun ? '?dryRun=1' : ''}`;
+  const payload = buildSyncPayload();
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -69,4 +88,8 @@ export async function syncToWeb(apiUrl: string, apiKey: string): Promise<SyncRes
   }
 
   return data as SyncResult;
+}
+
+export async function dryRunSyncToWeb(apiUrl: string, apiKey: string): Promise<SyncResult> {
+  return syncToWeb(apiUrl, apiKey, { dryRun: true });
 }

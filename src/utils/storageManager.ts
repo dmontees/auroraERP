@@ -7,6 +7,8 @@ import type { Pressupost } from '../types/pressupost';
 import type { CronometreState, PartTreball } from '../types/partTreball';
 import type { AlbaraCompra } from '../types/albara';
 
+const DATA_SCHEMA_VERSION = 5;
+
 // Tipos para el store
 export interface StoreSchema {
   clients: Client[];
@@ -32,6 +34,7 @@ export interface StoreSchema {
   partsTreball: PartTreball[];
   cronometre: CronometreState | null;
   version: string;
+  dataSchemaVersion: number;
   migrationCompleted?: boolean;
   settings: {
     nombre: string;
@@ -169,7 +172,8 @@ class StorageManager {
           { codi: 'SUPORT', nom: 'Suport tècnic', color: '#6366f1' }
         ]
       },
-      version: '1.0.1',
+      version: __APP_VERSION__,
+      dataSchemaVersion: DATA_SCHEMA_VERSION,
       migrationCompleted: false
     };
     
@@ -683,7 +687,9 @@ class StorageManager {
       partsTreball: this.getPartsTreball(),
       cronometre: this.getCronometre(),
       settings: this.getSettings(),
-      esdevenimentsPersonalitzats: this.getEsdevenimentsPersonalitzats()
+      esdevenimentsPersonalitzats: this.getEsdevenimentsPersonalitzats(),
+      version: this.get('version'),
+      dataSchemaVersion: this.get('dataSchemaVersion')
     };
   }
 

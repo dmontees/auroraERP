@@ -35,6 +35,11 @@ ini_set('memory_limit', '256M');
 ini_set('max_execution_time', '120');
 
 $data = getJsonBody();
+$dryRun = isset($_GET['dryRun']) && $_GET['dryRun'] === '1';
+$syncMeta = isset($data['_syncMeta']) && is_array($data['_syncMeta']) ? $data['_syncMeta'] : [];
+$syncIdRaw = (string)($syncMeta['syncId'] ?? uniqid('sync_', true));
+$syncId = preg_replace('/[^A-Za-z0-9_.:-]/', '', $syncIdRaw);
+$clientSchemaVersion = isset($syncMeta['dataSchemaVersion']) ? (int)$syncMeta['dataSchemaVersion'] : null;
 
 $pdo = db();
 $pdo->beginTransaction();
@@ -289,7 +294,7 @@ try {
                 safeFloat($f['totalGasto']      ?? 0),
                 safeFloat($f['totalPagat']      ?? 0),
                 safeFloat($f['pendentPagament'] ?? 0),
-                boolToInt($f['esDesepsaGeneral'] ?? false),
+                boolToInt($f['esDepesaGeneral'] ?? $f['esDesepsaGeneral'] ?? false),
                 json_encode($stripped, JSON_UNESCAPED_UNICODE),
             ];
         }
@@ -342,22 +347,31 @@ try {
     // Actualitza el log de sincronització
     // =========================================================================
     $now = date('Y-m-d H:i:s');
-    $ip  = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    foreach ($stats as $entitat => $total) {
-        $pdo->prepare(
-            'INSERT INTO aurora_sync_log (entitat, total_registres, synced_at, synced_by)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE total_registres = VALUES(total_registres),
-             synced_at = VALUES(synced_at), synced_by = VALUES(synced_by)'
-        )->execute([$entitat, $total, $now, $ip]);
+    if (!$dryRun) {
+        $ip  = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        foreach ($stats as $entitat => $total) {
+            $pdo->prepare(
+                'INSERT INTO aurora_sync_log (entitat, total_registres, synced_at, synced_by)
+                 VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE total_registres = VALUES(total_registres),
+                 synced_at = VALUES(synced_at), synced_by = VALUES(synced_by)'
+            )->execute([$entitat, $total, $now, $ip]);
+        }
     }
 
-    $pdo->commit();
+    if ($dryRun) {
+        $pdo->rollBack();
+    } else {
+        $pdo->commit();
+    }
 
     respond([
-        'ok'        => true,
-        'synced_at' => $now,
-        'stats'     => $stats,
+        'ok'             => true,
+        'dry_run'        => $dryRun,
+        'sync_id'        => $syncId,
+        'schema_version' => $clientSchemaVersion,
+        'synced_at'      => $now,
+        'stats'          => $stats,
     ]);
 
 } catch (Throwable $e) {

@@ -3,6 +3,43 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Initialize electron-store with error handling — if it fails, IPC-based features
 // (window.electron) must still be exposed so the app doesn't degrade to web mode.
 let store = null;
+const ALLOWED_STORE_KEYS = new Set([
+  'clients',
+  'proveidors',
+  'projectes',
+  'facturesVenda',
+  'facturesCompra',
+  'pressupostos',
+  'obligacionsFiscals',
+  'albaransCompra',
+  'navigateTo',
+  'parametres',
+  'partsTreball',
+  'cronometre',
+  'settings',
+  'esdevenimentsPersonalitzats',
+  'googleCalendarToken',
+  'webSyncConfig',
+  'verifactuConfig',
+  'verifactuCertificatP12',
+  'lastCloudBackup',
+  'version',
+  'dataSchemaVersion',
+  'migrationCompleted',
+  'migrationV2Completed',
+  'migrationV3Completed',
+  'migrationV4Completed',
+  'migrationV5Completed'
+]);
+
+function isAllowedStoreKey(key) {
+  const allowed = ALLOWED_STORE_KEYS.has(String(key));
+  if (!allowed) {
+    console.warn('âš ï¸  electronStore key rebutjada:', key);
+  }
+  return allowed;
+}
+
 try {
   const Store = require('electron-store');
   store = new Store({
@@ -26,7 +63,8 @@ try {
         plantilles: []
       },
       partsTreball: [],
-      version: '1.4.4',
+      version: '3.0.1',
+      dataSchemaVersion: 5,
       migrationCompleted: false
     }
   });
@@ -39,13 +77,11 @@ try {
 
 // Expose electron-store API (null-safe — returns undefined if store is unavailable)
 contextBridge.exposeInMainWorld('electronStore', {
-  get: (key) => store ? store.get(key) : undefined,
-  set: (key, value) => store ? store.set(key, value) : undefined,
-  delete: (key) => store ? store.delete(key) : undefined,
-  clear: () => store ? store.clear() : undefined,
+  get: (key) => store && isAllowedStoreKey(key) ? store.get(key) : undefined,
+  set: (key, value) => store && isAllowedStoreKey(key) ? store.set(key, value) : undefined,
+  delete: (key) => store && isAllowedStoreKey(key) ? store.delete(key) : undefined,
   getPath: () => store ? store.path : undefined,
   has: (key) => store ? store.has(key) : false,
-  store: () => store ? store.store : undefined,
   isAvailable: () => store !== null
 });
 
@@ -73,7 +109,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // Store utilities
   getStorePath: () => ipcRenderer.invoke('get-store-path'),
-  exportAllData: () => ipcRenderer.invoke('export-all-data'),
+  exportCloudBackupData: () => ipcRenderer.invoke('export-cloud-backup-data'),
   importData: (data) => ipcRenderer.invoke('import-data', data),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 

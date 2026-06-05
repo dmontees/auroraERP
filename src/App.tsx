@@ -1,28 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import auroraIcon from '../build/icon_A.png';
 import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, BadgePlus, Settings, Scale, Cloud, CloudOff, Sun, Moon } from 'lucide-react';
 import { useWebSync } from './hooks/useWebSync';
 import WebSyncModal from './components/common/WebSyncModal';
-import Dashboard from './components/dashboard/Dashboard';
-import ProjectesSection from './components/projectes/ProjectesSection';
-import ParametresSection from './components/parametres/ParametresPage';
-import PartsTreballSection from './components/parts-treball/PartsTreballSection';
 import CronometreWidget from './components/parts-treball/CronometreWidget';
 import CronometreModal from './components/parts-treball/CronometreModal';
-import ClientsSection from './components/clients/ClientsSection';
-import ProveidorsSection from './components/proveidors/ProveidorsSection';
-import PressupostosSection from './components/pressupostos/PressupostosSection';
-import FacturesCompraSection from './components/factures-compra/FacturesCompraSection';
-import GestioFiscalSection from './components/gestio-fiscal/GestioFiscalSection';
-import FacturesVendaSection from './components/factures-venda/FacturesVendaSection';
-import CalendarSection from './components/calendar/CalendarSection';
-import ResultatsSection from './components/resultats/ResultatsSection';
 import UpdateNotification from './components/common/UpdateNotification';
-import SettingsModal, { type CompanySettings } from './components/common/SettingsModal';
+import type { CompanySettings } from './components/common/SettingsModal';
 import type { Client } from './types/client';
 import { migrateFacturesVendaTipus } from './utils/migrateFacturesVenda';
 import { storage } from './utils/storageManager';
 import './App.css';
+
+const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
+const ProjectesSection = lazy(() => import('./components/projectes/ProjectesSection'));
+const ParametresSection = lazy(() => import('./components/parametres/ParametresPage'));
+const PartsTreballSection = lazy(() => import('./components/parts-treball/PartsTreballSection'));
+const ClientsSection = lazy(() => import('./components/clients/ClientsSection'));
+const ProveidorsSection = lazy(() => import('./components/proveidors/ProveidorsSection'));
+const PressupostosSection = lazy(() => import('./components/pressupostos/PressupostosSection'));
+const FacturesCompraSection = lazy(() => import('./components/factures-compra/FacturesCompraSection'));
+const GestioFiscalSection = lazy(() => import('./components/gestio-fiscal/GestioFiscalSection'));
+const FacturesVendaSection = lazy(() => import('./components/factures-venda/FacturesVendaSection'));
+const CalendarSection = lazy(() => import('./components/calendar/CalendarSection'));
+const ResultatsSection = lazy(() => import('./components/resultats/ResultatsSection'));
+const SettingsModal = lazy(() => import('./components/common/SettingsModal'));
 
 type Section = 'dashboard' | 'clients' | 'proveidors' | 'projectes' | 'pressupostos' |
                'factures-venda' | 'factures-compra' | 'gestio-fiscal' | 'resultats' |
@@ -64,6 +66,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showCronometreModal, setShowCronometreModal] = useState(false);
   const [showWebSync, setShowWebSync] = useState(false);
+  const [appVersion, setAppVersion] = useState(__APP_VERSION__);
   const [theme, setTheme] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('aurora-theme') as 'light' | 'dark') || 'light'
   );
@@ -82,7 +85,7 @@ function App() {
 
   // Ejecutar migraciones al inicio
   useEffect(() => {
-    console.log('🚀 Iniciando Aurora ERP v3.0.0...');
+    console.log(`🚀 Iniciando Aurora ERP v${__APP_VERSION__}...`);
     
     try {
       // 1. Migrar de localStorage a electron-store (solo una vez)
@@ -101,6 +104,18 @@ function App() {
     } catch (error) {
       console.error('❌ Error durante la inicialización:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    const electronAPI = (window as any).electron;
+    if (!electronAPI?.getAppVersion) return;
+    electronAPI.getAppVersion()
+      .then((version: string) => {
+        if (version) setAppVersion(version);
+      })
+      .catch(() => {
+        // En web dev mantenim la versio injectada per Vite.
+      });
   }, []);
 
   // Cargar configuración y clientes
@@ -233,7 +248,7 @@ function App() {
 
           {/* Versió */}
           <div className="footer-info" style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-            <p className="footer-text">v3.0.0</p>
+            <p className="footer-text">v{appVersion}</p>
             <p className="footer-subtext">Aurora ERP</p>
           </div>
 
@@ -277,28 +292,32 @@ function App() {
           </div>
         </header>
 
-        <div className="content-body">
-          {activeSection === 'dashboard' && <Dashboard />}
-          {activeSection === 'projectes' && <ProjectesSection />}
-          {activeSection === 'clients' && <ClientsSection />}
-          {activeSection === 'proveidors' && <ProveidorsSection />}
-          {activeSection === 'pressupostos' && <PressupostosSection />}
-          {activeSection === 'factures-venda' && <FacturesVendaSection />}
-          {activeSection === 'factures-compra' && <FacturesCompraSection />}
-          {activeSection === 'gestio-fiscal' && <GestioFiscalSection />}
-          {activeSection === 'resultats' && <ResultatsSection />}
-          {activeSection === 'calendari' && <CalendarSection />}
-          {activeSection === 'parametres' && <ParametresSection />}
-          {activeSection === 'parts-treball' && <PartsTreballSection clients={clients} />}
-        </div>
+        <Suspense fallback={<div className="content-body"><div className="placeholder-card">Carregant...</div></div>}>
+          <div className="content-body">
+            {activeSection === 'dashboard' && <Dashboard />}
+            {activeSection === 'projectes' && <ProjectesSection />}
+            {activeSection === 'clients' && <ClientsSection />}
+            {activeSection === 'proveidors' && <ProveidorsSection />}
+            {activeSection === 'pressupostos' && <PressupostosSection />}
+            {activeSection === 'factures-venda' && <FacturesVendaSection />}
+            {activeSection === 'factures-compra' && <FacturesCompraSection />}
+            {activeSection === 'gestio-fiscal' && <GestioFiscalSection />}
+            {activeSection === 'resultats' && <ResultatsSection />}
+            {activeSection === 'calendari' && <CalendarSection />}
+            {activeSection === 'parametres' && <ParametresSection />}
+            {activeSection === 'parts-treball' && <PartsTreballSection clients={clients} />}
+          </div>
+        </Suspense>
       </main>
  
       {showSettings && (
-        <SettingsModal
-          settings={settings}
-          onSave={saveSettings}
-          onClose={() => setShowSettings(false)}
-        />
+        <Suspense fallback={null}>
+          <SettingsModal
+            settings={settings}
+            onSave={saveSettings}
+            onClose={() => setShowSettings(false)}
+          />
+        </Suspense>
       )}
 
       {showWebSync && (

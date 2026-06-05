@@ -288,7 +288,7 @@ export default function WebSyncModal({ status, lastSync, error, onSync, onClose,
                 </span>
               </div>
               <p style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', margin: '0.4rem 0 0', fontStyle: 'italic' }}>
-                PDFs de compres, documents de projectes i imatges. Només es pugen els que han canviat.
+                Opcional: PDFs de compres, documents de projectes i imatges. Només es pugen els que han canviat.
               </p>
             </div>
           )}
@@ -331,7 +331,7 @@ export default function WebSyncModal({ status, lastSync, error, onSync, onClose,
                 </p>
               )}
               <p style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginTop: '0.5rem', marginBottom: 0, fontStyle: 'italic' }}>
-                La còpia es guarda automàticament a cada sincronització. Serveix per recuperar les dades si es fa malbé l'ordinador.
+                La còpia guarda les dades principals sense PDFs, imatges ni credencials. Es desa automàticament a cada sincronització i no depèn dels documents.
               </p>
             </div>
           )}

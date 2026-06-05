@@ -18,7 +18,7 @@ Aurora ERP is an Electron-based ERP system for audiovisual production management
 - **Data Persistence**: electron-store (with localStorage fallback for web dev)
 - **UI Icons**: lucide-react
 - **Exports**: jsPDF, jsPDF-AutoTable, XLSX, file-saver, jszip
-- **Version**: 1.0.1
+- **Version**: 3.0.1
 
 ## Build & Development Commands
 
@@ -75,7 +75,7 @@ All defined in src/types/:
 
 - **Client**: Commercial entity with VAT type, retention %, special tariffs per service/unit, contacts
 - **Proveidor**: Supplier/freelancer with category, pricing, contact details
-- **Projecte**: Production project with state machine (esborrany → planificat → en_curs → post_produccio → entregat → facturat). Tracks human resources, materials, tasks, financials, and audit trail
+- **Projecte**: Production project with state machine (esborrany → planificat → rodatge → edicio → esperant_feedback → revisio → acabat → facturat). Tracks human resources, materials, tasks, financials, and audit trail
 - **FacturaVenta**: Sales invoice with support for rectificatives (normal vs rectificativa type)
 - **FacturaCompra**: Purchase invoice with optional PDF upload, payment tracking, expense categorization
 - **Pressupost**: Budget document structured by task categories
@@ -141,7 +141,7 @@ Each section typically includes:
 - Manages backup/restore (every 30s, on close)
 - Auto-updater (GitHub releases)
 - Opens DevTools in dev mode
-- IPC handlers: install-update, get-app-version, get-store-path, export-all-data, import-data
+- IPC handlers: install-update, get-app-version, get-store-path, export-cloud-backup-data, import-data
 
 **Preload Script** (electron/preload.js):
 - Exposes window.electronStore API (get, set, delete, getPath)
@@ -178,7 +178,8 @@ Each section typically includes:
 ### Updating Version
 
 - Change version in package.json
-- Update App.tsx footer and electron store defaults if needed
+- App.tsx reads the visible version from Electron (`getAppVersion`) or Vite's `__APP_VERSION__`; do not hardcode the footer version.
+- Keep `dataSchemaVersion` separate from the user-facing app version. Do not use app version strings to decide data migrations.
 - Create GitHub release with matching tag
 
 ## Notable Implementation Details
@@ -189,7 +190,7 @@ Each section typically includes:
 
 **Rectificative Invoices**: Sales invoices have tipus field (normal | rectificativa); rectificatives reference original via facturaRectificada; include motivoRectificativa.
 
-**Project State Machine**: Transitions esborrany → planificat → en_curs → post_produccio → entregat → facturat; each change logged in projecte.historial.
+**Project State Machine**: Transitions esborrany → planificat → rodatge → edicio → esperant_feedback → revisio → acabat → facturat; each change logged in projecte.historial.
 
 **Financial Reports**: resultats/ aggregates all projects, invoices, purchases; calculates revenue, costs, gross profit, ROI; exports to Excel and PDF.
 
@@ -223,4 +224,3 @@ Each section typically includes:
 - Requires `permissions: contents: write` at workflow level for GITHUB_TOKEN to create releases.
 - Use `npm install` (not `npm ci`) — `package-lock.json` is in `.gitignore`.
 - Set `CSC_IDENTITY_AUTO_DISCOVERY: "false"` on the Mac build step to prevent the runner from applying an invalid ad-hoc signature.
-

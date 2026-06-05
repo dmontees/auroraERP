@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { storage } from '../../utils/storageManager';
 import { Settings, X, Film, Upload, Trash2, RefreshCw, CheckCircle, ShieldCheck, ShieldOff, KeyRound } from 'lucide-react';
 import { carregarCertificatP12, oblidarCertificat, obtenirInfoCertificat } from '../../utils/verifactuFirma';
+import { normalizeBackupForImport } from '../../utils/backupImport';
 import * as XLSX from 'xlsx';
 import {
   importCategories,
@@ -37,6 +38,8 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentImportType, setCurrentImportType] = useState<string>('');
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>('idle');
+  const [storePath, setStorePath] = useState<string | null>(null);
+  const [isImportingBackup, setIsImportingBackup] = useState(false);
   const [verifactuEnabled, setVerifactuEnabled] = useState<boolean>(
     () => storage.getVerifactuConfig()?.enabled ?? false
   );
@@ -71,6 +74,34 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
     return () => {
       window.removeEventListener('aurora:update-not-available', onNotAvailable);
       window.removeEventListener('aurora:update-available', onAvailable);
+    };
+  }, []);
+
+  useEffect(() => {
+    const api = (window as any).electron;
+    if (!api?.getStorePath) return;
+    api.getStorePath()
+      .then((path: string) => setStorePath(path))
+      .catch(() => setStorePath(null));
+  }, []);
+
+  const dataHealth = useMemo(() => {
+    const lastCloudBackup = storage.getLastCloudBackup();
+    const facturesCompra = storage.get('facturesCompra').filter(f => f.tipus !== 'obligacio-fiscal');
+    return {
+      schemaVersion: storage.get('dataSchemaVersion'),
+      lastCloudBackup,
+      counts: [
+        { label: 'Clients', value: storage.getClients().length },
+        { label: 'Proveidors', value: storage.getProveidors().length },
+        { label: 'Projectes', value: storage.getProjectes().length },
+        { label: 'Factures venda', value: storage.getFacturesVenda().length },
+        { label: 'Factures compra', value: facturesCompra.length },
+        { label: 'Pressupostos', value: storage.getPressupostos().length },
+        { label: 'Obligacions fiscals', value: storage.getObligacionsFiscals().length },
+        { label: 'Parts treball', value: storage.getPartsTreball().length },
+        { label: 'Albarans compra', value: storage.get('albaransCompra').length },
+      ],
     };
   }, []);
 
@@ -302,41 +333,47 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
 
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    const input = e.currentTarget;
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         try {
-          const backup = JSON.parse(event.target?.result as string);
-          let importedCount = 0;
-
-          // Format nou (objectes ja parsejats)
-          if (backup.clients !== undefined) { storage.setClients(backup.clients); importedCount++; }
-          if (backup.proveidors !== undefined) { storage.setProveidors(backup.proveidors); importedCount++; }
-          if (backup.projectes !== undefined) { storage.setProjectes(backup.projectes); importedCount++; }
-          if (backup.facturesVenda !== undefined) { storage.setFacturesVenda(backup.facturesVenda); importedCount++; }
-          if (backup.facturesCompra !== undefined) { storage.setFacturesCompra(backup.facturesCompra); importedCount++; }
-          if (backup.pressupostos !== undefined) { storage.setPressupostos(backup.pressupostos); importedCount++; }
-          if (backup.parametres !== undefined) { storage.setParametres(backup.parametres); importedCount++; }
-          if (backup.partsTreball !== undefined) { storage.setPartsTreball(backup.partsTreball); importedCount++; }
-          if (backup.settings !== undefined) { storage.setSettings(backup.settings); importedCount++; }
-
-          // Format antic (strings JSON amb prefix platea, per compatibilitat)
-          if (!importedCount) {
-            if (backup.plateaClients) { storage.setClients(JSON.parse(backup.plateaClients)); importedCount++; }
-            if (backup.plateaProveidors) { storage.setProveidors(JSON.parse(backup.plateaProveidors)); importedCount++; }
-            if (backup.plateaProjectes) { storage.setProjectes(JSON.parse(backup.plateaProjectes)); importedCount++; }
-            if (backup.plateaFacturesVenda) { storage.setFacturesVenda(JSON.parse(backup.plateaFacturesVenda)); importedCount++; }
-            if (backup.plateaFacturesCompra) { storage.setFacturesCompra(JSON.parse(backup.plateaFacturesCompra)); importedCount++; }
-            if (backup.plateaPressupostos) { storage.setPressupostos(JSON.parse(backup.plateaPressupostos)); importedCount++; }
-            if (backup.plateaParametres) { storage.setParametres(JSON.parse(backup.plateaParametres)); importedCount++; }
-            if (backup.plateaPartsTreball) { storage.setPartsTreball(JSON.parse(backup.plateaPartsTreball)); importedCount++; }
-            if (backup.plateaErpSettings) { storage.setSettings(JSON.parse(backup.plateaErpSettings)); importedCount++; }
+          if (!confirm('Aquesta importacio substituirà les dades actuals pels continguts del fitxer. Es creara una copia local abans de restaurar si estas en Electron. Vols continuar?')) {
+            return;
           }
 
-          alert(`✅ Còpia de seguretat importada correctament.\n\n${importedCount} mòduls restaurats.\n\nLa pàgina es recarregarà ara.`);
+          setIsImportingBackup(true);
+          const backup = JSON.parse(event.target?.result as string);
+          const normalized = normalizeBackupForImport(backup);
+          const api = (window as any).electron;
+          let preImportBackup: string | null | undefined;
+          let ignoredKeys = normalized.ignoredKeys;
+          let importedKeys = normalized.importedKeys;
+
+          if (api?.importData) {
+            const result = await api.importData(normalized.data);
+            if (!result?.success) {
+              throw new Error(result?.error || 'No sha pogut importar la copia de seguretat');
+            }
+            importedKeys = result.importedKeys ?? importedKeys;
+            ignoredKeys = [...ignoredKeys, ...(result.ignoredKeys ?? [])];
+            preImportBackup = result.preImportBackup;
+          } else {
+            Object.entries(normalized.data).forEach(([key, value]) => {
+              storage.set(key as any, value as any);
+            });
+          }
+
+          const ignoredText = ignoredKeys.length ? `\n\nClaus ignorades: ${ignoredKeys.join(', ')}` : '';
+          const snapshotText = preImportBackup ? `\n\nSnapshot previ: ${preImportBackup}` : '';
+          alert(`Copia de seguretat importada correctament.\n\n${importedKeys.length} moduls restaurats.${snapshotText}${ignoredText}\n\nLa pagina es recarregara ara.`);
           window.location.reload();
         } catch (error) {
-          alert('❌ Error al importar la còpia de seguretat.\n\nAssegura\'t que el fitxer és vàlid.');
+          const message = error instanceof Error ? error.message : String(error);
+          alert(`Error al importar la copia de seguretat.\n\n${message}`);
+        } finally {
+          setIsImportingBackup(false);
+          input.value = '';
         }
       };
       reader.readAsText(file);
@@ -500,6 +537,54 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
               </div>
             )}
 
+            {/* Salut de dades */}
+            <div className="form-section">
+              <h3>Salut de dades</h3>
+              <div style={{
+                border: '1px solid var(--color-border)',
+                borderRadius: '8px',
+                padding: '1rem',
+                background: 'var(--color-bg-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.65rem' }}>
+                  {dataHealth.counts.map(item => (
+                    <div key={item.label} style={{
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '6px',
+                      padding: '0.65rem 0.75rem',
+                      background: 'var(--color-bg-primary)',
+                    }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginBottom: '0.2rem' }}>
+                        {item.label}
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.6rem', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
+                  <div>
+                    <strong style={{ color: 'var(--color-text-primary)' }}>Schema dades:</strong> {dataHealth.schemaVersion}
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--color-text-primary)' }}>Ultima copia nuvol:</strong> {dataHealth.lastCloudBackup || 'Mai'}
+                  </div>
+                </div>
+
+                {storePath && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-tertiary)' }}>
+                    <strong style={{ color: 'var(--color-text-secondary)' }}>Fitxer local:</strong>{' '}
+                    <code style={{ wordBreak: 'break-all' }}>{storePath}</code>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Importar Dades */}
             <div className="form-section">
               <details style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
@@ -572,9 +657,9 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                   </button>
 
                   <div>
-                    <input type="file" id="import-backup" accept=".json" style={{ display: 'none' }} onChange={handleImportBackup} />
-                    <label htmlFor="import-backup" className="btn-secondary" style={{ width: '100%', textAlign: 'center', cursor: 'pointer', display: 'block' }}>
-                      📥 Importar còpia de seguretat
+                    <input type="file" id="import-backup" accept=".json" style={{ display: 'none' }} onChange={handleImportBackup} disabled={isImportingBackup} />
+                    <label htmlFor="import-backup" className="btn-secondary" style={{ width: '100%', textAlign: 'center', cursor: isImportingBackup ? 'not-allowed' : 'pointer', display: 'block', opacity: isImportingBackup ? 0.65 : 1 }}>
+                      {isImportingBackup ? 'Important copia...' : '📥 Importar còpia de seguretat'}
                     </label>
                   </div>
 

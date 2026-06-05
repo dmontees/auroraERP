@@ -5,6 +5,30 @@ export interface BackupUploadResult {
   sizeKb: number;
 }
 
+const BACKUP_TIMEOUT_MS = 45000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = BACKUP_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Temps esgotat guardant la copia al nuvol. Comprova el servidor i torna-ho a provar.');
+    }
+    if (error instanceof TypeError) {
+      throw new Error('No es pot connectar amb backup.php. Comprova la URL de l\'API i que el fitxer estigui desplegat a /api.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+async function readJsonResponse(res: Response): Promise<any> {
+  return res.json().catch(() => ({}));
+}
+
 // ── Strip de binaris ──────────────────────────────────────────────────────────
 // El backup NO inclou contingut base64: els documents estan sincronitzats
 // al servidor via pdf-sync.php i es restauren per separat.
@@ -12,11 +36,24 @@ export interface BackupUploadResult {
 // després de cada sync sense impacte de xarxa.
 
 function stripBinaries(data: Record<string, any>): Record<string, any> {
+  const sensitiveKeys = new Set([
+    'googleCalendarToken',
+    'verifactuCertificatP12',
+  ]);
+
   const strip = (obj: any): any => {
     if (Array.isArray(obj)) return obj.map(strip);
     if (obj && typeof obj === 'object') {
       const out: any = {};
       for (const [k, v] of Object.entries(obj)) {
+        // No pugem secrets reutilitzables al backup cloud.
+        if (sensitiveKeys.has(k)) continue;
+        if (k === 'webSyncConfig' && v && typeof v === 'object') {
+          const { apiKey, ...safeConfig } = v as Record<string, any>;
+          void apiKey;
+          out[k] = strip(safeConfig);
+          continue;
+        }
         // Camps que contenen base64 de documents
         if (['fitxer', 'imatgePerfil', 'imatgeReferencia', 'documentPDF'].includes(k)) continue;
         // El PDF generat de factura de venda es regenera des de les dades
@@ -42,8 +79,8 @@ export async function uploadCloudBackup(apiUrl: string, apiKey: string): Promise
 
   // Obtenir totes les dades estructurals
   const electronAPI = (window as any).electron;
-  const raw: any = electronAPI?.exportAllData
-    ? await electronAPI.exportAllData()
+  const raw: any = electronAPI?.exportCloudBackupData
+    ? await electronAPI.exportCloudBackupData()
     : gatherDataWeb();
 
   // Strip de binaris + metadades de backup
@@ -51,12 +88,12 @@ export async function uploadCloudBackup(apiUrl: string, apiKey: string): Promise
     _backupMeta: {
       version:       __APP_VERSION__,
       createdAt:     new Date().toISOString(),
-      hasServerDocs: true,
+      hasServerDocs: false,
     },
     ...stripBinaries(raw),
   };
 
-  const response = await fetch(`${base}/backup.php`, {
+  const response = await fetchWithTimeout(`${base}/backup.php`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -65,8 +102,10 @@ export async function uploadCloudBackup(apiUrl: string, apiKey: string): Promise
     body: JSON.stringify(payload),
   });
 
-  const result = await response.json();
-  if (!response.ok) throw new Error((result as any).error ?? `Error ${response.status}`);
+  const result = await readJsonResponse(response);
+  if (!response.ok) {
+    throw new Error((result as any).error ?? `Error ${response.status} guardant la copia al nuvol`);
+  }
 
   const savedAt = (result as any).saved_at as string;
   storage.setLastCloudBackup(savedAt);
@@ -77,14 +116,14 @@ export async function uploadCloudBackup(apiUrl: string, apiKey: string): Promise
 
 export async function downloadCloudBackup(apiUrl: string, apiKey: string): Promise<any> {
   const base = apiUrl.replace(/\/+$/, '');
-  const response = await fetch(`${base}/backup.php`, {
+  const response = await fetchWithTimeout(`${base}/backup.php`, {
     headers: { 'Authorization': `Bearer ${apiKey}` },
   });
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
+    const err = await readJsonResponse(response);
     throw new Error((err as any).error ?? `Error ${response.status}`);
   }
-  return response.json();
+  return readJsonResponse(response);
 }
 
 /**
@@ -99,13 +138,16 @@ export async function restoreFromBackup(data: any): Promise<void> {
 
   const electronAPI = (window as any).electron;
   if (electronAPI?.importData) {
-    await electronAPI.importData(storeData);
+    const result = await electronAPI.importData(storeData);
+    if (!result?.success) {
+      throw new Error(result?.error ?? 'No s\'han pogut importar les dades restaurades');
+    }
   } else {
     const knownKeys = [
       'clients', 'proveidors', 'projectes', 'facturesVenda', 'facturesCompra',
       'pressupostos', 'obligacionsFiscals', 'partsTreball', 'parametres',
       'webSyncConfig', 'verifactuConfig', 'verifactuCertificatP12',
-      'albaransCompra', 'settings',
+      'albaransCompra', 'settings', 'version', 'dataSchemaVersion',
     ];
     knownKeys.forEach(key => {
       if (storeData[key] !== undefined) {

@@ -17,6 +17,33 @@ export interface PdfSyncResult {
   deleted: number;
 }
 
+const REQUEST_TIMEOUT_MS = 45000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const previousSignal = init.signal;
+  if (previousSignal) {
+    previousSignal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Temps esgotat sincronitzant documents. Comprova la connexio i el servidor.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  const err = await res.json().catch(() => ({}));
+  return (err as any).error ?? fallback;
+}
+
 // ── Fingerprint ──────────────────────────────────────────────────────────────
 
 // Hash ràpid: primer + darrer 8 KB del base64 + longitud.
@@ -73,33 +100,42 @@ function collectLocalDocs(): LocalDoc[] {
 
 async function fetchManifest(base: string, apiKey: string): Promise<ServerManifest> {
   try {
-    const res = await fetch(`${base}/pdf-sync.php`, {
+    const res = await fetchWithTimeout(`${base}/pdf-sync.php`, {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
-    if (!res.ok) return {};
+    if (res.status === 404) {
+      throw new Error('No s\'ha trobat /pdf-sync.php al servidor. El backup de dades funcionara igual, pero els documents no es poden pujar fins que aquest fitxer estigui desplegat a /api.');
+    }
+    if (!res.ok) {
+      throw new Error(await readError(res, `Error ${res.status} llegint el manifest de documents`));
+    }
     return res.json();
-  } catch { return {}; }
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error('No es pot connectar amb /pdf-sync.php. Comprova la URL de l\'API i el servidor.');
+    }
+    throw error;
+  }
 }
 
 async function uploadDoc(base: string, apiKey: string, doc: LocalDoc, hash: string): Promise<void> {
-  const res = await fetch(`${base}/pdf-sync.php`, {
+  const res = await fetchWithTimeout(`${base}/pdf-sync.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({ key: doc.key, name: doc.name, hash, data: doc.base64 }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? `Error ${res.status} pujant ${doc.key}`);
+    throw new Error(await readError(res, `Error ${res.status} pujant ${doc.key}`));
   }
 }
 
 async function deleteDoc(base: string, apiKey: string, key: string): Promise<void> {
-  const res = await fetch(`${base}/pdf-sync.php?key=${encodeURIComponent(key)}`, {
+  const res = await fetchWithTimeout(`${base}/pdf-sync.php?key=${encodeURIComponent(key)}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${apiKey}` },
   });
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Error ${res.status} esborrant ${key}`);
+    throw new Error(await readError(res, `Error ${res.status} esborrant ${key}`));
   }
 }
 
@@ -146,7 +182,13 @@ export async function syncDocuments(apiUrl: string, apiKey: string): Promise<Pdf
 // S'ha de cridar DESPRÉS de restaurar el JSON principal (cloudBackup).
 export async function downloadAndRestoreDocuments(apiUrl: string, apiKey: string): Promise<void> {
   const base = apiUrl.replace(/\/+$/, '');
-  const manifest = await fetchManifest(base, apiKey);
+  let manifest: ServerManifest;
+  try {
+    manifest = await fetchManifest(base, apiKey);
+  } catch (error) {
+    console.warn('[pdfSync] No s\'han pogut restaurar documents opcionals:', error);
+    return;
+  }
   if (Object.keys(manifest).length === 0) return;
 
   const projectes = storage.getProjectes() as any[];
@@ -155,7 +197,7 @@ export async function downloadAndRestoreDocuments(apiUrl: string, apiKey: string
 
   for (const key of Object.keys(manifest)) {
     try {
-      const res = await fetch(`${base}/pdf-sync.php?key=${encodeURIComponent(key)}`, {
+      const res = await fetchWithTimeout(`${base}/pdf-sync.php?key=${encodeURIComponent(key)}`, {
         headers: { 'Authorization': `Bearer ${apiKey}` },
       });
       if (!res.ok) continue;

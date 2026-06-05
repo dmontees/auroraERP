@@ -3,11 +3,46 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
+const {
+  GITHUB_RELEASES_API,
+  compareSemver,
+  isNewer,
+  parseSemver,
+  selectMacDmgAsset
+} = require('./updater-utils.cjs');
 
 let backupInterval = null;
 let mainWindow = null;
 let pendingUpdateInfo = null; // cache per si el renderer no estava llest quan va arribar l'event
 let isQuitting = false;       // flag per al tancament controlat via sync
+
+const IMPORT_DATA_ALLOWED_KEYS = new Set([
+  'clients',
+  'proveidors',
+  'projectes',
+  'facturesVenda',
+  'facturesCompra',
+  'pressupostos',
+  'obligacionsFiscals',
+  'albaransCompra',
+  'parametres',
+  'partsTreball',
+  'cronometre',
+  'settings',
+  'esdevenimentsPersonalitzats',
+  'googleCalendarToken',
+  'webSyncConfig',
+  'verifactuConfig',
+  'verifactuCertificatP12',
+  'lastCloudBackup',
+  'version',
+  'dataSchemaVersion',
+  'migrationCompleted',
+  'migrationV2Completed',
+  'migrationV3Completed',
+  'migrationV4Completed',
+  'migrationV5Completed'
+]);
 
 // Inicializar electron-store
 const store = new Store({
@@ -31,7 +66,8 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '1.3.0',
+    version: '3.0.1',
+    dataSchemaVersion: 5,
     migrationCompleted: false
   },
   // Opcional: schema validation
@@ -39,7 +75,8 @@ const store = new Store({
     clients: { type: 'array' },
     facturesVenda: { type: 'array' },
     projectes: { type: 'array' },
-    version: { type: 'string' }
+    version: { type: 'string' },
+    dataSchemaVersion: { type: 'number' }
   }
 });
 
@@ -137,19 +174,62 @@ function createWindow() {
 }
 
 // ============================================
-// ACTUALITZACIONS macOS (via GitHub API)
+// ACTUALITZACIONS macOS (via GitHub API + DMG manual)
 // ============================================
 
-function isNewer(latest, current) {
-  const parse = v => v.split('.').map(Number);
-  const [la, lb, lc] = parse(latest);
-  const [ca, cb, cc] = parse(current);
-  if (la !== ca) return la > ca;
-  if (lb !== cb) return lb > cb;
-  return lc > cc;
+function fetchGitHubReleases() {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let settled = false;
+
+    const request = net.request({
+      method: 'GET',
+      url: `${GITHUB_RELEASES_API}?per_page=10`,
+      redirect: 'follow'
+    });
+    request.setHeader('User-Agent', `Aurora-ERP-Updater/${app.getVersion()}`);
+    request.setHeader('Accept', 'application/vnd.github.v3+json');
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      request.abort();
+      reject(new Error('Timeout comprovant actualitzacions a GitHub'));
+    }, 15000);
+
+    request.on('response', (response) => {
+      response.on('data', chunk => { body += chunk.toString(); });
+      response.on('end', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(`GitHub API HTTP ${response.statusCode}: ${body.substring(0, 250)}`));
+          return;
+        }
+
+        try {
+          const releases = JSON.parse(body);
+          resolve(Array.isArray(releases) ? releases : []);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    request.on('error', (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(e);
+    });
+
+    request.end();
+  });
 }
 
-function checkForUpdatesMac() {
+async function checkForUpdatesMac() {
   const currentVersion = app.getVersion();
 
   const sendNotAvailable = () => {
@@ -158,64 +238,42 @@ function checkForUpdatesMac() {
     }
   };
 
-  let body = '';
-  let settled = false;
+  try {
+    const releases = await fetchGitHubReleases();
+    const candidates = releases
+      .filter(release => !release.draft)
+      .map(release => ({ release, version: parseSemver(release.tag_name || release.name) }))
+      .filter(item => item.version)
+      .sort((a, b) => compareSemver(b.version, a.version));
 
-  // electron.net usa el stack de Chromium (proxy del sistema, certificats macOS)
-  const request = net.request({
-    method: 'GET',
-    url: 'https://api.github.com/repos/dmontees/auroraERP/releases/latest',
-    redirect: 'follow'
-  });
-  request.setHeader('User-Agent', 'Aurora-ERP-Updater');
-  request.setHeader('Accept', 'application/vnd.github.v3+json');
+    const latest = candidates[0];
+    if (!latest || !isNewer(latest.version.raw, currentVersion)) {
+      console.log(`✅ Aurora està actualitzat (${currentVersion})`);
+      sendNotAvailable();
+      return;
+    }
 
-  // Timeout de 15 s per si no hi ha resposta
-  const timer = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    console.error('❌ Timeout comprovant actualitzacions (macOS)');
-    request.abort();
-    sendNotAvailable();
-  }, 15000);
+    const dmgAsset = selectMacDmgAsset(latest.release);
+    const downloadUrl = dmgAsset?.browser_download_url || latest.release.html_url;
 
-  request.on('response', (response) => {
-    response.on('data', chunk => { body += chunk.toString(); });
-    response.on('end', () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        const release = JSON.parse(body);
-        const latestVersion = release.tag_name?.replace('v', '');
-        if (!latestVersion || !isNewer(latestVersion, currentVersion)) {
-          console.log('✅ Aurora està actualitzat');
-          sendNotAvailable();
-          return;
-        }
-        const dmgAsset = release.assets?.find(a => a.name.endsWith('.dmg'));
-        const downloadUrl = dmgAsset?.browser_download_url || release.html_url;
-        console.log(`✅ Nova versió disponible: ${latestVersion}`);
-        pendingUpdateInfo = { version: latestVersion, downloadUrl };
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('update-available', pendingUpdateInfo);
-        }
-      } catch (e) {
-        console.error('❌ Error parsejant resposta de GitHub:', e);
-        sendNotAvailable();
-      }
-    });
-  });
+    console.log(`✅ Nova versió macOS disponible: ${latest.version.raw}`);
+    console.log(`📦 Asset seleccionat: ${dmgAsset?.name || 'pagina de release'}`);
 
-  request.on('error', (e) => {
-    if (settled) return;
-    settled = true;
-    clearTimeout(timer);
+    pendingUpdateInfo = {
+      version: latest.version.raw,
+      downloadUrl,
+      releaseUrl: latest.release.html_url,
+      assetName: dmgAsset?.name || null,
+      manual: true
+    };
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-available', pendingUpdateInfo);
+    }
+  } catch (e) {
     console.error('❌ Error comprovant actualitzacions (macOS):', e);
     sendNotAvailable();
-  });
-
-  request.end();
+  }
 }
 
 // ============================================
@@ -238,6 +296,53 @@ function backupElectronStore() {
   }
 }
 
+function backupElectronStoreSnapshot(prefix) {
+  try {
+    const userDataPath = app.getPath('userData');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = path.join(userDataPath, `${prefix}-${timestamp}.json`);
+    fs.writeFileSync(backupFile, JSON.stringify(store.store, null, 2), 'utf-8');
+    console.log('✅ Snapshot de seguretat guardat:', backupFile);
+    return backupFile;
+  } catch (error) {
+    console.error('❌ Error guardant snapshot de seguretat:', error);
+    return null;
+  }
+}
+
+function stripForCloudBackup(data) {
+  const sensitiveKeys = new Set([
+    'googleCalendarToken',
+    'verifactuCertificatP12'
+  ]);
+
+  const strip = (value) => {
+    if (Array.isArray(value)) return value.map(item => strip(item));
+    if (value && typeof value === 'object') {
+      const out = {};
+      for (const [key, child] of Object.entries(value)) {
+        if (sensitiveKeys.has(key)) continue;
+        if (key === 'webSyncConfig' && child && typeof child === 'object') {
+          const { apiKey, ...safeConfig } = child;
+          void apiKey;
+          out[key] = strip(safeConfig);
+          continue;
+        }
+        if (['fitxer', 'imatgePerfil', 'imatgeReferencia', 'documentPDF'].includes(key)) continue;
+        if (key === 'documentPDFName' && value.documentPDF === undefined) {
+          out[key] = child;
+          continue;
+        }
+        out[key] = strip(child);
+      }
+      return out;
+    }
+    return value;
+  };
+
+  return strip(data);
+}
+
 function restoreBackupIfNeeded() {
   const userDataPath = app.getPath('userData');
   const backupFile = path.join(userDataPath, 'aurora-backup.json');
@@ -248,10 +353,29 @@ function restoreBackupIfNeeded() {
       
       const backupData = JSON.parse(fs.readFileSync(backupFile, 'utf-8'));
       
-      // Si el store está vacío, restaurar desde backup
+      // Si el store esta realmente vacio, restaurar desde backup.
+      // Ser conservadors aqui es important: un usuari pot tenir projectes o
+      // factures encara que no tingui clients, i no volem sobreescriure dades.
       const currentData = store.store;
-      const storeIsEmpty = Object.keys(currentData).length === 0 || 
-                          (currentData.clients && currentData.clients.length === 0);
+      const criticalArrayKeys = [
+        'clients',
+        'proveidors',
+        'projectes',
+        'facturesVenda',
+        'facturesCompra',
+        'pressupostos',
+        'obligacionsFiscals',
+        'albaransCompra',
+        'partsTreball'
+      ];
+      const hasCriticalData = criticalArrayKeys.some((key) => {
+        const value = currentData[key];
+        return Array.isArray(value) && value.length > 0;
+      });
+      const hasMeaningfulParametres = currentData.parametres
+        && typeof currentData.parametres === 'object'
+        && Object.values(currentData.parametres).some((value) => Array.isArray(value) ? value.length > 0 : !!value);
+      const storeIsEmpty = Object.keys(currentData).length === 0 || (!hasCriticalData && !hasMeaningfulParametres);
       
       if (storeIsEmpty && backupData) {
         console.log('🔄 Restaurando datos desde backup...');
@@ -330,14 +454,14 @@ ipcMain.handle('get-pending-update', () => pendingUpdateInfo);
 
 ipcMain.handle('check-for-updates', () => {
   if (process.platform === 'darwin') {
-    checkForUpdatesMac();
+    return checkForUpdatesMac();
   } else {
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'dmontees',
       repo: 'auroraERP'
     });
-    autoUpdater.checkForUpdates().catch(err => {
+    return autoUpdater.checkForUpdates().catch(err => {
       console.error('❌ Error en checkForUpdates manual:', err);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('update-not-available');
@@ -346,8 +470,18 @@ ipcMain.handle('check-for-updates', () => {
   }
 });
 
-ipcMain.handle('open-external', (_, url) => {
-  shell.openExternal(url);
+ipcMain.handle('open-external', async (_, url) => {
+  try {
+    const parsed = new URL(String(url));
+    if (!['https:', 'mailto:'].includes(parsed.protocol)) {
+      throw new Error(`Protocol no permes: ${parsed.protocol}`);
+    }
+    await shell.openExternal(parsed.toString());
+    return { success: true };
+  } catch (error) {
+    console.error('❌ URL externa rebutjada:', error.message);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('get-app-version', () => {
@@ -359,18 +493,33 @@ ipcMain.handle('get-store-path', () => {
   return store.path;
 });
 
-// Handler para exportar todos los datos (útil para backups manuales)
-ipcMain.handle('export-all-data', () => {
-  return store.store;
+// Handler para exportar datos saneados para el backup cloud.
+// No expone credenciales ni binarios pesados al renderer.
+ipcMain.handle('export-cloud-backup-data', () => {
+  return stripForCloudBackup(store.store);
 });
 
 // Handler para importar datos (útil para restaurar backups)
 ipcMain.handle('import-data', (_, data) => {
   try {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Format de dades invalid');
+    }
+
+    const preImportBackup = backupElectronStoreSnapshot('aurora-pre-import-backup');
+    const importedKeys = [];
+    const ignoredKeys = [];
+
     Object.entries(data).forEach(([key, value]) => {
+      if (!IMPORT_DATA_ALLOWED_KEYS.has(key)) {
+        ignoredKeys.push(key);
+        return;
+      }
       store.set(key, value);
+      importedKeys.push(key);
     });
-    return { success: true };
+
+    return { success: true, importedKeys, ignoredKeys, preImportBackup };
   } catch (error) {
     console.error('❌ Error importando datos:', error);
     return { success: false, error: error.message };

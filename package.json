@@ -1,13 +1,17 @@
 {
   "name": "Aurora-erp",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.0.1",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Dani Montes",
   "description": "Aurora - Gestió de producció audiovisual",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc",
+    "check:electron": "node --check electron/main.cjs && node --check electron/preload.js",
+    "test:critical": "node scripts/test-updater-utils.mjs && node scripts/test-critical-contracts.mjs",
+    "check": "npm run typecheck && npm run test:critical && npm run check:electron",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "set NODE_ENV=development && electron .",

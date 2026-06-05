@@ -1,36 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
 
 type UpdateState = 'idle' | 'downloading' | 'ready' | 'manual';
 
 interface UpdateInfo {
   version: string;
-  downloadUrl?: string; // macOS only — user downloads DMG manually
+  downloadUrl?: string;
+  releaseUrl?: string;
+  assetName?: string | null;
 }
 
 export default function UpdateNotification() {
   const [state, setState] = useState<UpdateState>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [openError, setOpenError] = useState('');
 
   useEffect(() => {
     const api = typeof window !== 'undefined' ? (window as any).electron : null;
     if (!api) return;
 
-    // Consulta si l'update ja havia estat trobat abans que el component muntés
+    const showUpdate = (info: UpdateInfo) => {
+      setOpenError('');
+      setUpdateInfo(info);
+      setState(info.downloadUrl || info.releaseUrl ? 'manual' : 'downloading');
+      window.dispatchEvent(new CustomEvent('aurora:update-available', { detail: info }));
+    };
+
     api.getPendingUpdate?.().then((info: UpdateInfo | null) => {
-      if (info) {
-        setUpdateInfo(info);
-        setState(info.downloadUrl ? 'manual' : 'downloading');
-        window.dispatchEvent(new CustomEvent('aurora:update-available', { detail: info }));
-      }
+      if (info) showUpdate(info);
     });
 
-    api.onUpdateAvailable((info: UpdateInfo) => {
-      setUpdateInfo(info);
-      setState(info.downloadUrl ? 'manual' : 'downloading');
-      window.dispatchEvent(new CustomEvent('aurora:update-available', { detail: info }));
-    });
+    api.onUpdateAvailable(showUpdate);
 
     api.onDownloadProgress((percent: number) => {
       setDownloadProgress(percent);
@@ -45,6 +46,20 @@ export default function UpdateNotification() {
       window.dispatchEvent(new CustomEvent('aurora:update-not-available'));
     });
   }, []);
+
+  const handleDownload = async () => {
+    const url = updateInfo?.downloadUrl || updateInfo?.releaseUrl;
+    if (!url) return;
+
+    try {
+      const result = await (window as any).electron.openExternal(url);
+      if (result && result.success === false) {
+        setOpenError(result.error || "No s'ha pogut obrir l'enllac de descarrega.");
+      }
+    } catch (e) {
+      setOpenError(e instanceof Error ? e.message : "No s'ha pogut obrir l'enllac de descarrega.");
+    }
+  };
 
   if (state === 'idle') return null;
 
@@ -64,15 +79,27 @@ export default function UpdateNotification() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
         <Download size={22} color="var(--color-accent-primary)" />
         <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>
-          {state === 'ready' ? '✅ Actualització llesta' : '🔄 Nova versió disponible'}
+          {state === 'ready' ? 'Actualitzacio llesta' : 'Nova versio disponible'}
         </h3>
       </div>
 
       <p style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-        {state === 'manual' && `Aurora ${updateInfo?.version} ja està disponible.`}
-        {state === 'downloading' && `Versió ${updateInfo?.version} disponible. Descarregant...`}
-        {state === 'ready' && `Aurora ${updateInfo?.version} està llesta per instal·lar. Les teves dades es conservaran.`}
+        {state === 'manual' && `Aurora ${updateInfo?.version} ja esta disponible.`}
+        {state === 'downloading' && `Versio ${updateInfo?.version} disponible. Descarregant...`}
+        {state === 'ready' && `Aurora ${updateInfo?.version} esta llesta per instal-lar. Les teves dades es conservaran.`}
       </p>
+
+      {state === 'manual' && updateInfo?.assetName && (
+        <p style={{ marginTop: '-0.5rem', marginBottom: '1rem', fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>
+          Fitxer: {updateInfo.assetName}
+        </p>
+      )}
+
+      {openError && (
+        <p style={{ marginTop: '-0.5rem', marginBottom: '1rem', fontSize: '0.75rem', color: 'var(--color-error)' }}>
+          {openError}
+        </p>
+      )}
 
       {state === 'downloading' && (
         <div style={{
@@ -90,11 +117,11 @@ export default function UpdateNotification() {
 
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <button onClick={() => setState('idle')} className="btn-secondary" style={{ flex: 1 }}>
-          Més tard
+          Mes tard
         </button>
         {state === 'manual' && (
           <button
-            onClick={() => (window as any).electron.openExternal(updateInfo?.downloadUrl)}
+            onClick={handleDownload}
             className="btn-primary"
             style={{ flex: 1 }}
           >
@@ -107,7 +134,7 @@ export default function UpdateNotification() {
             className="btn-primary"
             style={{ flex: 1 }}
           >
-            Instal·lar ara
+            Instal-lar ara
           </button>
         )}
       </div>
