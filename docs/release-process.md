@@ -8,6 +8,7 @@ Aquest document recull el flux actual per publicar una versio nova i provar les 
 - No incloure `_Bugs/` ni captures rebudes d'usuaris en commits publics.
 - Mantenir el DMG de macOS en `x64`; no publicar `arm64` ni `universal` sense signatura/certificat Apple Developer.
 - El repositori o, com a minim, les releases han de ser accessibles publicament para que la app instalada pueda leer `latest-mac.yml`.
+- No es contractara Apple Developer de moment. El flux acceptat es instal-lar manualment i autoritzar l'app com a desenvolupador no identificat des de macOS quan calgui.
 
 ## Actualizar version
 
@@ -68,3 +69,5 @@ La release debe incluir como minimo:
 5. Instalar al reiniciar y comprobar que los datos del usuario siguen presentes.
 
 Si aparece `GitHub API HTTP 404` o `GitHub HTTP 404`, revisar primero que el repositorio/releases sean publicos y que `latest-mac.yml` exista en la ultima release.
+
+Estado 2026-06-05: probado correctamente con usuario real. La app detecta nuevas versiones publicadas y completa la instalacion.

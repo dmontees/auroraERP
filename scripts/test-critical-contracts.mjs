@@ -19,6 +19,11 @@ assert.match(main, /GITHUB_LATEST_MAC_YML/);
 assert.match(main, /parseLatestMacYml/);
 assert.match(main, /update-error/);
 assert.match(main, /repositori\/releases son privats/);
+assert.match(main, /writeJsonAtomically/);
+assert.match(main, /sha256/);
+assert.match(main, /LOCAL_BACKUP_RETENTION/);
+assert.match(main, /filterRestorableBackupData/);
+assert.match(main, /aurora-before-auto-restore/);
 
 const sync = read('web/api/sync.php');
 assert.match(sync, /esDepesaGeneral'\]\s*\?\?\s*\$f\['esDesepsaGeneral/);

@@ -284,4 +284,35 @@ Pendent per provar updater:
 4. Quan hi hagi acces web, desplegar `web/api/backup.php`, `web/api/pdf-sync.php`, `web/api/sync.php` i `.htaccess`.
 5. Provar `sync.php?dryRun=1` contra una copia de la base de dades web abans d'activar sync real.
 6. Afegir migracio SQL per guardar `sync_id` si es vol traçabilitat completa al servidor.
-7. Afegir lint quan s'instal·lin dependencies ESLint necessaries.
+7. Afegir lint quan s'instal-lin dependencies ESLint necessaries.
+
+## Actualitzacio 2026-06-05: validacio updater i dades locals Mac
+
+### Updater macOS validat
+
+- Aurora detecta versions noves publicades a GitHub Releases i la instal-lacio funciona amb el flux actual.
+- Decisio de producte: no es contractara Apple Developer de moment. Es mante el flux manual de macOS amb acceptacio explicita d'app de desenvolupador no identificat.
+- La release `3.0.5` afegeix missatges mes clars per errors `404` de GitHub i documenta el proces de publicacio a `docs/release-process.md`.
+
+### Backup local atomic i snapshots rotatoris
+
+Fitxers:
+
+- `electron/main.cjs`
+- `scripts/test-critical-contracts.mjs`
+
+Canvis:
+
+- `aurora-backup.json` s'escriu de forma atomica: primer a un fitxer temporal i despres amb rename.
+- Cada backup genera un fitxer lateral `.meta.json` amb `createdAt`, `sha256`, bytes, versio d'app i `dataSchemaVersion`.
+- S'ha afegit carpeta local `backups/` dins de `userData` per snapshots de seguretat.
+- Es crea snapshot a l'arrencada (`aurora-startup-*`) i al tancament (`aurora-shutdown-*`) quan hi ha dades operatives.
+- Abans d'una restauracio automatica des de `aurora-backup.json`, es crea snapshot `aurora-before-auto-restore-*`.
+- Es mantenen com a maxim 30 snapshots locals per evitar creixement indefinit.
+- La restauracio automatica filtra claus amb allowlist i rebutja backups que no siguin objectes JSON o no continguin dades operatives.
+
+Impacte:
+
+- Redueix risc de corrupcio per tancament inesperat durant l'escriptura del backup.
+- Dona punts de recuperacio locals sense dependre del servidor web.
+- No canvia el format principal de dades ni força migracions; es conserva compatibilitat amb dades existents.

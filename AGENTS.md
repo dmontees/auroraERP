@@ -18,7 +18,7 @@ Aurora ERP is an Electron-based ERP system for audiovisual production management
 - **Data Persistence**: electron-store (with localStorage fallback for web dev)
 - **UI Icons**: lucide-react
 - **Exports**: jsPDF, jsPDF-AutoTable, XLSX, file-saver, jszip
-- **Version**: 3.0.5
+- **Version**: 3.0.6
 
 ## Build & Development Commands
 

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
 const {
@@ -17,6 +18,35 @@ let backupInterval = null;
 let mainWindow = null;
 let pendingUpdateInfo = null; // cache per si el renderer no estava llest quan va arribar l'event
 let isQuitting = false;       // flag per al tancament controlat via sync
+
+const LOCAL_BACKUP_RETENTION = 30;
+const BACKUP_RESTORE_ALLOWED_KEYS = new Set([
+  'clients',
+  'proveidors',
+  'projectes',
+  'facturesVenda',
+  'facturesCompra',
+  'pressupostos',
+  'obligacionsFiscals',
+  'albaransCompra',
+  'parametres',
+  'partsTreball',
+  'cronometre',
+  'settings',
+  'esdevenimentsPersonalitzats',
+  'googleCalendarToken',
+  'webSyncConfig',
+  'verifactuConfig',
+  'verifactuCertificatP12',
+  'lastCloudBackup',
+  'version',
+  'dataSchemaVersion',
+  'migrationCompleted',
+  'migrationV2Completed',
+  'migrationV3Completed',
+  'migrationV4Completed',
+  'migrationV5Completed'
+]);
 
 const IMPORT_DATA_ALLOWED_KEYS = new Set([
   'clients',
@@ -68,7 +98,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.5',
+    version: '3.0.6',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },
@@ -99,6 +129,7 @@ function createWindow() {
 
   // Restaurar backup si existe (por compatibilidad)
   restoreBackupIfNeeded();
+  backupElectronStoreSnapshotIfMeaningful('aurora-startup');
 
   // Cargar aplicación
   if (process.env.NODE_ENV === 'development') {
@@ -374,10 +405,9 @@ function backupElectronStore() {
     const backupFile = path.join(userDataPath, 'aurora-backup.json');
     
     // Leer todos los datos del store
-    const data = store.store;
     
     // Guardar backup con formato legible
-    fs.writeFileSync(backupFile, JSON.stringify(data, null, 2), 'utf-8');
+    writeJsonAtomically(backupFile, store.store);
     console.log('✅ Backup de electron-store guardado:', backupFile);
   } catch (error) {
     console.error('❌ Error al guardar backup de electron-store:', error);
@@ -386,16 +416,113 @@ function backupElectronStore() {
 
 function backupElectronStoreSnapshot(prefix) {
   try {
-    const userDataPath = app.getPath('userData');
+    const userDataPath = getLocalBackupsPath();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFile = path.join(userDataPath, `${prefix}-${timestamp}.json`);
-    fs.writeFileSync(backupFile, JSON.stringify(store.store, null, 2), 'utf-8');
+    writeJsonAtomically(backupFile, store.store);
+    pruneLocalBackups(userDataPath, LOCAL_BACKUP_RETENTION);
     console.log('✅ Snapshot de seguretat guardat:', backupFile);
     return backupFile;
   } catch (error) {
     console.error('❌ Error guardant snapshot de seguretat:', error);
     return null;
   }
+}
+
+function backupElectronStoreSnapshotIfMeaningful(prefix) {
+  if (!hasMeaningfulStoreData(store.store)) return null;
+  return backupElectronStoreSnapshot(prefix);
+}
+
+function getLocalBackupsPath() {
+  const backupsPath = path.join(app.getPath('userData'), 'backups');
+  fs.mkdirSync(backupsPath, { recursive: true });
+  return backupsPath;
+}
+
+function writeJsonAtomically(filePath, data) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+
+  const json = JSON.stringify(data, null, 2);
+  const hash = crypto.createHash('sha256').update(json, 'utf8').digest('hex');
+  const tmpFile = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  const metaFile = `${filePath}.meta.json`;
+
+  fs.writeFileSync(tmpFile, json, 'utf-8');
+  fs.renameSync(tmpFile, filePath);
+  fs.writeFileSync(metaFile, JSON.stringify({
+    createdAt: new Date().toISOString(),
+    sha256: hash,
+    bytes: Buffer.byteLength(json, 'utf8'),
+    appVersion: app.getVersion(),
+    dataSchemaVersion: store.get('dataSchemaVersion')
+  }, null, 2), 'utf-8');
+}
+
+function pruneLocalBackups(backupsPath, keep) {
+  const entries = fs.readdirSync(backupsPath)
+    .filter(name => name.endsWith('.json') && !name.endsWith('.meta.json'))
+    .map(name => {
+      const fullPath = path.join(backupsPath, name);
+      const stat = fs.statSync(fullPath);
+      return { name, fullPath, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  for (const entry of entries.slice(keep)) {
+    try {
+      fs.unlinkSync(entry.fullPath);
+      const metaFile = `${entry.fullPath}.meta.json`;
+      if (fs.existsSync(metaFile)) fs.unlinkSync(metaFile);
+    } catch (error) {
+      console.warn('No sha pogut eliminar backup antic:', entry.name, error.message);
+    }
+  }
+}
+
+function hasMeaningfulStoreData(data) {
+  if (!data || typeof data !== 'object') return false;
+
+  const criticalArrayKeys = [
+    'clients',
+    'proveidors',
+    'projectes',
+    'facturesVenda',
+    'facturesCompra',
+    'pressupostos',
+    'obligacionsFiscals',
+    'albaransCompra',
+    'partsTreball'
+  ];
+  const hasCriticalData = criticalArrayKeys.some((key) => {
+    const value = data[key];
+    return Array.isArray(value) && value.length > 0;
+  });
+  const hasMeaningfulParametres = data.parametres
+    && typeof data.parametres === 'object'
+    && Object.values(data.parametres).some((value) => Array.isArray(value) ? value.length > 0 : !!value);
+
+  return hasCriticalData || hasMeaningfulParametres;
+}
+
+function filterRestorableBackupData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Backup local invalid: no es un objecte JSON');
+  }
+
+  const filtered = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (BACKUP_RESTORE_ALLOWED_KEYS.has(key)) {
+      filtered[key] = value;
+    }
+  }
+
+  if (!hasMeaningfulStoreData(filtered)) {
+    throw new Error('Backup local invalid: no conte dades operatives');
+  }
+
+  return filtered;
 }
 
 function stripForCloudBackup(data) {
@@ -439,34 +566,17 @@ function restoreBackupIfNeeded() {
     if (fs.existsSync(backupFile)) {
       console.log('📂 Backup encontrado, verificando...');
       
-      const backupData = JSON.parse(fs.readFileSync(backupFile, 'utf-8'));
+      const backupData = filterRestorableBackupData(JSON.parse(fs.readFileSync(backupFile, 'utf-8')));
       
       // Si el store esta realmente vacio, restaurar desde backup.
       // Ser conservadors aqui es important: un usuari pot tenir projectes o
       // factures encara que no tingui clients, i no volem sobreescriure dades.
       const currentData = store.store;
-      const criticalArrayKeys = [
-        'clients',
-        'proveidors',
-        'projectes',
-        'facturesVenda',
-        'facturesCompra',
-        'pressupostos',
-        'obligacionsFiscals',
-        'albaransCompra',
-        'partsTreball'
-      ];
-      const hasCriticalData = criticalArrayKeys.some((key) => {
-        const value = currentData[key];
-        return Array.isArray(value) && value.length > 0;
-      });
-      const hasMeaningfulParametres = currentData.parametres
-        && typeof currentData.parametres === 'object'
-        && Object.values(currentData.parametres).some((value) => Array.isArray(value) ? value.length > 0 : !!value);
-      const storeIsEmpty = Object.keys(currentData).length === 0 || (!hasCriticalData && !hasMeaningfulParametres);
+      const storeIsEmpty = Object.keys(currentData).length === 0 || !hasMeaningfulStoreData(currentData);
       
       if (storeIsEmpty && backupData) {
         console.log('🔄 Restaurando datos desde backup...');
+        backupElectronStoreSnapshot('aurora-before-auto-restore');
         Object.entries(backupData).forEach(([key, value]) => {
           store.set(key, value);
         });
@@ -856,5 +966,6 @@ app.on('activate', () => {
 // Backup final antes de salir
 app.on('before-quit', () => {
   console.log('🛑 Aplicación cerrándose...');
+  backupElectronStoreSnapshotIfMeaningful('aurora-shutdown');
   backupElectronStore();
 });
