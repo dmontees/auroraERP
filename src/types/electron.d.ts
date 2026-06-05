@@ -16,6 +16,7 @@ export interface ElectronAPI {
   onDownloadProgress: (callback: (percent: number) => void) => void;
   onUpdateDownloaded: (callback: (data: any) => void) => void;
   onUpdateNotAvailable: (callback: () => void) => void;
+  onUpdateError: (callback: (data: { message?: string }) => void) => void;
   getStorePath: () => Promise<string>;
   exportCloudBackupData: () => Promise<any>;
   importData: (data: any) => Promise<{ success: boolean; error?: string; importedKeys?: string[]; ignoredKeys?: string[]; preImportBackup?: string | null }>;

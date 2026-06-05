@@ -8,12 +8,16 @@ assert.match(preload, /ALLOWED_STORE_KEYS/);
 assert.doesNotMatch(preload, /clear:\s*\(/);
 assert.doesNotMatch(preload, /store:\s*\(/);
 assert.match(preload, /dataSchemaVersion/);
+assert.match(preload, /onUpdateError/);
 
 const main = read('electron/main.cjs');
 assert.match(main, /export-cloud-backup-data/);
 assert.match(main, /aurora-pre-import-backup/);
 assert.match(main, /https:/);
 assert.match(main, /mailto:/);
+assert.match(main, /GITHUB_LATEST_MAC_YML/);
+assert.match(main, /parseLatestMacYml/);
+assert.match(main, /update-error/);
 
 const sync = read('web/api/sync.php');
 assert.match(sync, /esDepesaGeneral'\]\s*\?\?\s*\$f\['esDesepsaGeneral/);
@@ -32,6 +36,7 @@ assert.match(settingsModal, /Salut de dades/);
 assert.match(settingsModal, /getStorePath/);
 assert.match(settingsModal, /normalizeBackupForImport/);
 assert.match(settingsModal, /importData/);
+assert.match(settingsModal, /aurora:update-error/);
 assert.doesNotMatch(settingsModal, /storage\.setClients\(backup\.clients/);
 
 const backupImport = read('src/utils/backupImport.ts');

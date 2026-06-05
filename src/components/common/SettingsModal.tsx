@@ -31,13 +31,14 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type UpdateCheckState = 'idle' | 'checking' | 'up-to-date' | 'available';
+type UpdateCheckState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'error';
 
 export default function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
   const [formData, setFormData] = useState<CompanySettings>(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentImportType, setCurrentImportType] = useState<string>('');
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>('idle');
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [storePath, setStorePath] = useState<string | null>(null);
   const [isImportingBackup, setIsImportingBackup] = useState(false);
   const [verifactuEnabled, setVerifactuEnabled] = useState<boolean>(
@@ -68,12 +69,19 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
       setTimeout(() => setUpdateCheck('idle'), 4000);
     };
     const onAvailable = () => setUpdateCheck('available');
+    const onError = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      setUpdateError(customEvent.detail || "No s'ha pogut comprovar actualitzacions.");
+      setUpdateCheck('error');
+    };
 
     window.addEventListener('aurora:update-not-available', onNotAvailable);
     window.addEventListener('aurora:update-available', onAvailable);
+    window.addEventListener('aurora:update-error', onError);
     return () => {
       window.removeEventListener('aurora:update-not-available', onNotAvailable);
       window.removeEventListener('aurora:update-available', onAvailable);
+      window.removeEventListener('aurora:update-error', onError);
     };
   }, []);
 
@@ -108,6 +116,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
   const handleCheckUpdates = () => {
     const api = (window as any).electron;
     if (!api) return;
+    setUpdateError(null);
     setUpdateCheck('checking');
     api.checkForUpdates();
   };
@@ -530,7 +539,12 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                   )}
                   {updateCheck === 'available' && (
                     <span style={{ fontSize: '0.85rem', color: 'var(--color-accent-primary)' }}>
-                      Nova versió disponible — descarregant...
+                      Nova versió disponible
+                    </span>
+                  )}
+                  {updateCheck === 'error' && (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--color-error)' }}>
+                      {updateError}
                     </span>
                   )}
                 </div>

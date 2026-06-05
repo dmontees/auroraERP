@@ -4,9 +4,11 @@ const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
 const {
+  GITHUB_LATEST_MAC_YML,
   GITHUB_RELEASES_API,
   compareSemver,
   isNewer,
+  parseLatestMacYml,
   parseSemver,
   selectMacDmgAsset
 } = require('./updater-utils.cjs');
@@ -66,7 +68,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.2',
+    version: '3.0.3',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },
@@ -229,6 +231,59 @@ function fetchGitHubReleases() {
   });
 }
 
+function fetchText(url) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let settled = false;
+
+    const request = net.request({
+      method: 'GET',
+      url,
+      redirect: 'follow'
+    });
+    request.setHeader('User-Agent', `Aurora-ERP-Updater/${app.getVersion()}`);
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      request.abort();
+      reject(new Error('Timeout comprovant actualitzacions a GitHub'));
+    }, 15000);
+
+    request.on('response', (response) => {
+      response.on('data', chunk => { body += chunk.toString(); });
+      response.on('end', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(`GitHub HTTP ${response.statusCode}: ${body.substring(0, 250)}`));
+          return;
+        }
+
+        resolve(body);
+      });
+    });
+
+    request.on('error', (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(e);
+    });
+
+    request.end();
+  });
+}
+
+function sendUpdateError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-error', { message });
+  }
+}
+
 async function checkForUpdatesMac() {
   const currentVersion = app.getVersion();
 
@@ -239,6 +294,36 @@ async function checkForUpdatesMac() {
   };
 
   try {
+    try {
+      const latestMacYml = await fetchText(GITHUB_LATEST_MAC_YML);
+      const latestMac = parseLatestMacYml(latestMacYml);
+      if (latestMac) {
+        if (!isNewer(latestMac.version, currentVersion)) {
+          console.log(`✅ Aurora està actualitzat (${currentVersion})`);
+          sendNotAvailable();
+          return;
+        }
+
+        console.log(`✅ Nova versió macOS disponible: ${latestMac.version}`);
+        console.log(`📦 Asset seleccionat: ${latestMac.assetName}`);
+
+        pendingUpdateInfo = {
+          version: latestMac.version,
+          downloadUrl: latestMac.downloadUrl,
+          releaseUrl: latestMac.releaseUrl,
+          assetName: latestMac.assetName,
+          manual: true
+        };
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-available', pendingUpdateInfo);
+        }
+        return;
+      }
+    } catch (metadataError) {
+      console.warn('⚠️ No sha pogut llegir latest-mac.yml, provant API de releases:', metadataError);
+    }
+
     const releases = await fetchGitHubReleases();
     const candidates = releases
       .filter(release => !release.draft)
@@ -272,7 +357,7 @@ async function checkForUpdatesMac() {
     }
   } catch (e) {
     console.error('❌ Error comprovant actualitzacions (macOS):', e);
-    sendNotAvailable();
+    sendUpdateError(e);
   }
 }
 
@@ -438,7 +523,7 @@ autoUpdater.on('update-downloaded', (info) => {
 autoUpdater.on('error', (error) => {
   console.error('❌ Error en auto-updater:', error);
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('update-not-available');
+    mainWindow.webContents.send('update-error', { message: error.message });
   }
 });
 

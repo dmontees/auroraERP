@@ -1,4 +1,6 @@
 const GITHUB_RELEASES_API = 'https://api.github.com/repos/dmontees/auroraERP/releases';
+const GITHUB_RELEASE_DOWNLOAD_BASE = 'https://github.com/dmontees/auroraERP/releases/download';
+const GITHUB_LATEST_MAC_YML = `${GITHUB_RELEASE_DOWNLOAD_BASE}/latest/latest-mac.yml`;
 
 function parseSemver(version) {
   const match = String(version || '').match(/v?(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?/);
@@ -41,11 +43,27 @@ function selectMacDmgAsset(release) {
   return normalDmg || dmgAssets[0];
 }
 
+function parseLatestMacYml(text) {
+  const version = String(text || '').match(/^version:\s*['"]?([^'"\r\n]+)['"]?/m)?.[1]?.trim();
+  const path = String(text || '').match(/^path:\s*['"]?([^'"\r\n]+)['"]?/m)?.[1]?.trim();
+
+  if (!version || !path) return null;
+
+  return {
+    version,
+    path,
+    downloadUrl: `${GITHUB_RELEASE_DOWNLOAD_BASE}/v${version}/${encodeURIComponent(path).replace(/%2F/g, '/')}`,
+    releaseUrl: `${GITHUB_RELEASE_DOWNLOAD_BASE.replace('/download', '/tag')}/v${version}`,
+    assetName: path
+  };
+}
+
 module.exports = {
   GITHUB_RELEASES_API,
+  GITHUB_LATEST_MAC_YML,
   parseSemver,
   compareSemver,
   isNewer,
-  selectMacDmgAsset
+  selectMacDmgAsset,
+  parseLatestMacYml
 };
-

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
   isNewer,
+  parseLatestMacYml,
   parseSemver,
   selectMacDmgAsset
 } = require('../electron/updater-utils.cjs');
@@ -35,5 +36,16 @@ assert.equal(fallbackToX64?.browser_download_url, 'x64');
 
 assert.equal(selectMacDmgAsset({ assets: [{ name: 'latest.yml' }] }), null);
 
-console.log('test-updater-utils: ok');
+assert.deepEqual(parseLatestMacYml(`version: 3.0.2
+files:
+  - url: Aurora-3.0.2.dmg
+path: Aurora-3.0.2.dmg
+`), {
+  version: '3.0.2',
+  path: 'Aurora-3.0.2.dmg',
+  downloadUrl: 'https://github.com/dmontees/auroraERP/releases/download/v3.0.2/Aurora-3.0.2.dmg',
+  releaseUrl: 'https://github.com/dmontees/auroraERP/releases/tag/v3.0.2',
+  assetName: 'Aurora-3.0.2.dmg'
+});
 
+console.log('test-updater-utils: ok');

@@ -63,7 +63,7 @@ try {
         plantilles: []
       },
       partsTreball: [],
-      version: '3.0.2',
+      version: '3.0.3',
       dataSchemaVersion: 5,
       migrationCompleted: false
     }
@@ -105,6 +105,9 @@ contextBridge.exposeInMainWorld('electron', {
   },
   onUpdateNotAvailable: (callback) => {
     ipcRenderer.on('update-not-available', () => callback());
+  },
+  onUpdateError: (callback) => {
+    ipcRenderer.on('update-error', (_, data) => callback(data));
   },
 
   // Store utilities

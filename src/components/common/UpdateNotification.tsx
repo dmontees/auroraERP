@@ -45,6 +45,12 @@ export default function UpdateNotification() {
     api.onUpdateNotAvailable(() => {
       window.dispatchEvent(new CustomEvent('aurora:update-not-available'));
     });
+
+    api.onUpdateError?.((data: { message?: string }) => {
+      window.dispatchEvent(new CustomEvent('aurora:update-error', {
+        detail: data?.message || "No s'ha pogut comprovar actualitzacions."
+      }));
+    });
   }, []);
 
   const handleDownload = async () => {
