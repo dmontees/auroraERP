@@ -18,6 +18,7 @@ assert.match(main, /mailto:/);
 assert.match(main, /GITHUB_LATEST_MAC_YML/);
 assert.match(main, /parseLatestMacYml/);
 assert.match(main, /update-error/);
+assert.match(main, /repositori\/releases son privats/);
 
 const sync = read('web/api/sync.php');
 assert.match(sync, /esDepesaGeneral'\]\s*\?\?\s*\$f\['esDesepsaGeneral/);

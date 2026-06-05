@@ -9,6 +9,26 @@ release/
 # Logs
 *.log
 
+# Entorn local i secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+web/api/config.php
+server/config.php
+
+# Dades locals, copies i bases de dades
+*.sqlite
+*.sqlite3
+*.db
+*backup*.json
+aurora-data.json
+
 # Sistema
 .DS_Store
 Thumbs.db

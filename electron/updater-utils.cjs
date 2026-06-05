@@ -1,6 +1,6 @@
 const GITHUB_RELEASES_API = 'https://api.github.com/repos/dmontees/auroraERP/releases';
 const GITHUB_RELEASE_DOWNLOAD_BASE = 'https://github.com/dmontees/auroraERP/releases/download';
-const GITHUB_LATEST_MAC_YML = `${GITHUB_RELEASE_DOWNLOAD_BASE}/latest/latest-mac.yml`;
+const GITHUB_LATEST_MAC_YML = 'https://github.com/dmontees/auroraERP/releases/latest/download/latest-mac.yml';
 
 function parseSemver(version) {
   const match = String(version || '').match(/v?(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?/);

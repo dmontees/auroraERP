@@ -3,11 +3,14 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const {
+  GITHUB_LATEST_MAC_YML,
   isNewer,
   parseLatestMacYml,
   parseSemver,
   selectMacDmgAsset
 } = require('../electron/updater-utils.cjs');
+
+assert.equal(GITHUB_LATEST_MAC_YML, 'https://github.com/dmontees/auroraERP/releases/latest/download/latest-mac.yml');
 
 assert.deepEqual(parseSemver('v3.0.1'), { raw: '3.0.1', major: 3, minor: 0, patch: 1 });
 assert.deepEqual(parseSemver('Aurora 3.2.10-mac'), { raw: '3.2.10-mac', major: 3, minor: 2, patch: 10 });

@@ -68,7 +68,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.4',
+    version: '3.0.5',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },
@@ -258,7 +258,10 @@ function fetchText(url) {
         clearTimeout(timer);
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          reject(new Error(`GitHub HTTP ${response.statusCode}: ${body.substring(0, 250)}`));
+          const inaccessibleRelease = response.statusCode === 404
+            ? '. La release no es accessible publicament; comprova si el repositori/releases son privats.'
+            : '';
+          reject(new Error(`GitHub HTTP ${response.statusCode}${inaccessibleRelease}: ${body.substring(0, 250)}`));
           return;
         }
 
