@@ -86,6 +86,23 @@ function formatHores(minuts: number): string {
   return `${h}h ${m}min`;
 }
 
+function gradientTextChars(text: string, colors: string[]) {
+  let visibleIndex = 0;
+
+  return [...text].map((char, index) => {
+    if (char === ' ') return <span key={index}> </span>;
+
+    const colorIndex = Math.min(visibleIndex, colors.length - 1);
+    visibleIndex += 1;
+
+    return (
+      <span key={index} style={{ color: colors[colorIndex], WebkitTextFillColor: colors[colorIndex] }}>
+        {char}
+      </span>
+    );
+  });
+}
+
 // Card height (avatar fills this via alignSelf stretch)
 const CARD_HEIGHT = '96px';
 // Avatar square width = card height minus 2× border = visual full-height square
@@ -397,11 +414,23 @@ function ResumTab({
           const G_INDIGO = 'linear-gradient(135deg, #4338ca, #6366f1, #818cf8)';
           const G_PURPLE = 'linear-gradient(135deg, #7c3aed, #8b5cf6, #a78bfa)';
           const G_SLATE  = 'linear-gradient(135deg, #475569, #64748b, #94a3b8)';
+          const horesGradientColors = totalMinutsRegistrats > 0
+            ? ['#7c3aed', '#7f45ef', '#8350f2', '#8b5cf6', '#9670f8', '#a184f9', '#a78bfa']
+            : ['#475569', '#526174', '#5c6d7f', '#64748b', '#748399', '#8493a8', '#94a3b8'];
           const gB = benefici >= 0 ? G_GREEN : G_RED;
           const gC = costTotal > 0 ? G_RED : G_INDIGO;
           const gH = totalMinutsRegistrats > 0 ? G_PURPLE : G_SLATE;
           const gSpan = (v: React.ReactNode, g: string) => (
-            <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
+            <span style={{
+              display: 'inline-block',
+              width: 'fit-content',
+              background: g,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              color: 'transparent',
+              whiteSpace: 'nowrap',
+            }}>{v}</span>
           );
           return (<>
             <div className="stat-card">
@@ -432,7 +461,9 @@ function ResumTab({
               <div className="stat-card-stripe" style={{ background: gH }} />
               <div className="stat-card-body">
                 <div className="stat-card-label"><Timer size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />Hores Registrades</div>
-                <div className="stat-card-value">{gSpan(formatHores(totalMinutsRegistrats), gH)}</div>
+                <div className="stat-card-value" style={{ whiteSpace: 'nowrap' }}>
+                  {gradientTextChars(formatHores(totalMinutsRegistrats), horesGradientColors)}
+                </div>
                 <div className="stat-card-sub">Parts de treball</div>
               </div>
             </div>
