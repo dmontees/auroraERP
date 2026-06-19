@@ -1,9 +1,10 @@
 import React from 'react';
-import { Check, Trash2, ArrowDownToLine } from 'lucide-react';
+import { Check, Trash2, ArrowDownToLine, FileText } from 'lucide-react';
 import type { Projecte, RecursHumaProjecte, MaterialProjecte } from '../../../types/projecte';
 import type { Parametres } from '../../../types/parametres';
 import type { Proveidor } from '../../../types/proveidor';
 import SearchableSelect from '../../common/SearchableSelect';
+import { storage } from '../../../utils/storageManager';
 
 interface Props {
   formData: Projecte;
@@ -38,6 +39,27 @@ export default function DespesesTab({
   onEliminarMaterial,
   onAgregarMaterialsATasques
 }: Props) {
+  const albaransCompra = storage.getAlbaransCompra();
+
+  const registrarCompra = (draft: {
+    proveidor?: string;
+    concepte: string;
+    base: number;
+    albaraCodis?: string[];
+  }) => {
+    localStorage.setItem('auroraRegistrarCompraDespesa', JSON.stringify({
+      projecteCodi: formData.codi,
+      ...draft,
+    }));
+    window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'factures-compra', codi: '' } }));
+  };
+
+  const serveiLabel = (recurs: RecursHumaProjecte) => {
+    const servei = parametres?.serveis.find(s => s.codi === recurs.servei)?.nom || recurs.servei || 'Despesa';
+    const unitat = parametres?.unitats.find(u => u.codi === recurs.unitat)?.nom || recurs.unitat;
+    return unitat ? `${servei} (${recurs.quantitat || 0} ${unitat})` : servei;
+  };
+
   return (
     <div>
       {/* TABLA 1: RECURSOS HUMANS */}
@@ -77,6 +99,10 @@ export default function DespesesTab({
             <tbody>
               {formData.recursosHumans.map((recurs) => {
                 const categoriaData = parametres?.categories.find(c => c.codi === recurs.categoria);
+                const albaraRecurs = recurs.tdCodi
+                  ? albaransCompra.find(a => a.tdCodi === recurs.tdCodi && a.tipusLinia === 'rrhh')
+                  : undefined;
+                const teCompraAssociada = !!albaraRecurs?.facturaCodi;
                 return (
                   <tr key={recurs.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '0.75rem', width: '150px' }}>
@@ -190,6 +216,33 @@ export default function DespesesTab({
                             '→ Tasques'
                           )}
                         </button>
+                        {!teCompraAssociada && (
+                          <button
+                            type="button"
+                            onClick={() => registrarCompra({
+                              proveidor: recurs.proveidor,
+                              concepte: serveiLabel(recurs),
+                              base: recurs.cost || 0,
+                              albaraCodis: albaraRecurs ? [albaraRecurs.codi] : [],
+                            })}
+                            disabled={esBloquejat || !recurs.cost}
+                            title="Registrar factura"
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: '4px',
+                              color: 'var(--color-accent-primary)',
+                              cursor: esBloquejat || !recurs.cost ? 'not-allowed' : 'pointer',
+                              padding: '0.25rem 0.5rem',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem'
+                            }}
+                          >
+                            <FileText size={14} /> Factura
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => onEliminarRecursHuma(recurs.id)}
@@ -365,20 +418,22 @@ export default function DespesesTab({
                     </td>
 
                     <td style={{ padding: '0.75rem', textAlign: 'center', width: '40px' }}>
-                      <button
-                        type="button"
-                        onClick={() => onEliminarMaterial(material.id)}
-                        disabled={esBloquejat}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--color-error)',
-                          cursor: 'pointer',
-                          padding: '0.25rem'
-                        }}
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => onEliminarMaterial(material.id)}
+                          disabled={esBloquejat}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-error)',
+                            cursor: 'pointer',
+                            padding: '0.25rem'
+                          }}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

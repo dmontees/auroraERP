@@ -36,6 +36,12 @@ const ESTAT_CONFIG: Record<string, { label: string; color: string }> = {
   planificado:       { label: 'Planificat',      color: 'var(--color-warning)' },
 };
 
+function facturaCompraCost(fc: FacturaCompra): number {
+  const tipusDocument = fc.tipusDocument ?? 'factura';
+  const ivaDeduible = fc.ivaDeduible ?? tipusDocument === 'factura';
+  return (fc.baseImposable || 0) + (ivaDeduible ? 0 : (fc.ivaImport || 0));
+}
+
 // ── SVG donut helpers ──────────────────────────────────────────────────────
 
 function polarToCart(cx: number, cy: number, r: number, deg: number): [number, number] {
@@ -198,7 +204,7 @@ export default function ProjectesRendibilitat({
         .reduce((s, g) => {
           const fc = g as FacturaCompra;
           const n = fc.projectes.length || 1;
-          return s + ((fc.baseImposable || 0) / n);
+          return s + (facturaCompraCost(fc) / n);
         }, 0);
 
       const despeses = recursosHumans + materials + facturesCompra;

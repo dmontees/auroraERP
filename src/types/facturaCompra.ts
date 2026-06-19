@@ -18,6 +18,7 @@ export interface Pagament {
 
 export type EstatGasto = 'pendent' | 'pagada-parcial' | 'pagada' | 'vencuda';
 export type TipusGasto = 'factura-compra' | 'gasto-general' | 'obligacio-fiscal';
+export type TipusDocumentCompra = 'factura' | 'factura_simplificada';
 
 export type { SubtipusObligacioFiscal, ObligacioFiscal } from './obligacioFiscal';
 export { SUBTIPUS_OBLIGACIO_FISCAL } from './obligacioFiscal';
@@ -45,6 +46,7 @@ export interface GastoBase {
   // Documento
   documentPDF?: string;            // Base64
   documentPDFName?: string;        // Nombre del archivo
+  ivaDeduible?: boolean;           // Per defecte false en factures simplificades
   
   // Metadata
   concepte: string;
@@ -55,6 +57,8 @@ export interface GastoBase {
 // FACTURA DE COMPRA
 export interface FacturaCompra extends GastoBase {
   tipus: 'factura-compra';
+  tipusDocument?: TipusDocumentCompra;
+  emissorNom?: string;
   proveidor: string;               // Código del proveedor
   numFacturaProveidor: string;     // Número de factura del proveedor
   projectes: string[];             // Array de códigos de proyectos
@@ -83,4 +87,3 @@ export const CATEGORIES_GASTO_GENERAL = [
   { codi: 'seguro-medic', nom: 'Assegurança Mèdica Privada',   icon: '🏥' },
   { codi: 'otros',        nom: 'Altres Despeses amb Rebut',     icon: '📄' },
 ] as const;
-

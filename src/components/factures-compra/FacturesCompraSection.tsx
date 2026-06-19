@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download } from 'lucide-react';
-import type { EstatGasto, ObligacioFiscal } from '../../types/facturaCompra';
+import type { EstatGasto, FacturaCompra, ObligacioFiscal, TipusDocumentCompra } from '../../types/facturaCompra';
 import { CATEGORIES_GASTO_GENERAL } from '../../types/facturaCompra';
 import type { AlbaraCompra } from '../../types/albara';
 import type { Parametres } from '../../types/parametres';
@@ -16,6 +16,24 @@ import { formatCurrency } from './utils/facturesCalculations';
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
 type Vista = 'factures' | 'albarans';
+
+const TIPUS_DOCUMENT_LABELS: Record<TipusDocumentCompra, string> = {
+  factura: 'Factura',
+  factura_simplificada: 'Factura simpl.',
+};
+
+const getTipusDocument = (factura: FacturaCompra): TipusDocumentCompra =>
+  (factura.tipusDocument as string) === 'ticket'
+    ? 'factura_simplificada'
+    : factura.tipusDocument ?? 'factura';
+
+interface CompraDraftFromProject {
+  projecteCodi: string;
+  proveidor?: string;
+  concepte: string;
+  base: number;
+  albaraCodis?: string[];
+}
 
 export default function FacturesCompraSection() {
   const { gastos, proveidors, projectes, saveGastos, deleteGasto } = useFacturesData();
@@ -54,9 +72,13 @@ export default function FacturesCompraSection() {
   const [showTipusModal, setShowTipusModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [tipusSeleccionat, setTipusSeleccionat] = useState<'factura-compra' | 'gasto-general' | null>(null);
+  const [tipusDocumentInicial, setTipusDocumentInicial] = useState<TipusDocumentCompra>('factura');
+  const [draftInicial, setDraftInicial] = useState<CompraDraftFromProject | null>(null);
+  const [albaransInicials, setAlbaransInicials] = useState<string[]>([]);
   const [editingGasto, setEditingGasto] = useState<any | null>(null);
 
   const [filterTipus, setFilterTipus] = useState<'tots' | 'factura-compra' | 'gasto-general'>('tots');
+  const [filterTipusDocument, setFilterTipusDocument] = useState<'tots' | TipusDocumentCompra>('tots');
   const [filterEstat, setFilterEstat] = useState<'tots' | EstatGasto>('tots');
   const [filterMes, setFilterMes] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('tots');
@@ -101,6 +123,10 @@ export default function FacturesCompraSection() {
   const gastosFiltrats = gastos
     .filter(gasto => {
       if (filterTipus !== 'tots' && gasto.tipus !== filterTipus) return false;
+      if (filterTipusDocument !== 'tots') {
+        if (gasto.tipus !== 'factura-compra') return false;
+        if (getTipusDocument(gasto as FacturaCompra) !== filterTipusDocument) return false;
+      }
       if (filterEstat !== 'tots' && gasto.estat !== filterEstat) return false;
       if (filterMes && !gasto.dataGasto.startsWith(filterMes)) return false;
       if (filterCategoria !== 'tots') {
@@ -121,11 +147,31 @@ export default function FacturesCompraSection() {
       return new Date(b.dataGasto).getTime() - new Date(a.dataGasto).getTime();
     });
 
-  const seleccionarTipus = (tipus: any) => {
+  const seleccionarTipus = (tipus: 'factura-compra' | 'gasto-general', tipusDocument: TipusDocumentCompra = 'factura') => {
     setTipusSeleccionat(tipus);
+    setTipusDocumentInicial(tipusDocument);
     setShowTipusModal(false);
     setShowModal(true);
   };
+
+  useEffect(() => {
+    const rawDraft = localStorage.getItem('auroraRegistrarCompraDespesa');
+    if (!rawDraft) return;
+    localStorage.removeItem('auroraRegistrarCompraDespesa');
+    try {
+      const draft = JSON.parse(rawDraft) as CompraDraftFromProject;
+      if (!draft?.projecteCodi || !draft?.concepte) return;
+      setEditingGasto(null);
+      setTipusSeleccionat(null);
+      setTipusDocumentInicial('factura');
+      setDraftInicial(draft);
+      setAlbaransInicials(draft.albaraCodis || []);
+      setShowModal(false);
+      setShowTipusModal(true);
+    } catch {
+      // Ignore invalid draft payloads.
+    }
+  }, []);
 
   const getEstatIcon = (estat: EstatGasto) => {
     switch (estat) {
@@ -240,6 +286,11 @@ export default function FacturesCompraSection() {
               <option value="factura-compra">📄 Factures</option>
               <option value="gasto-general">💳 Despeses Generals</option>
             </select>
+            <select value={filterTipusDocument} onChange={(e) => setFilterTipusDocument(e.target.value as any)} className="form-input" style={{ width: '185px', fontSize: '0.85rem' }}>
+              <option value="tots">Tots documents</option>
+              <option value="factura">Factura</option>
+              <option value="factura_simplificada">Factura simpl.</option>
+            </select>
             <select value={filterEstat} onChange={(e) => setFilterEstat(e.target.value as any)} className="form-input" style={{ width: '140px', fontSize: '0.85rem' }}>
               <option value="tots">Tots els estats</option>
               <option value="pendent">Pendent</option>
@@ -283,7 +334,7 @@ export default function FacturesCompraSection() {
         <div style={{ flex: 1 }} />
 
         {vista === 'factures' && (
-          <button className="btn-primary" onClick={() => { setEditingGasto(null); setShowTipusModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button className="btn-primary" onClick={() => { setEditingGasto(null); setTipusDocumentInicial('factura'); setDraftInicial(null); setAlbaransInicials([]); setShowTipusModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             Nova Factura / Despesa
           </button>
         )}
@@ -331,16 +382,19 @@ export default function FacturesCompraSection() {
               ) : (
                 gastosFiltrats.map((gasto) => {
                   let displayInfo = '-';
+                  let tipusInfo = gasto.tipus === 'factura-compra' ? 'Factura' : 'Despesa';
                   if (gasto.tipus === 'factura-compra') {
-                    const proveidor = proveidors.find(p => p.codi === gasto.proveidor);
-                    displayInfo = proveidor?.nomComercial || '-';
+                    const factura = gasto as FacturaCompra;
+                    const proveidor = factura.proveidor ? proveidors.find(p => p.codi === factura.proveidor) : undefined;
+                    tipusInfo = TIPUS_DOCUMENT_LABELS[getTipusDocument(factura)];
+                    displayInfo = proveidor?.nomComercial || proveidor?.nomFiscal || factura.emissorNom || '-';
                   } else if (gasto.tipus === 'gasto-general') {
                     const categoria = CATEGORIES_GASTO_GENERAL.find(c => c.codi === gasto.categoria);
                     displayInfo = categoria ? `${categoria.icon} ${categoria.nom}` : '-';
                   }
                   return (
-                    <tr key={gasto.codi} style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer' }} className="table-row-hover" onClick={() => setEditingGasto(gasto)}>
-                      <td style={{ padding: '0.75rem' }}>{gasto.tipus === 'factura-compra' ? '📄' : '💳'}</td>
+                    <tr key={gasto.codi} title={tipusInfo} style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer' }} className="table-row-hover" onClick={() => setEditingGasto(gasto)}>
+                      <td style={{ padding: '0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>{tipusInfo}</td>
                       <td style={{ padding: '0.75rem' }}>{getEstatIcon(gasto.estat)}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 500 }}>{gasto.codi}</td>
                       <td style={{ padding: '0.75rem' }}>{gasto.tipus === 'factura-compra' ? (gasto.numFacturaProveidor || '-') : '-'}</td>
@@ -388,7 +442,9 @@ export default function FacturesCompraSection() {
                       <td style={{ padding: '0.75rem', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
                         {projectes.find(p => p.codi === a.projecteCodi)?.titol || a.projecteCodi}
                       </td>
-                      <td style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{tipusLabel}</td>
+                      <td style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                        <div>{tipusLabel}</div>
+                      </td>
                       <td style={{ padding: '0.75rem', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>{a.dataCreacio}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
                         {formatCurrency(importVal)}
@@ -404,12 +460,16 @@ export default function FacturesCompraSection() {
 
       {/* MODALES */}
       {showTipusModal && (
-        <TipusGastoModal onClose={() => setShowTipusModal(false)} onSelect={seleccionarTipus} />
+        <TipusGastoModal
+          onClose={() => { setShowTipusModal(false); setDraftInicial(null); setAlbaransInicials([]); }}
+          onSelect={seleccionarTipus}
+          compraOnly={!!draftInicial}
+        />
       )}
 
       {((showModal && tipusSeleccionat === 'gasto-general') || (editingGasto?.tipus === 'gasto-general')) && (
         <GastoGeneralModal
-          onClose={() => { setShowModal(false); setTipusSeleccionat(null); setEditingGasto(null); }}
+          onClose={() => { setShowModal(false); setTipusSeleccionat(null); setTipusDocumentInicial('factura'); setDraftInicial(null); setAlbaransInicials([]); setEditingGasto(null); }}
           onSave={(gasto) => {
             const existeix = gastos.some(g => g.codi === gasto.codi);
             if (existeix) saveGastos(gastos.map(g => g.codi === gasto.codi ? gasto : g));
@@ -423,7 +483,7 @@ export default function FacturesCompraSection() {
 
       {((showModal && tipusSeleccionat === 'factura-compra') || (editingGasto?.tipus === 'factura-compra')) && (
         <FacturaCompraModal
-          onClose={() => { setShowModal(false); setTipusSeleccionat(null); setEditingGasto(null); }}
+          onClose={() => { setShowModal(false); setTipusSeleccionat(null); setTipusDocumentInicial('factura'); setDraftInicial(null); setAlbaransInicials([]); setEditingGasto(null); }}
           onSave={(factura) => {
             const existeix = gastos.some(g => g.codi === factura.codi);
             if (existeix) saveGastos(gastos.map(g => g.codi === factura.codi ? factura : g));
@@ -433,6 +493,9 @@ export default function FacturesCompraSection() {
           nextCode={getNextCode('factura-compra')}
           proveidors={proveidors}
           projectes={projectes}
+          initialTipusDocument={tipusDocumentInicial}
+          initialAlbaraCodis={albaransInicials}
+          initialDraft={draftInicial}
           editingFactura={editingGasto?.tipus === 'factura-compra' ? editingGasto : null}
         />
       )}

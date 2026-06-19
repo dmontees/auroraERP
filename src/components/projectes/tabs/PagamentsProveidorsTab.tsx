@@ -3,7 +3,7 @@ import { storage } from '../../../utils/storageManager';
 import type { AlbaraCompra } from '../../../types/albara';
 import type { Proveidor } from '../../../types/proveidor';
 import type { Parametres } from '../../../types/parametres';
-import type { FacturaCompra, ObligacioFiscal } from '../../../types/facturaCompra';
+import type { FacturaCompra, ObligacioFiscal, TipusDocumentCompra } from '../../../types/facturaCompra';
 
 interface Props {
   projecteCodi: string;
@@ -34,6 +34,21 @@ function albaraImport(a: AlbaraCompra) {
 }
 
 const isNomina = (codi: string) => codi.startsWith('OF-');
+
+const TIPUS_DOCUMENT_LABELS: Record<TipusDocumentCompra, string> = {
+  factura: 'Factura',
+  factura_simplificada: 'Factura simpl.',
+};
+
+const getTipusDocument = (f: FacturaCompra): TipusDocumentCompra =>
+  (f.tipusDocument as string) === 'ticket'
+    ? 'factura_simplificada'
+    : f.tipusDocument ?? 'factura';
+
+function facturaEmissor(f: FacturaCompra, proveidors: Proveidor[]) {
+  const prov = f.proveidor ? proveidors.find(p => p.codi === f.proveidor) : undefined;
+  return prov?.nomComercial || prov?.nomFiscal || f.emissorNom || 'Emissor';
+}
 
 export default function PagamentsProveidorsTab({ projecteCodi, proveidors, parametres }: Props) {
   const { pendents, vinculats, pagats, facturesVinculades, nominesVinculades } = useMemo(() => {
@@ -124,10 +139,11 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
   );
 
   const renderFacturaRow = (f: FacturaCompra, estat: 'vinculada' | 'pagada') => {
-    const prov = proveidors.find(p => p.codi === f.proveidor);
-    const provNomText = prov?.nomComercial || prov?.nomFiscal || f.proveidor;
+    const provNomText = facturaEmissor(f, proveidors);
+    const tipusDocument = getTipusDocument(f);
+    const numDocument = f.numFacturaProveidor || 'SN';
     return (
-      <div key={f.codi} style={{
+      <div key={f.codi} title={`${TIPUS_DOCUMENT_LABELS[tipusDocument]} ${numDocument}`} style={{
         ...rowStyle,
         gridTemplateColumns: '1fr 2fr 1fr 1fr',
         background: estat === 'pagada' ? 'var(--color-success-bg)' : 'var(--color-info-bg)',
@@ -136,7 +152,7 @@ export default function PagamentsProveidorsTab({ projecteCodi, proveidors, param
         <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-tertiary)' }}>{f.codi}</span>
         <span>
           <span style={{ fontWeight: 600 }}>{provNomText}</span>
-          <span style={{ color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>— {f.numFacturaProveidor}</span>
+          <span style={{ color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>-- {TIPUS_DOCUMENT_LABELS[tipusDocument]} {numDocument}</span>
         </span>
         <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(f.totalGasto || 0)}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: estat === 'pagada' ? 'var(--color-success)' : 'var(--color-warning)' }}>

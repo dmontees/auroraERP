@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Lock } from 'lucide-react';
-import type { FacturaCompra } from '../../types/facturaCompra';
+import { jsPDF } from 'jspdf';
+import type { FacturaCompra, TipusDocumentCompra } from '../../types/facturaCompra';
 import type { AlbaraCompra } from '../../types/albara';
 import type { Proveidor } from '../../types/proveidor';
 import type { Projecte } from '../../types/projecte';
@@ -19,6 +20,14 @@ interface FacturaCompraModalProps {
   nextCode: string;
   proveidors: Proveidor[];
   projectes: Projecte[];
+  initialTipusDocument?: TipusDocumentCompra;
+  initialAlbaraCodis?: string[];
+  initialDraft?: {
+    projecteCodi: string;
+    proveidor?: string;
+    concepte: string;
+    base: number;
+  } | null;
   editingFactura?: FacturaCompra | null;
 }
 
@@ -28,6 +37,59 @@ interface ConcepteLinea {
   base: number;
 }
 
+const TIPUS_DOCUMENT_LABELS: Record<TipusDocumentCompra, string> = {
+  factura: 'Factura',
+  factura_simplificada: 'Factura simplificada',
+};
+
+const getTipusDocument = (factura?: Partial<FacturaCompra> | null): TipusDocumentCompra =>
+  (factura?.tipusDocument as string) === 'ticket'
+    ? 'factura_simplificada'
+    : factura?.tipusDocument ?? 'factura';
+
+const albaraImport = (a: AlbaraCompra) =>
+  a.tipusLinia === 'rrhh' ? (a.cost || 0) : (a.preuProveidor || 0);
+
+const albaraDescripcio = (a: AlbaraCompra) =>
+  a.tipusLinia === 'rrhh'
+    ? `${a.serveiNom || a.serveiCodi || ''} (${a.quantitat ?? ''} ${a.unitatNom || a.unitatCodi || ''})`
+    : `${a.materialNom || a.materialCodi || ''}`;
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target?.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const loadImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+
+async function convertImageToPdfDataUrl(file: File): Promise<string> {
+  const imageData = await readFileAsDataUrl(file);
+  const image = await loadImage(imageData);
+  const orientation = image.width >= image.height ? 'landscape' : 'portrait';
+  const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const maxWidth = pageWidth - margin * 2;
+  const maxHeight = pageHeight - margin * 2;
+  const ratio = Math.min(maxWidth / image.width, maxHeight / image.height);
+  const width = image.width * ratio;
+  const height = image.height * ratio;
+  const x = (pageWidth - width) / 2;
+  const y = (pageHeight - height) / 2;
+  pdf.addImage(imageData, file.type === 'image/png' ? 'PNG' : 'JPEG', x, y, width, height);
+  return pdf.output('datauristring');
+}
+
 export default function FacturaCompraModal({
   onClose,
   onSave,
@@ -35,8 +97,14 @@ export default function FacturaCompraModal({
   nextCode,
   proveidors,
   projectes,
+  initialTipusDocument = 'factura',
+  initialAlbaraCodis = [],
+  initialDraft = null,
   editingFactura
 }: FacturaCompraModalProps) {
+  const initialAlbarans = !editingFactura && initialAlbaraCodis.length > 0
+    ? storage.getAlbaransCompra().filter(a => initialAlbaraCodis.includes(a.codi))
+    : [];
   
   const [conceptes, setConceptes] = useState<ConcepteLinea[]>(() => {
     if (editingFactura) {
@@ -52,6 +120,22 @@ export default function FacturaCompraModal({
         base: editingFactura.baseImposable 
       }];
     }
+
+    if (initialAlbarans.length > 0) {
+      return initialAlbarans.map(a => ({
+        id: a.codi,
+        descripcio: albaraDescripcio(a),
+        base: albaraImport(a),
+      }));
+    }
+
+    if (initialDraft) {
+      return [{
+        id: '1',
+        descripcio: initialDraft.concepte,
+        base: initialDraft.base,
+      }];
+    }
     
     return [{ id: '1', descripcio: '', base: 0 }];
   });
@@ -60,7 +144,9 @@ export default function FacturaCompraModal({
     editingFactura ? {
       codi: editingFactura.codi,
       tipus: editingFactura.tipus,
+      tipusDocument: getTipusDocument(editingFactura),
       proveidor: editingFactura.proveidor,
+      emissorNom: editingFactura.emissorNom || '',
       numFacturaProveidor: editingFactura.numFacturaProveidor,
       dataGasto: editingFactura.dataGasto,
       dataVenciment: editingFactura.dataVenciment,
@@ -71,22 +157,30 @@ export default function FacturaCompraModal({
       concepte: editingFactura.concepte,
       documentPDF: editingFactura.documentPDF,
       documentPDFName: editingFactura.documentPDFName,
+      ivaDeduible: editingFactura.ivaDeduible ?? getTipusDocument(editingFactura) === 'factura',
       notes: editingFactura.notes,
       createdAt: editingFactura.createdAt
     } : {
       codi: nextCode,
       tipus: 'factura-compra',
-      proveidor: '',
+      tipusDocument: initialTipusDocument,
+      proveidor: initialDraft?.proveidor || '',
+      emissorNom: '',
       numFacturaProveidor: '',
       dataGasto: new Date().toISOString().split('T')[0],
       dataVenciment: '',
       ivaPercent: 21,
       irpfPercent: 0,
-      projectes: [],
+      projectes: initialDraft?.projecteCodi
+        ? [initialDraft.projecteCodi]
+        : initialAlbarans[0]?.projecteCodi
+          ? [initialAlbarans[0].projecteCodi]
+          : [],
       esDepesaGeneral: false,
       concepte: '',
       documentPDF: undefined,
       documentPDFName: undefined,
+      ivaDeduible: initialTipusDocument === 'factura',
       notes: '',
       createdAt: new Date().toISOString()
     }
@@ -100,7 +194,7 @@ export default function FacturaCompraModal({
 
   // Vinculació a projecte — pregunta obligatòria
   const [vinculatProjecte, setVinculatProjecte] = useState<boolean | null>(() => {
-    if (!editingFactura) return null; // nova: sense resposta
+    if (!editingFactura) return initialAlbarans.length > 0 || initialDraft ? true : null; // nova: sense resposta
     if (editingFactura.esDepesaGeneral) return false;
     return editingFactura.projectes?.length > 0 ? true : false;
   });
@@ -108,13 +202,17 @@ export default function FacturaCompraModal({
     if (editingFactura?.albaransVinculats?.length) {
       return storage.getAlbaransCompra().filter(a => editingFactura.albaransVinculats!.includes(a.codi));
     }
-    return [];
+    return initialAlbarans;
   });
-  const [showAlbaransNotif, setShowAlbaransNotif] = useState(false);
+  const [showAlbaransNotif, setShowAlbaransNotif] = useState(initialAlbarans.length > 0);
 
   const handleProjecteVinculatChange = (projecteCodi: string) => {
     setFormData(prev => ({ ...prev, projectes: projecteCodi ? [projecteCodi] : [] }));
-    if (!projecteCodi || !formData.proveidor) { setAlbaransLinked([]); return; }
+    if (!projecteCodi || !formData.proveidor) {
+      setAlbaransLinked([]);
+      setShowAlbaransNotif(false);
+      return;
+    }
     const pendents = storage.getAlbaransCompra().filter(a =>
       a.proveidorCodi === formData.proveidor &&
       a.projecteCodi === projecteCodi &&
@@ -123,10 +221,8 @@ export default function FacturaCompraModal({
     if (pendents.length > 0) {
       setConceptes(pendents.map(a => ({
         id: a.codi,
-        descripcio: a.tipusLinia === 'rrhh'
-          ? `${a.serveiNom || a.serveiCodi || ''} (${a.quantitat ?? ''} ${a.unitatNom || a.unitatCodi || ''})`
-          : `${a.materialNom || a.materialCodi || ''}`,
-        base: a.tipusLinia === 'rrhh' ? (a.cost || 0) : (a.preuProveidor || 0),
+        descripcio: albaraDescripcio(a),
+        base: albaraImport(a),
       })));
       setAlbaransLinked(pendents);
       setShowAlbaransNotif(true);
@@ -134,6 +230,40 @@ export default function FacturaCompraModal({
       setAlbaransLinked([]);
       setShowAlbaransNotif(false);
     }
+  };
+
+  const tipusDocument = getTipusDocument(formData);
+  const esDocumentLleuger = tipusDocument === 'factura_simplificada';
+  const proveidorObligatori = tipusDocument === 'factura';
+  const projecteSeleccionat = formData.projectes[0] || '';
+  const albaransPendentsProjecte = projecteSeleccionat
+    ? storage.getAlbaransCompra().filter(a =>
+      a.projecteCodi === projecteSeleccionat &&
+      a.estat === 'pendent-factura' &&
+      (!formData.proveidor || a.proveidorCodi === formData.proveidor)
+    )
+    : [];
+
+  const syncConceptesAmbAlbarans = (albarans: AlbaraCompra[]) => {
+    if (albarans.length === 0) {
+      setConceptes([{ id: '1', descripcio: '', base: 0 }]);
+      return;
+    }
+    setConceptes(albarans.map(a => ({
+      id: a.codi,
+      descripcio: albaraDescripcio(a),
+      base: albaraImport(a),
+    })));
+  };
+
+  const toggleAlbaraManual = (albara: AlbaraCompra) => {
+    const exists = albaransLinked.some(a => a.codi === albara.codi);
+    const next = exists
+      ? albaransLinked.filter(a => a.codi !== albara.codi)
+      : [...albaransLinked, albara];
+    setAlbaransLinked(next);
+    syncConceptesAmbAlbarans(next);
+    setShowAlbaransNotif(next.length > 0);
   };
 
   const esNova = !editingFactura;
@@ -196,16 +326,46 @@ export default function FacturaCompraModal({
     ));
   };
 
-  const prepararFactura = (): FacturaCompra | null => {
-    if (!formData.proveidor || !formData.numFacturaProveidor || !formData.dataGasto) {
-      return null;
+  const handleProveidorChange = (value: string) => {
+    setFormData({ ...formData, proveidor: value });
+    setAlbaransLinked([]);
+    setShowAlbaransNotif(false);
+  };
+
+  const getValidationMessage = (): string | null => {
+    if (!formData.dataGasto) {
+      return 'Informa la data del document.';
+    }
+
+    if (proveidorObligatori && (!formData.proveidor || !formData.numFacturaProveidor)) {
+      return 'Per a una factura completa cal seleccionar un proveidor i informar el numero de factura.';
+    }
+
+    if (esDocumentLleuger && !formData.proveidor && !formData.emissorNom?.trim()) {
+      return 'Per a una factura simplificada sense proveidor cal informar el camp Emissor.';
+    }
+
+    if (esDocumentLleuger && !formData.documentPDF) {
+      return 'Per a una factura simplificada cal adjuntar el PDF del document.';
     }
 
     if (vinculatProjecte === null) {
-      return null;
+      return 'Indica si aquesta despesa esta vinculada a un projecte.';
+    }
+
+    if (vinculatProjecte === true && formData.projectes.length === 0) {
+      return 'Selecciona el projecte vinculat a aquesta despesa.';
     }
 
     if (conceptes.some(c => !c.descripcio || c.base === 0)) {
+      return 'Revisa els conceptes: tots han de tenir descripcio i import.';
+    }
+
+    return null;
+  };
+
+  const prepararFactura = (): FacturaCompra | null => {
+    if (getValidationMessage()) {
       return null;
     }
 
@@ -233,16 +393,14 @@ export default function FacturaCompraModal({
 
   const syncAlbaransAfterSave = (factura: FacturaCompra) => {
     const all = storage.getAlbaransCompra();
-    // Primary: use stored albaransVinculats; fallback: find by facturaCodi (handles missing field)
-    const codis: string[] = factura.albaransVinculats?.length
-      ? factura.albaransVinculats
-      : all.filter(a => a.facturaCodi === factura.codi).map(a => a.codi);
-    if (!codis.length) return;
+    const codis = factura.albaransVinculats || [];
     // Treat any sub-cent remainder as fully paid
     const isPagat = Math.round((factura.pendentPagament || 0) * 100) / 100 <= 0 && (factura.totalPagat || 0) > 0;
     storage.setAlbaransCompra(all.map(a =>
       codis.includes(a.codi)
         ? { ...a, facturaCodi: factura.codi, estat: isPagat ? 'pagat' : 'factura-vinculada' }
+        : a.facturaCodi === factura.codi
+          ? { ...a, facturaCodi: undefined, estat: 'pendent-factura' }
         : a
     ));
   };
@@ -258,18 +416,23 @@ export default function FacturaCompraModal({
     }
   );
 
-  const handlePDFUpload = (file: File) => {
-    setPdfFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFormData({ 
-        ...formData, 
-        documentPDF: event.target?.result as string,
-        documentPDFName: file.name 
+  const handlePDFUpload = async (file: File) => {
+    try {
+      const isImage = file.type === 'image/jpeg' || file.type === 'image/png';
+      const documentPDF = isImage
+        ? await convertImageToPdfDataUrl(file)
+        : await readFileAsDataUrl(file);
+      const fileName = isImage ? file.name.replace(/\.(jpe?g|png)$/i, '.pdf') : file.name;
+      setPdfFileName(fileName);
+      setFormData({
+        ...formData,
+        documentPDF,
+        documentPDFName: fileName,
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error processant el document:', error);
+      alert('No s\'ha pogut processar el document. Prova amb un altre PDF, JPG o PNG.');
+    }
   };
 
   const handlePDFDelete = () => {
@@ -309,9 +472,15 @@ export default function FacturaCompraModal({
       return;
     }
     
+    const validationMessage = getValidationMessage();
+    if (validationMessage) {
+      alert(validationMessage);
+      return;
+    }
+
     const facturaCompleta = prepararFactura();
     if (!facturaCompleta) {
-      alert('Omple tots els camps obligatoris, assegura\'t que tots els conceptes siguin vàlids i puja una factura PDF');
+      alert('No s\'ha pogut preparar el document. Revisa les dades i torna-ho a provar.');
       return;
     }
     
@@ -334,7 +503,7 @@ export default function FacturaCompraModal({
       >
         <div className="modal-header">
           <h2>
-            📄 {editingFactura ? 'Editar' : 'Nova'} Factura de Compra
+            📄 {editingFactura ? 'Editar' : 'Nova'} {TIPUS_DOCUMENT_LABELS[tipusDocument]} de Compra
             {pendentPagament <= 0.01 && totalPagat > 0 && (
               <span style={{
                 marginLeft: '1rem',
@@ -367,34 +536,72 @@ export default function FacturaCompraModal({
             />
           </div>
 
+          <div className="form-group">
+            <label>Tipus document *</label>
+            <select
+              className="form-input"
+              value={tipusDocument}
+              onChange={(e) => {
+                const nextTipus = e.target.value as TipusDocumentCompra;
+                setFormData({
+                  ...formData,
+                  tipusDocument: nextTipus,
+                  emissorNom: nextTipus === 'factura' ? '' : formData.emissorNom,
+                  ivaDeduible: nextTipus === 'factura',
+                });
+                setAlbaransLinked([]);
+                setShowAlbaransNotif(false);
+              }}
+              disabled={camposBloquejats}
+            >
+              <option value="factura">Factura</option>
+              <option value="factura_simplificada">Factura simplificada</option>
+            </select>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label>Proveïdor *</label>
+              <label>Proveïdor {proveidorObligatori ? '*' : '(opcional)'}</label>
               <SearchableSelect
                 value={formData.proveidor}
-                onChange={(value) => setFormData({ ...formData, proveidor: value })}
+                onChange={handleProveidorChange}
                 options={proveidors.map(p => ({
                   value: p.codi,
                   label: p.nomComercial || p.nomFiscal
                 }))}
-                placeholder="Selecciona un proveïdor..."
+                placeholder={proveidorObligatori ? 'Selecciona un proveïdor...' : 'Selecciona un proveïdor o informa emissor...'}
                 disabled={camposBloquejats}
               />
             </div>
 
             <div className="form-group">
-              <label>Núm. Factura *</label>
+              <label>Núm. Document {proveidorObligatori ? '*' : '(opcional)'}</label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.numFacturaProveidor}
                 onChange={(e) => setFormData({ ...formData, numFacturaProveidor: e.target.value })}
-                placeholder="FAC-2024-001"
-                required
+                placeholder={tipusDocument === 'factura_simplificada' ? 'Simplificada / SN' : 'FAC-2024-001'}
+                required={proveidorObligatori}
                 disabled={camposBloquejats}
               />
             </div>
           </div>
+
+          {esDocumentLleuger && !formData.proveidor && (
+            <div className="form-group">
+              <label>Emissor *</label>
+              <input
+                type="text"
+                className="form-input"
+                value={formData.emissorNom || ''}
+                onChange={(e) => setFormData({ ...formData, emissorNom: e.target.value })}
+                placeholder="Restaurant, parking, taxi..."
+                required
+                disabled={camposBloquejats}
+              />
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
@@ -493,10 +700,34 @@ export default function FacturaCompraModal({
                     </p>
                   </div>
                 )}
-                {vinculatProjecte === true && formData.projectes[0] && albaransLinked.length === 0 && !camposBloquejats && (
+                {vinculatProjecte === true && formData.projectes[0] && albaransLinked.length === 0 && !camposBloquejats && (!esDocumentLleuger || albaransPendentsProjecte.length === 0) && (
                   <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>
                     No s'han trobat albarans pendents d'aquest proveïdor per a aquest projecte.
                   </p>
+                )}
+                {vinculatProjecte === true && formData.projectes[0] && esDocumentLleuger && albaransPendentsProjecte.length > 0 && !camposBloquejats && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                      Albarans pendents del projecte
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {albaransPendentsProjecte.map(a => {
+                        const selected = albaransLinked.some(linked => linked.codi === a.codi);
+                        const prov = proveidors.find(p => p.codi === a.proveidorCodi);
+                        return (
+                          <label key={a.codi} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={selected} onChange={() => toggleAlbaraManual(a)} />
+                            <span>
+                              <strong>{a.codi}</strong>
+                              {' '}-- {prov?.nomComercial || prov?.nomFiscal || a.proveidorCodi}
+                              {' '}-- {albaraDescripcio(a)}
+                            </span>
+                            <strong>{albaraImport(a).toFixed(2)} EUR</strong>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -619,6 +850,20 @@ export default function FacturaCompraModal({
               <div style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem' }}>
                 Import IVA: {ivaImport.toFixed(2)}€
               </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.ivaDeduible ?? tipusDocument === 'factura'}
+                  onChange={(e) => setFormData({ ...formData, ivaDeduible: e.target.checked })}
+                  disabled={camposBloquejats}
+                />
+                IVA deduible
+              </label>
+              {esDocumentLleuger && (
+                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-tertiary)', marginTop: '0.25rem', lineHeight: 1.4 }}>
+                  Per defecte no deduible en factures simplificades.
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -666,7 +911,8 @@ export default function FacturaCompraModal({
             onUpload={handlePDFUpload}
             onDelete={handlePDFDelete}
             disabled={camposBloquejats}
-            required
+            required={esDocumentLleuger}
+            allowImages={esDocumentLleuger}
           />
 
           <div className="form-group">

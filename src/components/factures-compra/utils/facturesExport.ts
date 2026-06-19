@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import type { Gasto, ObligacioFiscal } from '../../../types/facturaCompra';
+import type { FacturaCompra, Gasto, ObligacioFiscal, TipusDocumentCompra } from '../../../types/facturaCompra';
 import type { Proveidor } from '../../../types/proveidor';
 
 const SUBTIPUS_SS = new Set(['cuota-autonomo', 'regularitzacio-ss']);
@@ -71,16 +71,31 @@ function safeName(s: string): string {
   return s.replace(/[/\\:*?"<>|]/g, '_');
 }
 
+const TIPUS_DOCUMENT_LABELS: Record<TipusDocumentCompra, string> = {
+  factura: 'Factura',
+  factura_simplificada: 'FacturaSimplificada',
+};
+
+const getTipusDocument = (gasto: FacturaCompra): TipusDocumentCompra =>
+  (gasto.tipusDocument as string) === 'ticket'
+    ? 'factura_simplificada'
+    : gasto.tipusDocument ?? 'factura';
+
+function buildFacturaCompraFilename(gasto: FacturaCompra, proveidors: Proveidor[]): string {
+  const proveidor = gasto.proveidor ? proveidors.find(p => p.codi === gasto.proveidor) : undefined;
+  const tipusDocument = getTipusDocument(gasto);
+  const numFactura = gasto.numFacturaProveidor || 'SN';
+  const emissor = proveidor?.nomComercial || proveidor?.nomFiscal || gasto.emissorNom || 'Emissor';
+  return safeName(`${gasto.codi}_${TIPUS_DOCUMENT_LABELS[tipusDocument]}_${emissor}_${numFactura}.pdf`);
+}
+
 function buildZip(gastos: Gasto[], proveidors: Proveidor[], obligacionsSS: ObligacioFiscal[]) {
   const zip = new JSZip();
 
   gastos.forEach(gasto => {
     let filename: string;
     if (gasto.tipus === 'factura-compra') {
-      const proveidor = proveidors.find(p => p.codi === gasto.proveidor);
-      const numFactura = gasto.numFacturaProveidor || 'SN';
-      const proveidorNom = proveidor?.nomComercial || 'Proveidor';
-      filename = safeName(`${gasto.codi}_${proveidorNom}_${numFactura}.pdf`);
+      filename = buildFacturaCompraFilename(gasto, proveidors);
     } else {
       filename = safeName(`${gasto.codi}_${gasto.concepte}.pdf`);
     }

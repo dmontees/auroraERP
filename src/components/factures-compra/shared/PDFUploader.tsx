@@ -8,6 +8,7 @@ interface PDFUploaderProps {
   onDelete: () => void;
   disabled?: boolean;
   required?: boolean;
+  allowImages?: boolean;
 }
 
 export default function PDFUploader({
@@ -16,15 +17,20 @@ export default function PDFUploader({
   onUpload,
   onDelete,
   disabled = false,
-  required = false
+  required = false,
+  allowImages = false
 }: PDFUploaderProps) {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      alert('Només es permeten arxius PDF');
+    const allowedTypes = allowImages
+      ? ['application/pdf', 'image/jpeg', 'image/png']
+      : ['application/pdf'];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert(allowImages ? 'Només es permeten arxius PDF, JPG o PNG' : 'Només es permeten arxius PDF');
       return;
     }
 
@@ -33,11 +39,11 @@ export default function PDFUploader({
 
   return (
     <div className="form-group">
-      <label>Document PDF {required && '*'}</label>
+      <label>Document PDF {allowImages ? '/ Imatge' : ''} {required && '*'}</label>
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <input
           type="file"
-          accept="application/pdf"
+          accept={allowImages ? 'application/pdf,image/jpeg,image/png' : 'application/pdf'}
           onChange={handleFileSelect}
           style={{ display: 'none' }}
           id="pdf-upload-input"
@@ -55,7 +61,7 @@ export default function PDFUploader({
           }}
         >
           <Upload size={18} />
-          Pujar PDF
+          {allowImages ? 'Pujar PDF/JPG/PNG' : 'Pujar PDF'}
         </label>
 
         {documentPDF && (

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import type { FacturaVenta } from '../../../types/facturaVenda';
-import type { Gasto, ObligacioFiscal } from '../../../types/facturaCompra';
+import type { FacturaCompra, Gasto, ObligacioFiscal } from '../../../types/facturaCompra';
 
 interface Props {
   facturesVenda: FacturaVenta[];
@@ -17,6 +17,18 @@ function inYear(dateStr: string, year: number) {
   return dateStr?.startsWith(String(year));
 }
 
+function isIvaDeduible(g: Gasto): boolean {
+  if (g.tipus !== 'factura-compra') return false;
+  const fc = g as FacturaCompra;
+  return fc.ivaDeduible ?? (fc.tipusDocument ?? 'factura') === 'factura';
+}
+
+function despesaFiscalBase(g: Gasto): number {
+  const base = g.baseImposable || 0;
+  if (g.tipus !== 'factura-compra') return base;
+  return base + (isIvaDeduible(g) ? 0 : (g.ivaImport || 0));
+}
+
 export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, any: selectedYear }: Props) {
   const calculs = useMemo(() => {
     // ---- FACTURES VENDA de l'any ----
@@ -29,10 +41,10 @@ export default function FiscalTab({ facturesVenda, gastos, obligacionsFiscals, a
       (g.tipus === 'factura-compra' || g.tipus === 'gasto-general') && inYear(g.dataGasto, selectedYear)
     );
     const gastosOperatius = gastosOperatiusAny
-      .reduce((s, g) => s + (g.baseImposable || 0), 0);
+      .reduce((s, g) => s + despesaFiscalBase(g), 0);
     const ivaSuportat = gastosOperatiusAny
       .filter(g => g.tipus === 'factura-compra')
-      .reduce((s, g) => s + (g.ivaImport || 0), 0);
+      .reduce((s, g) => s + (isIvaDeduible(g) ? (g.ivaImport || 0) : 0), 0);
 
     const rendimentNet = ingresosbruts - gastosOperatius;
 

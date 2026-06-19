@@ -1,12 +1,14 @@
 import React from 'react';
-import { X, FileText, CreditCard } from 'lucide-react';
+import { X, FileText, CreditCard, Receipt } from 'lucide-react';
+import type { TipusDocumentCompra } from '../../types/facturaCompra';
 
 interface TipusGastoModalProps {
   onClose: () => void;
-  onSelect: (tipus: 'factura-compra' | 'gasto-general') => void;
+  onSelect: (tipus: 'factura-compra' | 'gasto-general', tipusDocument?: TipusDocumentCompra) => void;
+  compraOnly?: boolean;
 }
 
-export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalProps) {
+export default function TipusGastoModal({ onClose, onSelect, compraOnly = false }: TipusGastoModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div 
@@ -15,7 +17,7 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
         style={{ maxWidth: '500px' }}
       >
         <div className="modal-header">
-          <h2>Selecciona el tipus de despesa</h2>
+          <h2>{compraOnly ? 'Selecciona el tipus de document' : 'Selecciona el tipus de despesa'}</h2>
           <button className="modal-close" onClick={onClose}>
             <X size={24} />
           </button>
@@ -25,7 +27,7 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Factura de Compra */}
             <button
-              onClick={() => onSelect('factura-compra')}
+              onClick={() => onSelect('factura-compra', 'factura')}
               style={{
                 padding: '1.5rem',
                 background: 'var(--color-bg-secondary)',
@@ -78,7 +80,62 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
               </div>
             </button>
 
-            {/* Gasto General */}
+            {/* Factura simplificada */}
+            <button
+              onClick={() => onSelect('factura-compra', 'factura_simplificada')}
+              style={{
+                padding: '1.5rem',
+                background: 'var(--color-bg-secondary)',
+                border: '2px solid var(--color-border)',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textAlign: 'left',
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'flex-start'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-accent-primary)';
+                e.currentTarget.style.background = 'var(--color-bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.background = 'var(--color-bg-secondary)';
+              }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: 'var(--color-success-bg)',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Receipt size={24} color="var(--color-success)" />
+              </div>
+              <div>
+                <div style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  marginBottom: '0.5rem',
+                  color: 'var(--color-text-primary)'
+                }}>
+                  Factura simplificada
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--color-text-secondary)',
+                  lineHeight: '1.4'
+                }}>
+                  Restaurant, parking, taxi o compra menor amb PDF, vinculable a projecte
+                </div>
+              </div>
+            </button>
+
+            {!compraOnly && (
             <button
               onClick={() => onSelect('gasto-general')}
               style={{
@@ -132,6 +189,7 @@ export default function TipusGastoModal({ onClose, onSelect }: TipusGastoModalPr
                 </div>
               </div>
             </button>
+            )}
           </div>
         </div>
       </div>
