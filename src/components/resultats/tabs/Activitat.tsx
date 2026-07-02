@@ -38,8 +38,17 @@ function yearsInPeriode(periode: Periode): Set<string> {
   return set;
 }
 
-function importedProjectDate(p: Projecte): string {
-  return p.facturaHistorica?.data || p.dataFinalitzacio || p.dataInici || '';
+function projecteCostIntern(p: Projecte): number {
+  return (p.recursosHumans || []).reduce((s, r) => s + (r.cost || 0), 0)
+    + (p.materials || []).reduce((s, m) => s + (m.preuProveidor || 0), 0);
+}
+
+function projecteIngressos(p: Projecte): number {
+  return (p.tasques || []).reduce((s, t) => s + (t.importe || 0), 0);
+}
+
+function beneficiMostratProjecte(p: Projecte): number {
+  return projecteIngressos(p) - projecteCostIntern(p);
 }
 
 function calcMesosBase(periode: Periode): number {
@@ -69,25 +78,28 @@ export default function Activitat({
   partsTraeball,
 }: Props) {
 
-  // ── GROSS INCOME ──────────────────────────────────────────────────────────
-  const facturesEnPeriode = facturesVenda.filter(
-    f => !['borrador', 'cancelled'].includes(f.estat) && estaEnPeriode(f.dataFactura, periode)
-  );
-  const ingressosFactures = facturesEnPeriode.reduce((s, f) => s + (f.baseImposable || 0), 0);
-
-  const importatsEnPeriode = projectes.filter(p => {
-    const data = importedProjectDate(p);
-    return p.esImportat === true && data && estaEnPeriode(data, periode);
+  // ── GROSS BENEFITS ────────────────────────────────────────────────────────
+  const beneficisPerMes = agruparPerMes([], 'dataFactura', 'valor', periode);
+  const projectesFacturatsEnPeriode = projectes.filter(p => {
+    if (!(p.estat === 'facturat' || p.facturaAssociada || p.facturaHistorica)) return false;
+    const factura = facturesVenda.find(f =>
+      !['borrador', 'cancelled'].includes(f.estat) &&
+      (f.codi === p.facturaAssociada || f.projecte === p.codi)
+    );
+    const dataFactura = factura?.dataFactura || p.facturaHistorica?.data || '';
+    return !!dataFactura && estaEnPeriode(dataFactura, periode);
   });
-  const ingressosImportats = importatsEnPeriode.reduce((s, p) => {
-    const ing = (p.tasques || []).reduce((t, task) => t + (task.importe || 0), 0);
-    const desp =
-      (p.recursosHumans || []).reduce((t, r) => t + (r.cost || 0), 0) +
-      (p.materials || []).reduce((t, m) => t + (m.preuProveidor || 0) * (m.jornades ?? 1), 0);
-    return s + (ing - desp);
-  }, 0);
-
-  const ingressosBruts = ingressosFactures + ingressosImportats;
+  projectesFacturatsEnPeriode.forEach(p => {
+    const factura = facturesVenda.find(f =>
+      !['borrador', 'cancelled'].includes(f.estat) &&
+      (f.codi === p.facturaAssociada || f.projecte === p.codi)
+    );
+    const dataFactura = factura?.dataFactura || p.facturaHistorica?.data || '';
+    const mesKey = dataFactura.substring(0, 7);
+    const existing = beneficisPerMes.find(m => m.mes === mesKey);
+    if (existing) existing.valor += beneficiMostratProjecte(p);
+  });
+  const beneficisBruts = beneficisPerMes.reduce((s, m) => s + m.valor, 0);
 
   // ── FISCAL OBLIGATIONS ────────────────────────────────────────────────────
   const years = yearsInPeriode(periode);
@@ -120,34 +132,12 @@ export default function Activitat({
   );
 
   // ── RESULTS ───────────────────────────────────────────────────────────────
-  const beneficiFiscal = ingressosBruts - totalObligacions;
+  const beneficiFiscal = beneficisBruts - totalObligacions;
   const beneficiReal = beneficiFiscal - despesesEstructurals;
 
   const mesosBase = calcMesosBase(periode);
   const beneficiRealMitjaMensual = beneficiReal / mesosBase;
-  const margeNet = ingressosBruts > 0 ? (beneficiReal / ingressosBruts) * 100 : 0;
-
-  // ── MONTHLY CHART DATA ────────────────────────────────────────────────────
-  const ingressosPerMes = agruparPerMes(
-    facturesVenda.filter(f => !['borrador', 'cancelled'].includes(f.estat)),
-    'dataFactura',
-    'baseImposable',
-    periode
-  );
-  importatsEnPeriode.forEach(p => {
-    const data = importedProjectDate(p);
-    const ing = (p.tasques || []).reduce((t, task) => t + (task.importe || 0), 0);
-    const desp =
-      (p.recursosHumans || []).reduce((t, r) => t + (r.cost || 0), 0) +
-      (p.materials || []).reduce((t, m) => t + (m.preuProveidor || 0) * (m.jornades ?? 1), 0);
-    const net = ing - desp;
-    if (net === 0) return;
-    const mesKey = data.substring(0, 7);
-    const existing = ingressosPerMes.find(m => m.mes === mesKey);
-    if (existing) existing.valor += net;
-    else ingressosPerMes.push({ mes: mesKey, valor: net });
-  });
-  ingressosPerMes.sort((a, b) => a.mes.localeCompare(b.mes));
+  const margeNet = beneficisBruts > 0 ? (beneficiReal / beneficisBruts) * 100 : 0;
 
   const estructuralsPerMes = agruparPerMes(
     gastos
@@ -172,7 +162,7 @@ export default function Activitat({
     .filter(p => p.data >= periode.dataInici && p.data <= periode.dataFi)
     .reduce((s, p) => s + (p.temps || 0), 0);
 
-  const hasDades = ingressosPerMes.some(m => m.valor > 0);
+  const hasDades = beneficisPerMes.some(m => m.valor !== 0);
   const hasHores = houresPerMes.some(m => m.valor > 0);
   const totalEstructuralsTaula = estructuralsPerMes.reduce((s, m) => s + m.valor, 0);
   const totalObligacionsTaula = obligacionsPerMes.reduce((s, m) => s + m.valor, 0);
@@ -194,7 +184,7 @@ export default function Activitat({
         <Info size={18} style={{ color: 'var(--color-accent-primary)', flexShrink: 0, marginTop: '2px' }} />
         <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--color-text-primary)' }}>Activitat i resultat net</strong>
-          {' '}— Ingressos facturats menys obligacions fiscals (quota d'autònom, IRPF trimestral i anual,
+          {' '}— Beneficis de projectes facturats menys obligacions fiscals (quota d'autònom, IRPF trimestral i anual,
           regularització SS) i despeses estructurals (factures generals no vinculades a projectes).
           L'IRPF s'atribueix a l'any de l'exercici. El promig mensual es calcula sobre els mesos completats.
         </div>
@@ -226,17 +216,15 @@ export default function Activitat({
               <span style={{ background: g, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{v}</span>
             );
             return (<>
-              {/* Ingressos */}
+              {/* Beneficis */}
               <div className="stat-card">
                 <div className="stat-card-stripe" style={{ background: G_GREEN }} />
                 <div className="stat-card-body">
-                  <div className="stat-card-label">+ Ingressos bruts</div>
-                  <div className="stat-card-value" style={{ marginBottom: '0.5rem' }}>{gSpan(formatCurrency(ingressosBruts), G_GREEN)}</div>
+                  <div className="stat-card-label">+ Beneficis bruts</div>
+                  <div className="stat-card-value" style={{ marginBottom: '0.5rem' }}>{gSpan(formatCurrency(beneficisBruts), G_GREEN)}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--color-text-tertiary)', lineHeight: 1.7 }}>
-                    <div>Factures ({facturesEnPeriode.length}): {formatCurrency(ingressosFactures)}</div>
-                    {importatsEnPeriode.length > 0 && (
-                      <div>Importats net ({importatsEnPeriode.length}): {formatCurrency(ingressosImportats)}</div>
-                    )}
+                    <div>Projectes facturats ({projectesFacturatsEnPeriode.length})</div>
+                    <div>Suma dels beneficis mostrats a Projectes</div>
                   </div>
                 </div>
               </div>
@@ -334,13 +322,13 @@ export default function Activitat({
               border: '1px solid var(--color-border)',
             }}>
               <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                Ingressos bruts per mes
+                Beneficis bruts per mes
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginBottom: '1rem' }}>
-                Base imposable de factures emeses + benefici net de projectes importats
+                Suma del benefici dels projectes facturats en cada mes
               </div>
               <div style={{ height: 220 }}>
-                <GraficBarresActivitat data={ingressosPerMes} />
+                <GraficBarresActivitat data={beneficisPerMes} />
               </div>
             </div>
           )}
@@ -381,7 +369,7 @@ export default function Activitat({
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--color-bg-tertiary)', borderBottom: '2px solid var(--color-border)' }}>
-              {['Mes', 'Ingressos', 'Oblig. fiscals', 'Desp. estructurals', 'Resultat net'].map((h, i) => (
+              {['Mes', 'Beneficis', 'Oblig. fiscals', 'Desp. estructurals', 'Resultat net'].map((h, i) => (
                 <th key={h} style={{
                   padding: '0.65rem 1rem',
                   textAlign: i === 0 ? 'left' : 'right',
@@ -394,11 +382,11 @@ export default function Activitat({
             </tr>
           </thead>
           <tbody>
-            {ingressosPerMes.map((mesData) => {
+            {beneficisPerMes.map((mesData) => {
               const fiscal = obligacionsPerMes.find(m => m.mes === mesData.mes)?.valor || 0;
               const estructural = estructuralsPerMes.find(m => m.mes === mesData.mes)?.valor || 0;
               const net = mesData.valor - fiscal - estructural;
-              const esActiu = mesData.valor > 0 || fiscal > 0 || estructural > 0;
+              const esActiu = mesData.valor !== 0 || fiscal > 0 || estructural > 0;
               return (
                 <tr key={mesData.mes} style={{ borderBottom: '1px solid var(--color-border)', opacity: esActiu ? 1 : 0.4 }}>
                   <td style={{ padding: '0.65rem 1rem', fontWeight: 500 }}>
@@ -425,7 +413,7 @@ export default function Activitat({
             <tr style={{ borderTop: '2px solid var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
               <td style={{ padding: '0.75rem 1rem', fontWeight: 700 }}>TOTAL (per data pagament)</td>
               <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700, color: 'var(--color-success)' }}>
-                {formatCurrency(ingressosBruts)}
+                {formatCurrency(beneficisBruts)}
               </td>
               <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: 'var(--color-warning)', fontWeight: 600 }}>
                 -{formatCurrency(totalObligacionsTaula)}
@@ -435,9 +423,9 @@ export default function Activitat({
               </td>
               <td style={{
                 padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700,
-                color: (ingressosBruts - totalObligacionsTaula - totalEstructuralsTaula) >= 0 ? 'var(--color-success)' : 'var(--color-error)',
+                color: (beneficisBruts - totalObligacionsTaula - totalEstructuralsTaula) >= 0 ? 'var(--color-success)' : 'var(--color-error)',
               }}>
-                {formatCurrency(ingressosBruts - totalObligacionsTaula - totalEstructuralsTaula)}
+                {formatCurrency(beneficisBruts - totalObligacionsTaula - totalEstructuralsTaula)}
               </td>
             </tr>
           </tbody>
@@ -542,7 +530,7 @@ function GraficBarresHores({ data }: { data: { mes: string; valor: number }[] })
   );
 }
 
-// ── Income bar chart (same architecture as Dashboard's GraficBarresBenefici) ──
+// ── Benefits bar chart (same architecture as Dashboard's GraficBarresBenefici) ──
 
 function GraficBarresActivitat({ data }: { data: { mes: string; valor: number }[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -572,7 +560,14 @@ function GraficBarresActivitat({ data }: { data: { mes: string; valor: number }[
   const PB = 22;
   const chartW = Math.max(W - PL - PR, 10);
   const chartH = Math.max(H - PT - PB, 10);
-  const maxVal = Math.max(...data.map(d => d.valor), 1);
+  const values = data.map(d => d.valor);
+  const rawMax = Math.max(...values, 0);
+  const rawMin = Math.min(...values, 0);
+  const maxVal = rawMax === 0 && rawMin === 0 ? 1 : rawMax;
+  const minVal = rawMax === 0 && rawMin === 0 ? 0 : rawMin;
+  const range = Math.max(maxVal - minVal, 1);
+  const valueToY = (value: number) => PT + chartH - ((value - minVal) / range) * chartH;
+  const zeroY = valueToY(0);
   const n = data.length;
   const barW = chartW / n;
   const barGap = Math.max(4, Math.min(14, barW * 0.25));
@@ -585,25 +580,35 @@ function GraficBarresActivitat({ data }: { data: { mes: string; valor: number }[
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
           {gridLevels.map((pct, i) => {
             const y = PT + chartH - pct * chartH;
+            const labelValue = minVal + range * pct;
             return (
               <g key={i}>
                 <line
                   x1={PL} y1={y} x2={W - PR} y2={y}
                   stroke="var(--color-border)"
-                  strokeWidth={pct === 0 ? 1.5 : 1}
-                  strokeDasharray={pct === 0 ? undefined : '4 3'}
+                  strokeWidth={Math.abs(labelValue) < 0.01 ? 1.5 : 1}
+                  strokeDasharray={Math.abs(labelValue) < 0.01 ? undefined : '4 3'}
                 />
                 <text x={PL - 5} y={y + 3.5} textAnchor="end" fontSize="9.5" fill="var(--color-text-tertiary)">
-                  {fmtK(maxVal * pct)}
+                  {fmtK(labelValue)}
                 </text>
               </g>
             );
           })}
 
+          {minVal < 0 && maxVal > 0 && (
+            <line
+              x1={PL} y1={zeroY} x2={W - PR} y2={zeroY}
+              stroke="var(--color-border-strong)"
+              strokeWidth="1.5"
+            />
+          )}
+
           {data.map((d, i) => {
-            const barH = Math.max(0, (d.valor / maxVal) * chartH);
+            const yValue = valueToY(d.valor);
+            const barH = Math.abs(zeroY - yValue);
             const x = PL + i * barW + barGap / 2;
-            const y = PT + chartH - barH;
+            const y = Math.min(yValue, zeroY);
             const bw = barW - barGap;
             const color = d.valor > 0 ? 'var(--color-info)' : d.valor < 0 ? 'var(--color-error)' : 'var(--color-border-strong)';
             const mesDate = new Date(d.mes + '-01');
@@ -613,11 +618,18 @@ function GraficBarresActivitat({ data }: { data: { mes: string; valor: number }[
 
             return (
               <g key={i}>
-                {barH > 0 && (
+                {barH > 0.5 && (
                   <rect x={x} y={y} width={bw} height={barH} fill={color} rx="3" opacity="0.9" />
                 )}
-                {d.valor > 0 && barH > 14 && (
-                  <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-text-secondary)">
+                {d.valor !== 0 && barH > 14 && (
+                  <text
+                    x={x + bw / 2}
+                    y={d.valor > 0 ? y - 4 : y + barH + 12}
+                    textAnchor="middle"
+                    fontSize="11"
+                    fontWeight="600"
+                    fill="var(--color-text-secondary)"
+                  >
                     {fmtK(d.valor)}
                   </text>
                 )}

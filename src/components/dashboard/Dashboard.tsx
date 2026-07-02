@@ -9,6 +9,21 @@ import { storage } from '../../utils/storageManager';
 import { getDataEfectivaGasto } from '../../utils/resultatCalculs';
 
 const MESOS_CURTS = ['Gen', 'Feb', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Des'];
+const ESTATS_FACTURA_NO_COMPUTABLES = ['borrador', 'cancelled'];
+const SUBTIPUS_FISCAL_DASHBOARD = ['cuota-autonomo', 'irpf-trimestral', 'irpf-anual', 'regularitzacio-ss'];
+
+function projecteCostIntern(p: Projecte): number {
+  return (p.recursosHumans || []).reduce((s, r) => s + (r.cost || 0), 0)
+    + (p.materials || []).reduce((s, m) => s + (m.preuProveidor || 0), 0);
+}
+
+function projecteIngressos(p: Projecte): number {
+  return (p.tasques || []).reduce((s, t) => s + (t.importe || 0), 0);
+}
+
+function beneficiMostratProjecte(p: Projecte): number {
+  return projecteIngressos(p) - projecteCostIntern(p);
+}
 
 function fmtK(n: number): string {
   if (n === 0) return '0';
@@ -73,41 +88,33 @@ export default function Dashboard() {
     return p.dataEntrega || '';
   };
 
-  // ── GRÀFIC: benefici brut mensual de factures emeses + projectes importats ─
-  // "Emeses" = qualsevol estat excepte esborrany
-  // Projectes importats: mai tenen factura associada, s'usa el benefici del projecte
+  // ── GRÀFIC: benefici mensual de projectes facturats ──────────────────────
+  // Suma el benefici que es mostra al projecte i l'imputa al mes de la factura.
   const beneficiPerMes = Array.from({ length: 12 }, (_, i) => {
     const mes = String(i + 1).padStart(2, '0');
     const prefix = `${selectedYear}-${mes}`;
 
-    const deFactures = facturesVenda
-      .filter(f => !['borrador', 'cancelled'].includes(f.estat) && f.dataFactura?.startsWith(prefix))
-      .reduce((sum, f) => sum + (f.baseImposable || 0), 0);
-
-    const deImportats = projectes
-      .filter(p => p.esImportat === true)
-      .filter(p => {
-        const data = p.facturaHistorica?.data || p.dataFinalitzacio || p.dataInici || '';
-        return data.startsWith(prefix);
-      })
+    return projectes
+      .filter(p => p.estat === 'facturat' || !!p.facturaAssociada || !!p.facturaHistorica)
       .reduce((sum, p) => {
-        const ingressos = (p.tasques || []).reduce((s, t) => s + (t.importe || 0), 0);
-        const despeses = (p.recursosHumans || []).reduce((s, r) => s + (r.cost || 0), 0)
-          + (p.materials || []).reduce((s, m) => s + (m.preuProveidor || 0), 0);
-        return sum + (ingressos - despeses);
+        const factura = facturesVenda.find(f =>
+          !ESTATS_FACTURA_NO_COMPUTABLES.includes(f.estat) &&
+          (f.codi === p.facturaAssociada || f.projecte === p.codi)
+        );
+        const dataFactura = factura?.dataFactura || p.facturaHistorica?.data || '';
+        if (!dataFactura.startsWith(prefix)) return sum;
+        return sum + beneficiMostratProjecte(p);
       }, 0);
-
-    return deFactures + deImportats;
   });
 
-  const totalFacturatAny = beneficiPerMes.reduce((sum, b) => sum + b, 0);
+  const totalBeneficiFacturacioAny = beneficiPerMes.reduce((sum, benefici) => sum + benefici, 0);
 
   // ── OBLIGACIONS FISCALS de l'any (per periode) ───────────────────────────
   // Inclou: cuota-autonomo, irpf-trimestral, irpf-anual, regularitzacio-ss
   const obligaciosFiscalsAny = obligacionsFiscals
     .filter(o =>
       o.periode?.substring(0, 4) === String(selectedYear) &&
-      ['cuota-autonomo', 'irpf-trimestral', 'irpf-anual', 'regularitzacio-ss'].includes(o.subtipus)
+      SUBTIPUS_FISCAL_DASHBOARD.includes(o.subtipus)
     )
     .reduce((sum, o) => sum + (o.baseImposable || o.totalGasto || 0), 0);
 
@@ -124,7 +131,7 @@ export default function Dashboard() {
   // Si any seleccionat = any en curs, dividir per mesos transcorreguts; si no, per 12
   const mesosBase = selectedYear < nowYear ? 12 : (selectedYear > nowYear ? 1 : Math.max(1, nowMonth - 1));
 
-  const beneficiFiscal = totalFacturatAny - obligaciosFiscalsAny;
+  const beneficiFiscal = totalBeneficiFacturacioAny - obligaciosFiscalsAny;
   const beneficiFiscalMitja = mesosBase > 0 ? beneficiFiscal / mesosBase : 0;
 
   const beneficiReal = beneficiFiscal - despesesEstructuralsAny;
@@ -258,9 +265,9 @@ export default function Dashboard() {
           {/* Capçalera amb navegació d'any */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexShrink: 0 }}>
             <div>
-              <div style={{ fontSize: '1rem', fontWeight: 600 }}>Benefici brut de facturació per mes</div>
+              <div style={{ fontSize: '1rem', fontWeight: 600 }}>Benefici de facturació per mes</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginTop: '0.2rem' }}>
-                Ingressos bruts (sense IVA) de les factures emeses — no cal que estiguin cobrades
+                Suma del benefici dels projectes facturats en cada mes
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -291,9 +298,9 @@ export default function Dashboard() {
           {/* Total any */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', flexShrink: 0 }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-              Benefici brut facturat {selectedYear}:{' '}
-              <strong style={{ color: colorBenefici(totalFacturatAny), fontSize: '1rem' }}>
-                {fmtEur2(totalFacturatAny)}
+              Benefici de facturació {selectedYear}:{' '}
+              <strong style={{ color: colorBenefici(totalBeneficiFacturacioAny), fontSize: '1rem' }}>
+                {fmtEur2(totalBeneficiFacturacioAny)}
               </strong>
             </span>
           </div>
@@ -308,7 +315,7 @@ export default function Dashboard() {
               Benefici net fiscal · {selectedYear}
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginBottom: '0.6rem', lineHeight: 1.4 }}>
-              Ingressos bruts de facturació <strong>després de descomptar</strong> el que has pagat a Hisenda i SS com a autònom
+              Ingressos bruts de beneficis de projectes facturats <strong>després de descomptar</strong> el que has pagat a Hisenda i SS com a autònom
             </div>
 
             {selectedYear < nowYear && (
@@ -328,8 +335,8 @@ export default function Dashboard() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
               <div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Total facturat</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-success)' }}>+{fmtEur2(totalFacturatAny)}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Total beneficis</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-success)' }}>+{fmtEur2(totalBeneficiFacturacioAny)}</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-tertiary)', marginBottom: '0.1rem' }}>Obligacions fiscals</div>
@@ -499,7 +506,13 @@ function GraficBarresBenefici({ data }: { data: number[] }) {
 
   const chartW = Math.max(W - PL - PR, 10);
   const chartH = Math.max(H - PT - PB, 10);
-  const maxVal = Math.max(...data, 1);
+  const rawMax = Math.max(...data, 0);
+  const rawMin = Math.min(...data, 0);
+  const maxVal = rawMax === 0 && rawMin === 0 ? 1 : rawMax;
+  const minVal = rawMax === 0 && rawMin === 0 ? 0 : rawMin;
+  const range = Math.max(maxVal - minVal, 1);
+  const valueToY = (value: number) => PT + chartH - ((value - minVal) / range) * chartH;
+  const zeroY = valueToY(0);
   const barW = chartW / 12;
   const barGap = 14;
   const gridLevels = [0, 0.25, 0.5, 0.75, 1];
@@ -509,33 +522,48 @@ function GraficBarresBenefici({ data }: { data: number[] }) {
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
         {gridLevels.map((pct, i) => {
           const y = PT + chartH - pct * chartH;
+          const labelValue = minVal + range * pct;
           return (
             <g key={i}>
               <line x1={PL} y1={y} x2={W - PR} y2={y}
-                stroke="var(--color-border)" strokeWidth={pct === 0 ? 1.5 : 1}
-                strokeDasharray={pct === 0 ? undefined : '4 3'}
+                stroke="var(--color-border)" strokeWidth={Math.abs(labelValue) < 0.01 ? 1.5 : 1}
+                strokeDasharray={Math.abs(labelValue) < 0.01 ? undefined : '4 3'}
               />
               <text x={PL - 5} y={y + 3.5} textAnchor="end" fontSize="9.5" fill="var(--color-text-tertiary)">
-                {fmtEur(maxVal * pct)}
+                {fmtEur(labelValue)}
               </text>
             </g>
           );
         })}
 
+        {minVal < 0 && maxVal > 0 && (
+          <line x1={PL} y1={zeroY} x2={W - PR} y2={zeroY}
+            stroke="var(--color-border-strong)" strokeWidth="1.5"
+          />
+        )}
+
         {data.map((val, i) => {
-          const barH = Math.max(0, (val / maxVal) * chartH);
+          const yValue = valueToY(val);
+          const barH = Math.abs(zeroY - yValue);
           const x = PL + i * barW + barGap / 2;
-          const y = PT + chartH - barH;
+          const y = Math.min(yValue, zeroY);
           const bw = barW - barGap;
           const color = val > 0 ? 'var(--color-info)' : val < 0 ? 'var(--color-error)' : 'var(--color-border-strong)';
 
           return (
             <g key={i}>
-              {barH > 0 && (
+              {barH > 0.5 && (
                 <rect x={x} y={y} width={bw} height={barH} fill={color} rx="3" opacity="0.9" />
               )}
-              {val > 0 && barH > 12 && (
-                <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-text-secondary)">
+              {val !== 0 && barH > 12 && (
+                <text
+                  x={x + bw / 2}
+                  y={val > 0 ? y - 4 : y + barH + 12}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fontWeight="600"
+                  fill="var(--color-text-secondary)"
+                >
                   {fmtEur(val)}
                 </text>
               )}
