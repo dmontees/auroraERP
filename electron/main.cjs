@@ -98,7 +98,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.8',
+    version: '3.0.9',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },

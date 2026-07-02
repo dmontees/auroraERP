@@ -1,12 +1,73 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Download, Plus, LayoutGrid, List, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, FileSpreadsheet, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import type { Projecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import type { Parametres } from '../../types/parametres';
 import type { AlbaraCompra } from '../../types/albara';
+import type { FacturaVenta } from '../../types/facturaVenta';
 import ProjecteDetailView from './ProjecteDetailView';
 import { storage } from '../../utils/storageManager';
 import { exportarProjectesExcel } from './utils/exportProjectes';
+
+type ProjectesSortKey =
+  | 'codi'
+  | 'projecte'
+  | 'client'
+  | 'estat'
+  | 'modalitat'
+  | 'tipusProduccio'
+  | 'directe'
+  | 'dataFactura'
+  | 'despeses'
+  | 'ingressos'
+  | 'benefici'
+  | 'proveidors';
+
+type ProjectesSortDirection = 'asc' | 'desc';
+
+interface ProjectesSortState {
+  key: ProjectesSortKey;
+  direction: ProjectesSortDirection;
+}
+
+const PROJECTES_SORT_STORAGE_KEY = 'auroraProjectesTableSort';
+const DEFAULT_PROJECTES_SORT: ProjectesSortState = { key: 'codi', direction: 'desc' };
+const PROJECTES_SORT_KEYS = new Set<ProjectesSortKey>([
+  'codi',
+  'projecte',
+  'client',
+  'estat',
+  'modalitat',
+  'tipusProduccio',
+  'directe',
+  'dataFactura',
+  'despeses',
+  'ingressos',
+  'benefici',
+  'proveidors',
+]);
+
+const getInitialProjectesSort = (): ProjectesSortState => {
+  if (typeof window === 'undefined') return DEFAULT_PROJECTES_SORT;
+
+  try {
+    const stored = window.localStorage.getItem(PROJECTES_SORT_STORAGE_KEY);
+    if (!stored) return DEFAULT_PROJECTES_SORT;
+
+    const parsed = JSON.parse(stored) as Partial<ProjectesSortState>;
+    if (
+      parsed.key &&
+      PROJECTES_SORT_KEYS.has(parsed.key) &&
+      (parsed.direction === 'asc' || parsed.direction === 'desc')
+    ) {
+      return { key: parsed.key, direction: parsed.direction };
+    }
+  } catch {
+    // Ignore invalid persisted UI preferences.
+  }
+
+  return DEFAULT_PROJECTES_SORT;
+};
 
 function ProjectesSection() {
   // Estados principales
@@ -14,6 +75,7 @@ function ProjectesSection() {
   const [clients, setClients] = useState<Client[]>([]);
   const [parametres, setParametres] = useState<Parametres | null>(null);
   const [albarans, setAlbarans] = useState<AlbaraCompra[]>([]);
+  const [facturesVenda, setFacturesVenda] = useState<FacturaVenta[]>([]);
   
   // Estados UI
   const [vistaActual, setVistaActual] = useState<'taula' | 'kanban'>('taula');
@@ -28,6 +90,7 @@ function ProjectesSection() {
   const [nomesDirectes, setNomesDirectes] = useState(false);
   const [mostrarActius, setMostrarActius] = useState(true);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+  const [sortState, setSortState] = useState<ProjectesSortState>(getInitialProjectesSort);
 
   // Filtro de período
   const currentYear = new Date().getFullYear();
@@ -70,6 +133,7 @@ useEffect(() => {
     setClients(storage.getClients());
     setParametres(storage.getParametres() as Parametres);
     setAlbarans(storage.getAlbaransCompra());
+    setFacturesVenda(storage.getFacturesVenda());
   };
 
   // Cargar al inicio
@@ -86,6 +150,14 @@ useEffect(() => {
     window.removeEventListener('focus', loadData);
   };
 }, []);
+
+useEffect(() => {
+  try {
+    window.localStorage.setItem(PROJECTES_SORT_STORAGE_KEY, JSON.stringify(sortState));
+  } catch {
+    // Sorting still works if localStorage is unavailable.
+  }
+}, [sortState]);
 
 // Escuchar navegación desde otras secciones
 useEffect(() => {
@@ -284,53 +356,182 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
 
   const metriques = calcularMetriques();
 
-// Aplicar filtros y ordenar per codi (més recent primer)
-const projectesFiltrats = projectes
-  .filter(p => {
-    // Mostrar actius (ocultar acabat i facturat)
-    if (mostrarActius && (p.estat === 'acabat' || p.estat === 'facturat')) return false;
+// Aplicar filtres i ordenar segons la columna seleccionada
+const getProjecteTotals = (projecte: Projecte) => {
+  const despeses = projecte.recursosHumans.reduce((sum, r) => sum + r.cost, 0) +
+    projecte.materials.reduce((sum, m) => sum + m.preuProveidor, 0);
+  const ingressos = projecte.tasques.reduce((sum, t) => sum + t.importe, 0);
+  return {
+    despeses,
+    ingressos,
+    benefici: ingressos - despeses,
+  };
+};
 
-    // Només directes
-    if (nomesDirectes && !p.esDirect) return false;
+const getFacturaProjecte = (projecte: Projecte) => {
+  if (projecte.facturaAssociada) {
+    const facturaAssociada = facturesVenda.find(f => f.codi === projecte.facturaAssociada);
+    if (facturaAssociada) return facturaAssociada;
+  }
 
-    // Filtro estat
-    if (filterEstat && p.estat !== filterEstat) return false;
+  return facturesVenda.find(f => f.projecte === projecte.codi);
+};
 
-    // Filtro modalitat
-    if (filterModalitat && p.modalitat !== filterModalitat) return false;
+const getDataFacturaProjecte = (projecte: Projecte) => {
+  const teFactura = projecte.estat === 'facturat' || projecte.facturat || !!projecte.facturaAssociada || !!projecte.facturaHistorica;
+  if (!teFactura) return '';
 
-    // Filtro servei
-    if (filterServei && p.servei !== filterServei) return false;
+  return getFacturaProjecte(projecte)?.dataFactura || projecte.facturaHistorica?.data || '';
+};
 
-    // Filtro de període (usa la primera data de rodatge o entrega del projecte)
-    if (filterPeriode !== 'tots') {
-      const dataRef = p.datesRodatge?.[0]?.data || p.datesEntrega?.[0]?.data || p.dataInici || p.dataEntrega;
-      if (dataRef) {
-        if (filterDesde && dataRef < filterDesde) return false;
-        if (filterFins && dataRef > filterFins) return false;
+const getPagamentProveidorsLabel = (projecte: Projecte) => {
+  const projAlbarans = albarans.filter(a => a.projecteCodi === projecte.codi);
+  const hasPendent = projAlbarans.some(a => a.estat === 'pendent-factura' || a.estat === 'factura-vinculada');
+  return hasPendent ? 'Pendent' : 'Pagat';
+};
+
+const compareProjecteValues = (valueA: string | number | boolean, valueB: string | number | boolean) => {
+  const isEmptyA = valueA === '' || valueA === null || valueA === undefined;
+  const isEmptyB = valueB === '' || valueB === null || valueB === undefined;
+
+  if (isEmptyA && isEmptyB) return 0;
+  if (isEmptyA) return 1;
+  if (isEmptyB) return -1;
+
+  if (typeof valueA === 'number' && typeof valueB === 'number') {
+    return valueA - valueB;
+  }
+
+  if (typeof valueA === 'boolean' && typeof valueB === 'boolean') {
+    return Number(valueA) - Number(valueB);
+  }
+
+  return String(valueA).localeCompare(String(valueB), 'ca', { numeric: true, sensitivity: 'base' });
+};
+
+const getProjecteSortValue = (projecte: Projecte, key: ProjectesSortKey): string | number | boolean => {
+  const client = clients.find(c => c.codi === projecte.client);
+  const modalitat = parametres?.modalitats?.find(m => m.codi === projecte.modalitat);
+  const tipusProduccio = parametres?.tipusProduccio?.find(t => t.codi === projecte.servei);
+  const totals = getProjecteTotals(projecte);
+
+  switch (key) {
+    case 'codi':
+      return parseInt(projecte.codi.split('-')[1] || '0', 10);
+    case 'projecte':
+      return projecte.titol;
+    case 'client':
+      return client?.nomComercial || client?.nomFiscal || '';
+    case 'estat':
+      return ({
+        esborrany: 'Esborrany',
+        planificat: 'Planificat',
+        rodatge: 'Rodatge',
+        edicio: 'Edició',
+        esperant_feedback: 'Esperant Feedback',
+        revisio: 'Revisió',
+        acabat: 'Acabat',
+        facturat: 'Facturat',
+      } as Record<string, string>)[projecte.estat] || projecte.estat;
+    case 'modalitat':
+      return modalitat?.nom || '';
+    case 'tipusProduccio':
+      return tipusProduccio?.nom || '';
+    case 'directe':
+      return projecte.esDirect;
+    case 'dataFactura':
+      return getDataFacturaProjecte(projecte);
+    case 'despeses':
+      return totals.despeses;
+    case 'ingressos':
+      return totals.ingressos;
+    case 'benefici':
+      return totals.benefici;
+    case 'proveidors':
+      return getPagamentProveidorsLabel(projecte);
+    default:
+      return '';
+  }
+};
+
+const projectesFiltrats = useMemo(() => {
+  return projectes
+    .filter(p => {
+      // Mostrar actius (ocultar acabat i facturat)
+      if (mostrarActius && (p.estat === 'acabat' || p.estat === 'facturat')) return false;
+
+      // Només directes
+      if (nomesDirectes && !p.esDirect) return false;
+
+      // Filtro estat
+      if (filterEstat && p.estat !== filterEstat) return false;
+
+      // Filtro modalitat
+      if (filterModalitat && p.modalitat !== filterModalitat) return false;
+
+      // Filtro servei
+      if (filterServei && p.servei !== filterServei) return false;
+
+      // Filtro de període (usa la primera data de rodatge o entrega del projecte)
+      if (filterPeriode !== 'tots') {
+        const dataRef = p.datesRodatge?.[0]?.data || p.datesEntrega?.[0]?.data || p.dataInici || p.dataEntrega;
+        if (dataRef) {
+          if (filterDesde && dataRef < filterDesde) return false;
+          if (filterFins && dataRef > filterFins) return false;
+        }
       }
-    }
 
-    // Búsqueda
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const client = clients.find(c => c.codi === p.client);
-      const clientNom = (client?.nomComercial || client?.nomFiscal || '').toLowerCase();
-      return (
-        p.codi.toLowerCase().includes(term) ||
-        clientNom.includes(term) ||
-        p.titol.toLowerCase().includes(term)
+      // Búsqueda
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const client = clients.find(c => c.codi === p.client);
+        const clientNom = (client?.nomComercial || client?.nomFiscal || '').toLowerCase();
+        return (
+          p.codi.toLowerCase().includes(term) ||
+          clientNom.includes(term) ||
+          p.titol.toLowerCase().includes(term)
+        );
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const valueA = getProjecteSortValue(a, sortState.key);
+      const valueB = getProjecteSortValue(b, sortState.key);
+      const isEmptyA = valueA === '' || valueA === null || valueA === undefined;
+      const isEmptyB = valueB === '' || valueB === null || valueB === undefined;
+
+      if (isEmptyA && !isEmptyB) return 1;
+      if (!isEmptyA && isEmptyB) return -1;
+
+      const result = compareProjecteValues(valueA, valueB);
+
+      if (result !== 0) {
+        return sortState.direction === 'asc' ? result : -result;
+      }
+
+      return compareProjecteValues(
+        getProjecteSortValue(b, 'codi'),
+        getProjecteSortValue(a, 'codi')
       );
-    }
-
-    return true;
-  })
-  .sort((a, b) => {
-    // Ordenar per codi descendent (més recent primer)
-    const numA = parseInt(a.codi.split('-')[1] || '0');
-    const numB = parseInt(b.codi.split('-')[1] || '0');
-    return numB - numA;
-  });
+    });
+}, [
+  projectes,
+  mostrarActius,
+  nomesDirectes,
+  filterEstat,
+  filterModalitat,
+  filterServei,
+  filterPeriode,
+  filterDesde,
+  filterFins,
+  searchTerm,
+  clients,
+  parametres,
+  facturesVenda,
+  albarans,
+  sortState,
+]);
 
 // Colores de estado
 const estatColors: Record<string, { bg: string; text: string }> = {
@@ -354,6 +555,57 @@ const estatLabels: Record<string, string> = {
   acabat: 'Acabat',
   facturat: 'Facturat',
 };
+
+const handleSort = (key: ProjectesSortKey) => {
+  setSortState(current => ({
+    key,
+    direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+  }));
+};
+
+const renderSortIcon = (key: ProjectesSortKey) => {
+  if (sortState.key !== key) {
+    return <ArrowUpDown size={14} aria-hidden="true" />;
+  }
+
+  return sortState.direction === 'asc'
+    ? <ArrowUp size={14} aria-hidden="true" />
+    : <ArrowDown size={14} aria-hidden="true" />;
+};
+
+const renderSortableHeader = (
+  key: ProjectesSortKey,
+  label: string,
+  align: 'left' | 'center' | 'right' = 'left',
+  width?: string
+) => (
+  <th style={{ textAlign: align, padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', width }}>
+    <button
+      type="button"
+      onClick={() => handleSort(key)}
+      title={`Ordenar per ${label}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+        gap: '0.35rem',
+        width: '100%',
+        border: 0,
+        background: 'transparent',
+        padding: 0,
+        color: 'inherit',
+        font: 'inherit',
+        textTransform: 'inherit',
+        cursor: 'pointer',
+      }}
+    >
+      <span>{label}</span>
+      <span style={{ display: 'inline-flex', color: sortState.key === key ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
+        {renderSortIcon(key)}
+      </span>
+    </button>
+  </th>
+);
 
   // Renderitzar vista de detall a pantalla completa
   if (showDetailView) {
@@ -661,18 +913,18 @@ const estatLabels: Record<string, string> = {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Codi</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Projecte</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Client</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Estat</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Modalitat</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Tipus Producció</th>
-    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', width: '70px' }}>Directe</th>
-    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Entrega</th>
-    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Despeses</th>
-    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Ingressos</th>
-    <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Benefici</th>
-    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', width: '90px' }}>Prov.</th>
+    {renderSortableHeader('codi', 'Codi')}
+    {renderSortableHeader('projecte', 'Projecte')}
+    {renderSortableHeader('client', 'Client')}
+    {renderSortableHeader('estat', 'Estat')}
+    {renderSortableHeader('modalitat', 'Modalitat')}
+    {renderSortableHeader('tipusProduccio', 'Tipus Producció')}
+    {renderSortableHeader('directe', 'Directe', 'center', '70px')}
+    {renderSortableHeader('dataFactura', 'Data factura')}
+    {renderSortableHeader('despeses', 'Despeses', 'right')}
+    {renderSortableHeader('ingressos', 'Ingressos', 'right')}
+    {renderSortableHeader('benefici', 'Benefici', 'right')}
+    {renderSortableHeader('proveidors', 'Prov.', 'center', '90px')}
   </tr>
 </thead>
 <tbody>
@@ -682,10 +934,7 @@ const estatLabels: Record<string, string> = {
     const tipusProducció = parametres?.tipusProduccio?.find(t => t.codi === projecte.servei);
     
     // Calcular financiero correcto
-    const gastos = projecte.recursosHumans.reduce((sum, r) => sum + r.cost, 0) + 
-                   projecte.materials.reduce((sum, m) => sum + m.preuProveidor, 0);
-    const ingressos = projecte.tasques.reduce((sum, t) => sum + t.importe, 0);
-    const benefici = ingressos - gastos;
+    const { despeses: gastos, ingressos, benefici } = getProjecteTotals(projecte);
     const percentBenefici = ingressos > 0 ? (benefici / ingressos) * 100 : 0;
     
     return (
@@ -779,10 +1028,10 @@ const estatLabels: Record<string, string> = {
           </span>
         </td>
         
-        {/* Entrega */}
+        {/* Data factura */}
         <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>
           {(() => {
-            const data = projecte.datesEntrega?.[0]?.data || projecte.dataEntrega;
+            const data = getDataFacturaProjecte(projecte);
             return data ? new Date(data).toLocaleDateString('ca-ES') : '-';
           })()}
         </td>
