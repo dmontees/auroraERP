@@ -8,13 +8,14 @@ import type { Pressupost } from '../../types/pressupost';
 import { usePressupost } from './hooks/usePressupost';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { generarPressupostPDF } from '../../utils/generarPressupostPDF';
-import { buildProjectDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
+import { buildPendingDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
 import DadesTab from './tabs/DadesTab';
 import ProjecteTab from './tabs/ProjecteTab';
 import GastosTab from './tabs/GastosTab';
 import TasquesTab from './tabs/TasquesTab';
 import NotesTab from './tabs/NotesTab';
 import { Trash2 } from 'lucide-react';
+import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 
 interface PressupostModalProps {
   onClose: () => void;
@@ -51,7 +52,7 @@ export default function PressupostModal({
     const projecte = projecteCodi ? hook.projectes.find(p => p.codi === projecteCodi) : null;
     const client = clients.find(c => c.codi === formData.client);
 
-    if (!rootPath || !electronDocuments || !projecte || !client) {
+    if (!rootPath || !electronDocuments || !client) {
       generarPressupostPDF(formData, clients, idioma);
       return;
     }
@@ -60,26 +61,29 @@ export default function PressupostModal({
     const matchingRefs = existingRefs.filter(ref => ref.displayName.startsWith(`${formData.codi}_${idioma}`));
     const version = Math.max(0, ...matchingRefs.map(ref => ref.version || 0)) + 1;
     const filename = versionedPdfName(`${formData.codi}_${idioma}`, version);
-    const relativePath = buildProjectDocumentPath(
-      client.codi,
-      client.nomComercial || client.nomFiscal || 'Client',
-      projecte.codi,
-      projecte.titol || formData.nomProjecte || 'Projecte',
-      'pressupostos',
-      filename
-    );
+    const relativePath = projecte
+      ? buildProjectDocumentPath(
+          client.codi,
+          client.nomComercial || client.nomFiscal || 'Client',
+          projecte.codi,
+          projecte.titol || formData.nomProjecte || 'Projecte',
+          'pressupostos',
+          filename
+        )
+      : buildPendingDocumentPath('Pressupostos', filename);
     const dataBase64 = generarPressupostPDF(formData, clients, idioma, { save: false });
     const result = await electronDocuments.writeFile({ rootPath, relativePath, dataBase64 });
 
     if (!result.success || !result.data) {
       alert(result.error || 'No sha pogut guardar el PDF del pressupost.');
+      generarPressupostPDF(formData, clients, idioma);
       return;
     }
 
     const fileRef = createDocumentRef({
       kind: 'pressupost',
-      ownerType: 'projecte',
-      ownerCodi: projecte.codi,
+      ownerType: projecte ? 'projecte' : 'client',
+      ownerCodi: projecte?.codi || client.codi,
       displayName: `${formData.codi}_${idioma}`,
       originalName: filename,
       relativePath,
@@ -99,7 +103,10 @@ export default function PressupostModal({
     };
     setFormData(updated);
     onSave(updated);
-    alert(`PDF guardat al gestor documental: ${filename}`);
+    const openResult = await electronDocuments.openFile({ rootPath, relativePath });
+    if (!openResult.success) {
+      alert(`PDF guardat al gestor documental: ${filename}`);
+    }
   };
 
   const handleDelete = () => {
@@ -287,6 +294,8 @@ export default function PressupostModal({
             </button>
           </div>
         </div>
+
+        <DocumentVersionsPanel title="PDFs generats del pressupost" documents={formData.documentsGenerats} />
 
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* PESTAÑAS DE NAVEGACIÓN */}

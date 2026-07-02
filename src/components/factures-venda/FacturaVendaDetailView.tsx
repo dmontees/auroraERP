@@ -28,6 +28,7 @@ import NotesTab from './tabs/NotesTab';
 import PagamentTab from './tabs/PagamentTab';
 import HistorialTab from './tabs/HistorialTab';
 import { storage } from '../../utils/storageManager';
+import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 
 type TabId = 'resum' | 'dades' | 'tasques' | 'notes' | 'pagament' | 'historial';
 
@@ -374,14 +375,24 @@ export default function FacturaVendaDetailView({
     const pdfBase64 = await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig, { save: !canSaveLocal });
     const fileRef = await crearReferenciaPDFLocal(formData, idioma, true, pdfBase64);
     if (fileRef) {
-      setFormData(prev => ({
-        ...prev,
+      const updated = {
+        ...formData,
         documentsGenerats: [
-          ...(prev.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
+          ...(formData.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
           fileRef,
         ],
-      }));
-      alert(`PDF guardat al gestor documental: ${fileRef.originalName}`);
+      };
+      setFormData(updated);
+      onSave(updated);
+      const openResult = await window.electronDocuments?.openFile({
+        rootPath: storage.getParametres().gestorDocumental?.rootPath || '',
+        relativePath: fileRef.relativePath,
+      });
+      if (!openResult?.success) {
+        alert(`PDF guardat al gestor documental: ${fileRef.originalName}`);
+      }
+    } else if (canSaveLocal) {
+      await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig);
     }
     setLanguageModalMode(null);
   };
@@ -393,26 +404,37 @@ export default function FacturaVendaDetailView({
     const canSaveLocal = !!storage.getParametres().gestorDocumental?.rootPath && !!window.electronDocuments;
     const pdfBase64 = await generarFacturaVentaPDF(f, clients, storage.getProjectes(), idioma, false, verifactuConfig, { save: !canSaveLocal });
     const fileRef = await crearReferenciaPDFLocal(f, idioma, false, pdfBase64);
-    setFormData(prev => {
-      const passaAEnviada = prev.estat === 'borrador';
-      return {
-        ...prev,
-        documentPDF: pdfBase64,
-        documentPDFName: `${f.codi}_factura.pdf`,
-        documentsGenerats: fileRef
-          ? [
-              ...(prev.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
-              fileRef,
-            ]
-          : prev.documentsGenerats,
-        estat: passaAEnviada ? 'enviada' : prev.estat,
-        dataEnviada: passaAEnviada ? (prev.dataEnviada || new Date().toISOString()) : prev.dataEnviada,
-        fechaExpedicion: passaAEnviada ? (prev.fechaExpedicion || new Date().toISOString()) : prev.fechaExpedicion,
-        accions: passaAEnviada
-          ? [...prev.accions, { data: new Date().toISOString(), descripcio: 'Factura emesa i marcada com a Enviada', automatic: true }]
-          : prev.accions,
-      };
-    });
+    const passaAEnviada = formData.estat === 'borrador';
+    const updated: FacturaVenta = {
+      ...f,
+      documentPDF: pdfBase64,
+      documentPDFName: `${f.codi}_factura.pdf`,
+      documentsGenerats: fileRef
+        ? [
+            ...(formData.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
+            fileRef,
+          ]
+        : formData.documentsGenerats,
+      estat: passaAEnviada ? 'enviada' : f.estat,
+      dataEnviada: passaAEnviada ? (formData.dataEnviada || new Date().toISOString()) : formData.dataEnviada,
+      fechaExpedicion: passaAEnviada ? (formData.fechaExpedicion || new Date().toISOString()) : formData.fechaExpedicion,
+      accions: passaAEnviada
+        ? [...formData.accions, { data: new Date().toISOString(), descripcio: 'Factura emesa i marcada com a Enviada', automatic: true }]
+        : formData.accions,
+    };
+    setFormData(updated);
+    onSave(updated);
+    if (fileRef) {
+      const openResult = await window.electronDocuments?.openFile({
+        rootPath: storage.getParametres().gestorDocumental?.rootPath || '',
+        relativePath: fileRef.relativePath,
+      });
+      if (!openResult?.success) {
+        alert(`PDF guardat al gestor documental: ${fileRef.originalName}`);
+      }
+    } else if (canSaveLocal) {
+      await generarFacturaVentaPDF(f, clients, storage.getProjectes(), idioma, false, verifactuConfig);
+    }
     setLanguageModalMode(null);
   };
 
@@ -600,6 +622,8 @@ export default function FacturaVendaDetailView({
           )}
         </div>
       </div>
+
+      <DocumentVersionsPanel title="PDFs generats de la factura" documents={formData.documentsGenerats} />
 
       {/* ── TABS BAR ── */}
       <div style={{ display: 'flex', alignItems: 'flex-end', borderBottom: '2px solid var(--color-border)', marginBottom: '1.5rem', flexShrink: 0, gap: 0 }}>

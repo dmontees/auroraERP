@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, net, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const JSZip = require('jszip');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
 const {
@@ -98,7 +99,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.11',
+    version: '3.0.12',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },
@@ -653,6 +654,21 @@ function decodeDocumentData(dataBase64) {
   return Buffer.from(payload, 'base64');
 }
 
+function addDirectoryToZip(zip, directoryPath, zipRoot, counters) {
+  if (!fs.existsSync(directoryPath)) return;
+  const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+  for (const entry of entries) {
+    const absolutePath = path.join(directoryPath, entry.name);
+    const relativePath = path.relative(directoryPath === zipRoot ? zipRoot : zipRoot, absolutePath).replace(/\\/g, '/');
+    if (entry.isDirectory()) {
+      addDirectoryToZip(zip, absolutePath, zipRoot, counters);
+    } else if (entry.isFile()) {
+      zip.file(relativePath, fs.readFileSync(absolutePath));
+      counters.files += 1;
+    }
+  }
+}
+
 function restoreBackupIfNeeded() {
   const userDataPath = app.getPath('userData');
   const backupFile = path.join(userDataPath, 'aurora-backup.json');
@@ -853,6 +869,84 @@ ipcMain.handle('documents-ensure-structure', async (_, { rootPath }) => {
     return { success: true, data: { rootPath: ensuredRoot } };
   } catch (error) {
     console.error('Error creant estructura documental:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-ensure-directories', async (_, { rootPath, relativePaths }) => {
+  try {
+    ensureDocumentBaseStructure(rootPath);
+    if (!Array.isArray(relativePaths)) {
+      throw new Error('La llista de carpetes documentals no es valida');
+    }
+
+    let created = 0;
+    const errors = [];
+    for (const relativePath of relativePaths) {
+      try {
+        const { target } = resolveDocumentPath(rootPath, String(relativePath));
+        if (fs.existsSync(target)) continue;
+        fs.mkdirSync(target, { recursive: true });
+        created++;
+      } catch (error) {
+        errors.push(`${relativePath}: ${error.message}`);
+      }
+    }
+
+    return { success: true, data: { requested: relativePaths.length, created, errors } };
+  } catch (error) {
+    console.error('Error creant carpetes documentals:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-restore-missing-file', async (_, { rootPath, relativePath }) => {
+  try {
+    ensureDocumentBaseStructure(rootPath);
+    const selected = await dialog.showOpenDialog(mainWindow, {
+      title: 'Selecciona el fitxer per reparar la referencia documental',
+      properties: ['openFile']
+    });
+
+    if (selected.canceled || selected.filePaths.length === 0) {
+      return { success: true, cancelled: true };
+    }
+
+    const { target } = resolveDocumentPath(rootPath, relativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(selected.filePaths[0], target);
+    const info = getDocumentFileInfo(rootPath, relativePath, true);
+    return { success: true, data: info };
+  } catch (error) {
+    console.error('Error reparant document:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-export-complete-backup', async (_, { rootPath, manifest }) => {
+  try {
+    const root = ensureDocumentBaseStructure(rootPath);
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Exportar copia completa dAurora',
+      defaultPath: `aurora-backup-complet-${new Date().toISOString().slice(0, 10)}.zip`,
+      filters: [{ name: 'ZIP', extensions: ['zip'] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: true, cancelled: true };
+    }
+
+    const zip = new JSZip();
+    const counters = { files: 0 };
+    zip.file('aurora-data.json', JSON.stringify(store.store, null, 2));
+    zip.file('manifest-documental.json', JSON.stringify(manifest || {}, null, 2));
+    const documentsZip = zip.folder('Aurora');
+    addDirectoryToZip(documentsZip, root, root, counters);
+    const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    fs.writeFileSync(result.filePath, buffer);
+    return { success: true, data: { filePath: result.filePath, files: counters.files } };
+  } catch (error) {
+    console.error('Error exportant copia documental completa:', error);
     return { success: false, error: error.message };
   }
 });

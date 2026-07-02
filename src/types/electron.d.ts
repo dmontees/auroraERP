@@ -31,6 +31,9 @@ export interface ElectronAPI {
 export interface ElectronDocumentsAPI {
   selectRoot: () => Promise<{ success: boolean; cancelled?: boolean; data?: { rootPath: string }; error?: string }>;
   ensureStructure: (rootPath: string) => Promise<{ success: boolean; data?: { rootPath: string }; error?: string }>;
+  ensureDirectories: (data: { rootPath: string; relativePaths: string[] }) => Promise<{ success: boolean; data?: { requested: number; created: number; errors: string[] }; error?: string }>;
+  restoreMissingFile: (data: { rootPath: string; relativePath: string }) => Promise<{ success: boolean; cancelled?: boolean; data?: import('./documental').DocumentFileInfo; error?: string }>;
+  exportCompleteBackup: (data: { rootPath: string; manifest: any }) => Promise<{ success: boolean; cancelled?: boolean; data?: { filePath: string; files: number }; error?: string }>;
   writeFile: (data: { rootPath: string; relativePath: string; dataBase64: string }) => Promise<{ success: boolean; data?: import('./documental').DocumentFileInfo; error?: string }>;
   readFile: (data: { rootPath: string; relativePath: string }) => Promise<{ success: boolean; data?: { relativePath: string; dataBase64: string }; error?: string }>;
   fileInfo: (data: { rootPath: string; relativePath: string; includeHash?: boolean }) => Promise<{ success: boolean; data?: import('./documental').DocumentFileInfo; error?: string }>;

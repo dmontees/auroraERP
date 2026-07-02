@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { AlertCircle, CheckCircle, FolderOpen, RefreshCw } from 'lucide-react';
 import { DOCUMENT_SCHEMA_VERSION } from '../../../utils/documentManager';
 import { checkDocumentHealth, type DocumentHealthResult } from '../../../utils/documentHealth';
+import { materializeExistingDocumentFolders, type DocumentStructureMaterializationResult } from '../../../utils/documentStructure';
 import { migrateLegacyDocuments, scanLegacyDocuments, type LegacyDocumentMigrationResult, type LegacyDocumentMigrationStats } from '../../../utils/documentMigration';
+import { buildDocumentManifest } from '../../../utils/documentManifest';
+import { updateStoredDocumentRef } from '../../../utils/documentRegistry';
+import { regenerateHistoricalGeneratedDocuments, type DocumentRegenerationResult } from '../../../utils/documentRegeneration';
 import type { Parametres } from '../../../types/parametres';
 
 interface GestorDocumentalTabProps {
@@ -20,8 +24,13 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
   const [scanStats, setScanStats] = useState<LegacyDocumentMigrationStats | null>(null);
   const [migrationResult, setMigrationResult] = useState<LegacyDocumentMigrationResult | null>(null);
   const [healthResult, setHealthResult] = useState<DocumentHealthResult | null>(null);
+  const [structureResult, setStructureResult] = useState<DocumentStructureMaterializationResult | null>(null);
+  const [regenerationResult, setRegenerationResult] = useState<DocumentRegenerationResult | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [isMaterializing, setIsMaterializing] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isExportingBackup, setIsExportingBackup] = useState(false);
 
   const saveRoot = (rootPath: string) => {
     saveParametres({
@@ -49,6 +58,22 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
     if (result.cancelled || !result.data?.rootPath) return;
 
     saveRoot(result.data.rootPath);
+    await materializeFolders(result.data.rootPath);
+  };
+
+  const materializeFolders = async (rootPath: string) => {
+    setIsMaterializing(true);
+    setStructureResult(null);
+    try {
+      const result = await materializeExistingDocumentFolders(rootPath);
+      setStructureResult(result);
+      return result;
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No sha pogut preparar les carpetes.');
+      return null;
+    } finally {
+      setIsMaterializing(false);
+    }
   };
 
   const handleEnsureStructure = async () => {
@@ -60,8 +85,24 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
       return;
     }
 
-    saveRoot(result.data?.rootPath || config.rootPath);
-    alert('Estructura documental verificada.');
+    const rootPath = result.data?.rootPath || config.rootPath;
+    saveRoot(rootPath);
+    const materialized = await materializeFolders(rootPath);
+    alert(materialized
+      ? `Estructura documental verificada. Carpetes revisades: ${materialized.requested}. Creades: ${materialized.created}.`
+      : 'Estructura documental base verificada.');
+  };
+
+  const handleMaterializeFolders = async () => {
+    if (!config?.rootPath) {
+      alert('Configura primer la carpeta documental.');
+      return;
+    }
+    const result = await materializeFolders(config.rootPath);
+    if (result) {
+      saveRoot(config.rootPath);
+      alert(`Carpetes preparades. Revisades: ${result.requested}. Creades: ${result.created}. Errors: ${result.errors.length}.`);
+    }
   };
 
   const handleOpenRoot = async () => {
@@ -122,6 +163,74 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
     }
   };
 
+  const handleRepairMissing = async (index: number) => {
+    if (!config?.rootPath || !electronDocuments || !healthResult) return;
+    const entry = healthResult.missingEntries[index];
+    if (!entry) return;
+
+    const result = await electronDocuments.restoreMissingFile({
+      rootPath: config.rootPath,
+      relativePath: entry.ref.relativePath,
+    });
+    if (!result.success) {
+      alert(result.error || 'No sha pogut reparar el document.');
+      return;
+    }
+    if (result.cancelled || !result.data) return;
+
+    updateStoredDocumentRef(entry.owner, entry.ref.id, {
+      ...entry.ref,
+      size: result.data.size,
+      sha256: result.data.sha256,
+    });
+    await handleCheckHealth();
+  };
+
+  const handleExportCompleteBackup = async () => {
+    if (!config?.rootPath || !electronDocuments) {
+      alert('Configura primer la carpeta documental.');
+      return;
+    }
+    setIsExportingBackup(true);
+    try {
+      const result = await electronDocuments.exportCompleteBackup({
+        rootPath: config.rootPath,
+        manifest: buildDocumentManifest(),
+      });
+      if (!result.success) {
+        alert(result.error || 'No sha pogut exportar la copia completa.');
+        return;
+      }
+      if (!result.cancelled && result.data) {
+        alert(`Copia completa exportada: ${result.data.filePath}`);
+      }
+    } finally {
+      setIsExportingBackup(false);
+    }
+  };
+
+  const handleRegenerateHistorical = async () => {
+    if (!config?.rootPath) {
+      alert('Configura primer la carpeta documental.');
+      return;
+    }
+    if (!confirm('Aquesta accio generara PDFs historics per pressupostos i factures sense document generat. No elimina ni substitueix documents existents. Vols continuar?')) {
+      return;
+    }
+
+    setIsRegenerating(true);
+    setRegenerationResult(null);
+    try {
+      const result = await regenerateHistoricalGeneratedDocuments(config.rootPath);
+      setRegenerationResult(result);
+      alert(`Regeneracio finalitzada. Pressupostos: ${result.pressupostos}. Factures: ${result.facturesVenda}. Errors: ${result.errors.length}.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No sha pogut regenerar els PDFs historics.');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   return (
     <div style={{ display: 'grid', gap: '1rem', maxWidth: '860px' }}>
       <div style={{
@@ -178,11 +287,33 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
             <RefreshCw size={16} />
             Verificar estructura
           </button>
+          <button type="button" className="btn btn-secondary" onClick={handleMaterializeFolders} disabled={!isElectronReady || !config?.rootPath || isMaterializing}>
+            <RefreshCw size={16} />
+            {isMaterializing ? 'Preparant...' : 'Crear carpetes existents'}
+          </button>
           <button type="button" className="btn btn-secondary" onClick={handleOpenRoot} disabled={!isElectronReady || !config?.rootPath}>
             <FolderOpen size={16} />
             Obrir al Finder
           </button>
         </div>
+
+        {structureResult && (
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
+            <StatusRow ok={structureResult.errors.length === 0} label={`Carpetes revisades: ${structureResult.requested}. Creades: ${structureResult.created}.`} />
+            {structureResult.errors.length > 0 && (
+              <details>
+                <summary style={{ cursor: 'pointer', color: 'var(--color-error-dark)', fontWeight: 600 }}>
+                  Errors ({structureResult.errors.length})
+                </summary>
+                <ul style={{ marginTop: '0.5rem', paddingLeft: '1.25rem', color: 'var(--color-text-secondary)' }}>
+                  {structureResult.errors.slice(0, 20).map((error, index) => (
+                    <li key={`${error}-${index}`}>{error}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{
@@ -200,6 +331,58 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
             label={config?.lastHealthCheckAt ? `Ultima verificacio: ${new Date(config.lastHealthCheckAt).toLocaleString()}` : 'Estructura pendent de verificacio'}
           />
         </div>
+      </div>
+
+      <div style={{
+        border: '1px solid var(--color-border)',
+        borderRadius: '8px',
+        padding: '1rem',
+        background: 'var(--color-surface)'
+      }}>
+        <h4 style={{ marginTop: 0 }}>Copia i regeneracio</h4>
+        <p style={{ marginTop: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+          Exporta dades i documents en un ZIP o crea PDFs historics per registres antics sense document generat.
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportCompleteBackup}
+            disabled={!isElectronReady || !config?.rootPath || isExportingBackup}
+          >
+            <FolderOpen size={16} />
+            {isExportingBackup ? 'Exportant...' : 'Exportar copia completa'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleRegenerateHistorical}
+            disabled={!isElectronReady || !config?.rootPath || isRegenerating}
+          >
+            <RefreshCw size={16} />
+            {isRegenerating ? 'Regenerant...' : 'Generar PDFs historics'}
+          </button>
+        </div>
+        {regenerationResult && (
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
+            <StatusRow
+              ok={regenerationResult.errors.length === 0}
+              label={`Pressupostos: ${regenerationResult.pressupostos}. Factures venda: ${regenerationResult.facturesVenda}. Omesos: ${regenerationResult.skipped}.`}
+            />
+            {regenerationResult.errors.length > 0 && (
+              <details>
+                <summary style={{ cursor: 'pointer', color: 'var(--color-error-dark)', fontWeight: 600 }}>
+                  Errors ({regenerationResult.errors.length})
+                </summary>
+                <ul style={{ marginTop: '0.5rem', paddingLeft: '1.25rem', color: 'var(--color-text-secondary)' }}>
+                  {regenerationResult.errors.slice(0, 30).map((error, index) => (
+                    <li key={`${error}-${index}`}>{error}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{
@@ -280,8 +463,14 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
                   Fitxers faltants o errors ({healthResult.errors.length})
                 </summary>
                 <ul style={{ marginTop: '0.5rem', paddingLeft: '1.25rem', color: 'var(--color-text-secondary)' }}>
-                  {healthResult.errors.slice(0, 30).map((error, index) => (
-                    <li key={`${error}-${index}`}>{error}</li>
+                  {healthResult.missingEntries.slice(0, 30).map((entry, index) => (
+                    <li key={`${entry.ref.id}-${index}`} style={{ marginBottom: '0.5rem' }}>
+                      <div>{entry.owner.label}: fitxer no trobat ({entry.ref.relativePath})</div>
+                      <button type="button" className="btn btn-secondary" onClick={() => handleRepairMissing(index)} style={{ marginTop: '0.25rem' }}>
+                        <FolderOpen size={14} />
+                        Localitzar i reparar
+                      </button>
+                    </li>
                   ))}
                 </ul>
               </details>

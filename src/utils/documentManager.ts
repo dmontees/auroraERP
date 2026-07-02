@@ -154,6 +154,52 @@ export function buildFiscalDocumentPath(
   );
 }
 
+export function buildPendingDocumentPath(folder: string, filename: string): string {
+  return joinRelativePath(
+    DOCUMENT_FOLDERS.pending,
+    safeFileName(folder),
+    safeFileName(filename)
+  );
+}
+
+export function buildClientDirectoryPaths(clientCodi: string, clientName: string): string[] {
+  const clientRoot = joinRelativePath(
+    DOCUMENT_FOLDERS.clients,
+    entityFolderName(clientCodi, clientName)
+  );
+
+  return [
+    clientRoot,
+    joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments),
+    joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientContracts),
+    joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientFiscal),
+    joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientOther),
+    joinRelativePath(clientRoot, DOCUMENT_FOLDERS.projects),
+  ];
+}
+
+export function buildProjectDirectoryPaths(
+  clientCodi: string,
+  clientName: string,
+  projecteCodi: string,
+  projecteName: string
+): string[] {
+  const projectRoot = joinRelativePath(
+    DOCUMENT_FOLDERS.clients,
+    entityFolderName(clientCodi, clientName),
+    DOCUMENT_FOLDERS.projects,
+    entityFolderName(projecteCodi, projecteName)
+  );
+
+  return [
+    ...buildClientDirectoryPaths(clientCodi, clientName),
+    projectRoot,
+    joinRelativePath(projectRoot, DOCUMENT_FOLDERS.projectBudgets),
+    joinRelativePath(projectRoot, DOCUMENT_FOLDERS.projectDocuments),
+    joinRelativePath(projectRoot, DOCUMENT_FOLDERS.projectFiscalLinks),
+  ];
+}
+
 export function formatVersion(version: number): string {
   return `v${String(Math.max(1, version)).padStart(3, '0')}`;
 }
@@ -218,4 +264,3 @@ export function createDocumentRef(input: {
     migratedFromBase64: input.migratedFromBase64,
   };
 }
-

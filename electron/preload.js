@@ -63,7 +63,7 @@ try {
         plantilles: []
       },
       partsTreball: [],
-      version: '3.0.11',
+      version: '3.0.12',
       dataSchemaVersion: 5,
       migrationCompleted: false
     }
@@ -134,6 +134,12 @@ contextBridge.exposeInMainWorld('electron', {
 contextBridge.exposeInMainWorld('electronDocuments', {
   selectRoot: () => ipcRenderer.invoke('documents-select-root'),
   ensureStructure: (rootPath) => ipcRenderer.invoke('documents-ensure-structure', { rootPath }),
+  ensureDirectories: ({ rootPath, relativePaths }) =>
+    ipcRenderer.invoke('documents-ensure-directories', { rootPath, relativePaths }),
+  restoreMissingFile: ({ rootPath, relativePath }) =>
+    ipcRenderer.invoke('documents-restore-missing-file', { rootPath, relativePath }),
+  exportCompleteBackup: ({ rootPath, manifest }) =>
+    ipcRenderer.invoke('documents-export-complete-backup', { rootPath, manifest }),
   writeFile: ({ rootPath, relativePath, dataBase64 }) =>
     ipcRenderer.invoke('documents-write-file', { rootPath, relativePath, dataBase64 }),
   readFile: ({ rootPath, relativePath }) =>
