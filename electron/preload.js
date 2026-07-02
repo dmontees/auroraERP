@@ -63,7 +63,7 @@ try {
         plantilles: []
       },
       partsTreball: [],
-      version: '3.0.9',
+      version: '3.0.11',
       dataSchemaVersion: 5,
       migrationCompleted: false
     }
@@ -129,6 +129,22 @@ contextBridge.exposeInMainWorld('electron', {
   // Tancament controlat — el main avisa el renderer perquè faci sync abans de sortir
   onAppWillClose: (callback) => ipcRenderer.on('app-will-close', () => callback()),
   confirmClose: () => ipcRenderer.invoke('confirm-close'),
+});
+
+contextBridge.exposeInMainWorld('electronDocuments', {
+  selectRoot: () => ipcRenderer.invoke('documents-select-root'),
+  ensureStructure: (rootPath) => ipcRenderer.invoke('documents-ensure-structure', { rootPath }),
+  writeFile: ({ rootPath, relativePath, dataBase64 }) =>
+    ipcRenderer.invoke('documents-write-file', { rootPath, relativePath, dataBase64 }),
+  readFile: ({ rootPath, relativePath }) =>
+    ipcRenderer.invoke('documents-read-file', { rootPath, relativePath }),
+  fileInfo: ({ rootPath, relativePath, includeHash }) =>
+    ipcRenderer.invoke('documents-file-info', { rootPath, relativePath, includeHash }),
+  openFile: ({ rootPath, relativePath }) =>
+    ipcRenderer.invoke('documents-open-file', { rootPath, relativePath }),
+  revealFile: ({ rootPath, relativePath }) =>
+    ipcRenderer.invoke('documents-reveal-file', { rootPath, relativePath }),
+  openRoot: (rootPath) => ipcRenderer.invoke('documents-open-root', { rootPath }),
 });
 
 console.log('✅ Preload script carregat correctament');

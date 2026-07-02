@@ -28,10 +28,22 @@ export interface ElectronAPI {
   confirmClose: () => Promise<void>;
 }
 
+export interface ElectronDocumentsAPI {
+  selectRoot: () => Promise<{ success: boolean; cancelled?: boolean; data?: { rootPath: string }; error?: string }>;
+  ensureStructure: (rootPath: string) => Promise<{ success: boolean; data?: { rootPath: string }; error?: string }>;
+  writeFile: (data: { rootPath: string; relativePath: string; dataBase64: string }) => Promise<{ success: boolean; data?: import('./documental').DocumentFileInfo; error?: string }>;
+  readFile: (data: { rootPath: string; relativePath: string }) => Promise<{ success: boolean; data?: { relativePath: string; dataBase64: string }; error?: string }>;
+  fileInfo: (data: { rootPath: string; relativePath: string; includeHash?: boolean }) => Promise<{ success: boolean; data?: import('./documental').DocumentFileInfo; error?: string }>;
+  openFile: (data: { rootPath: string; relativePath: string }) => Promise<{ success: boolean; error?: string }>;
+  revealFile: (data: { rootPath: string; relativePath: string }) => Promise<{ success: boolean; error?: string }>;
+  openRoot: (rootPath: string) => Promise<{ success: boolean; error?: string }>;
+}
+
 declare global {
   interface Window {
     electronStore: ElectronStore;
     electron: ElectronAPI;
+    electronDocuments?: ElectronDocumentsAPI;
   }
   // Injectat per Vite en temps de compilació des de package.json
   const __APP_VERSION__: string;

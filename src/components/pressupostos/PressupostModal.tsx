@@ -8,6 +8,7 @@ import type { Pressupost } from '../../types/pressupost';
 import { usePressupost } from './hooks/usePressupost';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { generarPressupostPDF } from '../../utils/generarPressupostPDF';
+import { buildProjectDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
 import DadesTab from './tabs/DadesTab';
 import ProjecteTab from './tabs/ProjecteTab';
 import GastosTab from './tabs/GastosTab';
@@ -43,8 +44,62 @@ export default function PressupostModal({
 
   const { saveNow } = useAutoSave(formData, onSave);
 
-  const generarPDF = (idioma: 'ca' | 'es' | 'en') => {
-    generarPressupostPDF(formData, clients, idioma);
+  const generarPDF = async (idioma: 'ca' | 'es' | 'en') => {
+    const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+    const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
+    const projecteCodi = formData.projecteCreat || formData.projecteVinculat;
+    const projecte = projecteCodi ? hook.projectes.find(p => p.codi === projecteCodi) : null;
+    const client = clients.find(c => c.codi === formData.client);
+
+    if (!rootPath || !electronDocuments || !projecte || !client) {
+      generarPressupostPDF(formData, clients, idioma);
+      return;
+    }
+
+    const existingRefs = formData.documentsGenerats || [];
+    const matchingRefs = existingRefs.filter(ref => ref.displayName.startsWith(`${formData.codi}_${idioma}`));
+    const version = Math.max(0, ...matchingRefs.map(ref => ref.version || 0)) + 1;
+    const filename = versionedPdfName(`${formData.codi}_${idioma}`, version);
+    const relativePath = buildProjectDocumentPath(
+      client.codi,
+      client.nomComercial || client.nomFiscal || 'Client',
+      projecte.codi,
+      projecte.titol || formData.nomProjecte || 'Projecte',
+      'pressupostos',
+      filename
+    );
+    const dataBase64 = generarPressupostPDF(formData, clients, idioma, { save: false });
+    const result = await electronDocuments.writeFile({ rootPath, relativePath, dataBase64 });
+
+    if (!result.success || !result.data) {
+      alert(result.error || 'No sha pogut guardar el PDF del pressupost.');
+      return;
+    }
+
+    const fileRef = createDocumentRef({
+      kind: 'pressupost',
+      ownerType: 'projecte',
+      ownerCodi: projecte.codi,
+      displayName: `${formData.codi}_${idioma}`,
+      originalName: filename,
+      relativePath,
+      mimeType: 'application/pdf',
+      size: result.data.size,
+      sha256: result.data.sha256,
+      version,
+      generated: true,
+    });
+
+    const updated: Pressupost = {
+      ...formData,
+      documentsGenerats: [
+        ...existingRefs.map(ref => ref.displayName.startsWith(`${formData.codi}_${idioma}`) ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
+        fileRef,
+      ],
+    };
+    setFormData(updated);
+    onSave(updated);
+    alert(`PDF guardat al gestor documental: ${filename}`);
   };
 
   const handleDelete = () => {

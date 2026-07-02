@@ -12,7 +12,8 @@ export const generarFacturaVentaPDF = async (
   projectes: any[],
   idioma: 'ca' | 'es' | 'en',
   esBorrador: boolean = false,
-  verifactuConfig?: VerifactuConfig
+  verifactuConfig?: VerifactuConfig,
+  options: { save?: boolean } = {}
 ): Promise<string> => {
   
   const doc = new jsPDF();
@@ -569,7 +570,9 @@ if (esBorrador) {
 const nomFitxer = esBorrador
   ? `borrador-${formData.codi}.pdf`
   : `${formData.codi}_factura.pdf`;
-doc.save(nomFitxer);
+if (options.save !== false) {
+  doc.save(nomFitxer);
+}
 
 // Retornar PDF en base64 para guardarlo
 return doc.output('dataurlstring');

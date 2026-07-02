@@ -1,3 +1,5 @@
+import type { DocumentRootConfig } from './documental';
+
 export interface Servei {
   codi: string;
   nom: string;
@@ -95,6 +97,7 @@ export interface Parametres {
   };
   categoriesCalendari?: { id: string; nom: string; color: string }[];
   extresEsdevenimentsAuto?: Record<string, { ubicacio?: string; horaInici?: string; horaFi?: string; enllac?: string }>;
+  gestorDocumental?: DocumentRootConfig;
 }
 
 export interface Modalitat {

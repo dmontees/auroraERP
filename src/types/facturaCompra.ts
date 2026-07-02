@@ -1,3 +1,5 @@
+import type { DocumentFileRef } from './documental';
+
 // ============================================================================
 // TYPES: Factures de Compra i Despeses Generals
 // 
@@ -46,6 +48,7 @@ export interface GastoBase {
   // Documento
   documentPDF?: string;            // Base64
   documentPDFName?: string;        // Nombre del archivo
+  documentsGenerats?: DocumentFileRef[];
   ivaDeduible?: boolean;           // Per defecte false en factures simplificades
   
   // Metadata

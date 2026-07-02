@@ -1,3 +1,5 @@
+import type { DocumentFileRef } from './documental';
+
 export interface MaterialPressupost {
   id: string;
   grup: string;
@@ -57,4 +59,5 @@ export interface Pressupost {
   
   // Estado
   estat: 'esborrany' | 'enviat' | 'acceptat' | 'rebutjat';
+  documentsGenerats?: DocumentFileRef[];
 }

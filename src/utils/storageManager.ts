@@ -30,6 +30,7 @@ export interface StoreSchema {
     grupsMaterials?: any[];
     plantilles?: any[];
     categoriesProveidors?: CategoriaProveidor[];
+    gestorDocumental?: import('../types/documental').DocumentRootConfig;
   };
   partsTreball: PartTreball[];
   cronometre: CronometreState | null;

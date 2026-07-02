@@ -1,3 +1,5 @@
+import type { DocumentFileRef } from './documental';
+
 export interface CategoriaProveidor {
   codi: string;
   nom: string;
@@ -10,6 +12,7 @@ export interface DocumentProveidor {
   tipus: 'contracte' | 'assegurança' | 'certificat' | 'altres';
   dataCarrega: string;
   urlFitxer: string; // Base64 o ruta
+  fileRef?: DocumentFileRef;
   mida?: number; // bytes
   projecteCodi?: string;
   projecteNom?: string;

@@ -7,6 +7,7 @@ import { useClientValidation } from './useClientValidation';
 import DadesTab from './tabs/DadesTab';
 import ContactesTab from './tabs/ContactesTab';
 import FacturacioTab from './tabs/FacturacioTab';
+import DocumentsTab from './tabs/DocumentsTab';
 import ClientTarifesModal from './ClientTarifesModal';
 import ClientTarifesCopyModal from './ClientTarifesCopyModal';
 import { storage } from '../../utils/storageManager';
@@ -29,7 +30,7 @@ export default function ClientModal({
   editingClient 
 }: ClientModalProps) {
   
-  const [activeTab, setActiveTab] = useState<'dades' | 'contactes' | 'facturacio'>('dades');
+  const [activeTab, setActiveTab] = useState<'dades' | 'contactes' | 'facturacio' | 'documents'>('dades');
   const [showTarifesModal, setShowTarifesModal] = useState(false);
   const [askCopyTarifes, setAskCopyTarifes] = useState(false);
 
@@ -91,7 +92,8 @@ export default function ClientModal({
   const tabs = [
     { id: 'dades' as const, label: 'Dades' },
     { id: 'contactes' as const, label: 'Contactes' },
-    { id: 'facturacio' as const, label: 'Facturació' }
+    { id: 'facturacio' as const, label: 'Facturació' },
+    { id: 'documents' as const, label: 'Documents' }
   ];
 
   return (
@@ -160,6 +162,9 @@ export default function ClientModal({
                 setFormData={setFormData}
                 onOpenTarifes={handleOpenTarifes}
               />
+            )}
+            {activeTab === 'documents' && (
+              <DocumentsTab formData={formData} setFormData={setFormData} />
             )}
           </div>
         </div>

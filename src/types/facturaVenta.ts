@@ -1,5 +1,6 @@
 import type { TascaVenda } from './tascaVenda';
 import type { RegistreVerifactu } from './verifactu';
+import type { DocumentFileRef } from './documental';
 
 export type { TascaVenda };
 
@@ -86,6 +87,7 @@ export interface FacturaVenta {
 
   documentPDF?: string;
   documentPDFName?: string;
+  documentsGenerats?: DocumentFileRef[];
   avisFacturacio?: { actiu: boolean; descripcio: string };
 
   // Verifactu — undefined quan el mòdul està desactivat o és una factura pre-Verifactu

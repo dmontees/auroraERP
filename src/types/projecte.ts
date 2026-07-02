@@ -1,4 +1,5 @@
 export type { TascaVenda } from './tascaVenda';
+import type { DocumentFileRef } from './documental';
 // Backward-compatible alias — existing imports keep working unchanged
 export type TascaProjecte = import('./tascaVenda').TascaVenda;
 
@@ -137,7 +138,8 @@ export interface DocumentProjecte {
   id: string;
   tipus: string;        // Tipo de documento
   nom: string;          // Nombre del documento
-  fitxer: string;       // Base64 del archivo
+  fitxer?: string;      // Base64 legacy del archivo
   nomFitxer: string;    // Nombre original del archivo
+  fileRef?: DocumentFileRef;
   dataAfegit: string;   // Fecha de creación
 }

@@ -64,7 +64,23 @@ function getFacturaEstatIcon(estat: EstatFacturaVenta) {
   return { Icon, color, label: ESTAT_FACTURA_COLORS[estat]?.label || estat };
 }
 
-function descarregarDocument(doc: DocumentProjecte) {
+async function descarregarDocument(doc: DocumentProjecte) {
+  if (doc.fileRef) {
+    const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+    const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
+    if (!rootPath || !electronDocuments) {
+      alert('No sha trobat la configuracio del gestor documental.');
+      return;
+    }
+    const result = await electronDocuments.openFile({ rootPath, relativePath: doc.fileRef.relativePath });
+    if (!result.success) alert(result.error || 'No sha pogut obrir el document.');
+    return;
+  }
+
+  if (!doc.fitxer) {
+    alert('No sha trobat el fitxer del document.');
+    return;
+  }
   const link = window.document.createElement('a');
   link.href = doc.fitxer;
   link.download = doc.nomFitxer;

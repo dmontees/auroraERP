@@ -7,6 +7,7 @@ import PagamentsManager from './shared/PagamentsManager';
 import PDFUploader from './shared/PDFUploader';
 import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
+import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
 
 interface GastoGeneralModalProps {
   onClose: () => void;
@@ -43,6 +44,7 @@ export default function GastoGeneralModal({
       notes: editingGasto.notes,
       documentPDF: editingGasto.documentPDF,
       documentPDFName: editingGasto.documentPDFName,
+      documentsGenerats: editingGasto.documentsGenerats,
       createdAt: editingGasto.createdAt
     } : {
       codi: codiFixed,
@@ -62,6 +64,7 @@ export default function GastoGeneralModal({
       notes: '',
       documentPDF: undefined,
       documentPDFName: undefined,
+      documentsGenerats: [],
       createdAt: new Date().toISOString()
     }
   );
@@ -137,11 +140,25 @@ export default function GastoGeneralModal({
     setPdfFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+      const documentPDF = event.target?.result as string;
+      const displayName = `${formData.codi}_${formData.categoria}_${file.name.replace(/\.[^.]+$/, '')}`;
+      const fileRef = await saveFiscalDocumentVersion({
+        kind: 'gasto-general',
+        ownerCodi: formData.codi,
+        dataGasto: formData.dataGasto,
+        displayName,
+        originalName: file.name,
+        dataBase64: documentPDF,
+        existingRefs: formData.documentsGenerats,
+      });
       setFormData({ 
         ...formData, 
-        documentPDF: event.target?.result as string,
-        documentPDFName: file.name 
+        documentPDF,
+        documentPDFName: file.name,
+        documentsGenerats: fileRef
+          ? appendCurrentDocumentRef(formData.documentsGenerats, fileRef)
+          : formData.documentsGenerats,
       });
     };
     reader.readAsDataURL(file);

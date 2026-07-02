@@ -12,6 +12,7 @@ import PDFUploader from './shared/PDFUploader';
 import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
 import { storage } from '../../utils/storageManager';
+import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
 
 interface FacturaCompraModalProps {
   onClose: () => void;
@@ -157,6 +158,7 @@ export default function FacturaCompraModal({
       concepte: editingFactura.concepte,
       documentPDF: editingFactura.documentPDF,
       documentPDFName: editingFactura.documentPDFName,
+      documentsGenerats: editingFactura.documentsGenerats,
       ivaDeduible: editingFactura.ivaDeduible ?? getTipusDocument(editingFactura) === 'factura',
       notes: editingFactura.notes,
       createdAt: editingFactura.createdAt
@@ -180,6 +182,7 @@ export default function FacturaCompraModal({
       concepte: '',
       documentPDF: undefined,
       documentPDFName: undefined,
+      documentsGenerats: [],
       ivaDeduible: initialTipusDocument === 'factura',
       notes: '',
       createdAt: new Date().toISOString()
@@ -423,11 +426,24 @@ export default function FacturaCompraModal({
         ? await convertImageToPdfDataUrl(file)
         : await readFileAsDataUrl(file);
       const fileName = isImage ? file.name.replace(/\.(jpe?g|png)$/i, '.pdf') : file.name;
+      const displayName = `${formData.codi}_${TIPUS_DOCUMENT_LABELS[getTipusDocument(formData)]}_${fileName.replace(/\.[^.]+$/, '')}`;
+      const fileRef = await saveFiscalDocumentVersion({
+        kind: 'factura-compra',
+        ownerCodi: formData.codi,
+        dataGasto: formData.dataGasto,
+        displayName,
+        originalName: fileName,
+        dataBase64: documentPDF,
+        existingRefs: formData.documentsGenerats,
+      });
       setPdfFileName(fileName);
       setFormData({
         ...formData,
         documentPDF,
         documentPDFName: fileName,
+        documentsGenerats: fileRef
+          ? appendCurrentDocumentRef(formData.documentsGenerats, fileRef)
+          : formData.documentsGenerats,
       });
     } catch (error) {
       console.error('Error processant el document:', error);

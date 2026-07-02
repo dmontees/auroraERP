@@ -13,6 +13,8 @@ import { determinarEstat } from '../factures-compra/utils/facturesCalculations';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { storage } from '../../utils/storageManager';
 import { syncAlbaransAfterNomina } from '../../utils/albaraSync';
+import type { DocumentFileRef } from '../../types/documental';
+import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
 
 interface Props {
   onClose: () => void;
@@ -123,6 +125,9 @@ export default function ObligacioFiscalModal({
   const [documentPDF, setDocumentPDF] = useState<string | undefined>(editingGasto?.documentPDF);
   const [documentPDFName, setDocumentPDFName] = useState<string>(
     editingGasto?.documentPDFName || ''
+  );
+  const [documentsGenerats, setDocumentsGenerats] = useState<DocumentFileRef[]>(
+    editingGasto?.documentsGenerats || []
   );
 
   const { pagaments, afegirPagament, eliminarPagament, totalPagat } = usePagaments(
@@ -249,6 +254,7 @@ export default function ObligacioFiscalModal({
         ivaNetCalculat: editingGasto?.ivaNetCalculat,
       }),
       ...(documentPDF && { documentPDF, documentPDFName }),
+      documentsGenerats,
     };
   };
 
@@ -256,7 +262,7 @@ export default function ObligacioFiscalModal({
     {
       subtipus, periode, data, concepte, notes, baseImposable,
       treballadorCodi, diesTreballats, salariDiariBrut,
-      ivaRegistratGestor, documentPDF, documentPDFName, pagaments, projecteCodi,
+      ivaRegistratGestor, documentPDF, documentPDFName, documentsGenerats, pagaments, projecteCodi,
       albaransVinculats, vinculacioResposta,
     },
     () => {
@@ -296,9 +302,21 @@ export default function ObligacioFiscalModal({
 
   const handlePDFUpload = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setDocumentPDF(e.target?.result as string);
+    reader.onload = async (e) => {
+      const nextDocumentPDF = e.target?.result as string;
+      const displayName = `${codi}_${subtipus}_${periode}_${file.name.replace(/\.[^.]+$/, '')}`;
+      const fileRef = await saveFiscalDocumentVersion({
+        kind: 'obligacio-fiscal',
+        ownerCodi: codi,
+        dataGasto: data,
+        displayName,
+        originalName: file.name,
+        dataBase64: nextDocumentPDF,
+        existingRefs: documentsGenerats,
+      });
+      setDocumentPDF(nextDocumentPDF);
       setDocumentPDFName(file.name);
+      if (fileRef) setDocumentsGenerats(appendCurrentDocumentRef(documentsGenerats, fileRef));
     };
     reader.readAsDataURL(file);
   };

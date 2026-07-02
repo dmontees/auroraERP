@@ -10,8 +10,9 @@ import ModalitatsTab from './tabs/ModalitatsTab';
 import CategoriesProveidorsTab from './tabs/CategoriesProveidorsTab';
 import CalendariTab from './tabs/CalendariTab';
 import IntegracionsTab from './tabs/IntegracionsTab';
+import GestorDocumentalTab from './tabs/GestorDocumentalTab';
 
-type TabType = 'empresa' | 'serveis' | 'unitats' | 'tarifes' | 'materials' | 'plantilles' | 'modalitats' | 'categoriesProveidors' | 'calendari' | 'integracions';
+type TabType = 'empresa' | 'serveis' | 'unitats' | 'tarifes' | 'materials' | 'plantilles' | 'modalitats' | 'categoriesProveidors' | 'calendari' | 'integracions' | 'gestorDocumental';
 
 export default function ParametresPage() {
   const [activeTab, setActiveTab] = useState<TabType>('serveis');
@@ -30,7 +31,8 @@ export default function ParametresPage() {
     { id: 'categoriesProveidors', label: 'Cat. Proveïdors' },
     { id: 'calendari', label: 'Calendari' },
     { id: 'empresa', label: 'Dades Empresa' },
-    { id: 'integracions', label: 'Integracions' }
+    { id: 'integracions', label: 'Integracions' },
+    { id: 'gestorDocumental', label: 'Gestor documental' }
   ];
 
   // Render tab content
@@ -65,6 +67,9 @@ export default function ParametresPage() {
 
       case 'integracions':
         return <IntegracionsTab />;
+
+      case 'gestorDocumental':
+        return <GestorDocumentalTab hook={hook} />;
 
       default:
         return null;

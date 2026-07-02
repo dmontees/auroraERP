@@ -1,3 +1,5 @@
+import type { DocumentFileRef } from './documental';
+
 export interface Contacte {
   codi: string;
   nom: string;
@@ -32,4 +34,5 @@ export interface Client {
   retencio: number;
   tarifesEspecials: Tarifa[];
   imatgePerfil?: string;
+  documents?: DocumentFileRef[];
 }

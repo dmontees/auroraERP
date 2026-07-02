@@ -7,7 +7,8 @@ import { storage } from './storageManager';
 export const generarPressupostPDF = (
   formData: Pressupost,
   clients: Client[],
-  idioma: 'ca' | 'es' | 'en'
+  idioma: 'ca' | 'es' | 'en',
+  options: { save?: boolean } = {}
 ) => {
   const doc = new jsPDF();
   
@@ -488,6 +489,9 @@ for (let i = 1; i <= pageCount; i++) {
   doc.text(`${tr.pagina} ${i}/${pageCount}`, margenDer, 287, { align: 'right' });
 }
 
-// Descargar
-doc.save(`${formData.codi}_pressupost.pdf`);
+const dataUri = doc.output('datauristring');
+if (options.save !== false) {
+  doc.save(`${formData.codi}_pressupost.pdf`);
+}
+return dataUri;
 };

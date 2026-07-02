@@ -146,12 +146,13 @@ function ProjecteModal({
   }, [projecte]);
 
   const handleSaveWithSync = (data: Projecte) => {
+    const oldProjecte = storage.getProjectes().find((p: Projecte) => p.codi === data.codi) || projecte;
     onSave(data);
     syncAlbaransForProject(data, parametres);
     // Google Calendar sync for project dates (fire and forget)
     if (isGoogleCalendarConnected()) {
-      const oldProjecte = projecte;
-      syncProjectDatesToGoogle(data, oldProjecte, clients).then(updated => {
+      const extresEsdevenimentsAuto = storage.getParametres()?.extresEsdevenimentsAuto ?? {};
+      syncProjectDatesToGoogle(data, oldProjecte, clients, extresEsdevenimentsAuto).then(updated => {
         const hasDiff =
           JSON.stringify(updated.datesRodatge) !== JSON.stringify(data.datesRodatge) ||
           JSON.stringify(updated.datesEntrega) !== JSON.stringify(data.datesEntrega);
@@ -285,6 +286,13 @@ function ProjecteModal({
   };
 
   const actualitzarRecursHuma = (id: string, field: keyof RecursHumaProjecte, value: any) => {
+    const current = formData.recursosHumans.find(r => r.id === id);
+    if (field === 'proveidor' && current?.tdCodi && current.proveidor !== value) {
+      const bloqueig = checkEliminarLinia(current.tdCodi);
+      if (bloqueig) { alert(bloqueig); return; }
+      deleteAlbaraForLinia(current.tdCodi);
+    }
+
     const nousRecursos = formData.recursosHumans.map(r => {
       if (r.id !== id) return r;
       const updated = { ...r, [field]: value };
@@ -296,6 +304,9 @@ function ProjecteModal({
         // Assign tdCodi the first time a provider is set on this line
         if (value && !updated.tdCodi) {
           updated.tdCodi = getNextTdCodi(formData);
+        }
+        if (!value) {
+          updated.tdCodi = undefined;
         }
         const trb = proveidors.find(p => p.codi === value && p.tipus === 'Treballador');
         if (trb) {
@@ -398,7 +409,29 @@ function ProjecteModal({
   };
 
   const actualitzarMaterial = (id: string, field: keyof MaterialProjecte, value: any) => {
-    setFormData({ ...formData, materials: formData.materials.map(m => m.id === id ? { ...m, [field]: value } : m) });
+    const current = formData.materials.find(m => m.id === id);
+    if (field === 'proveidor' && current?.tdCodi && current.proveidor !== value) {
+      const bloqueig = checkEliminarLinia(current.tdCodi);
+      if (bloqueig) { alert(bloqueig); return; }
+      deleteAlbaraForLinia(current.tdCodi);
+    }
+
+    setFormData({
+      ...formData,
+      materials: formData.materials.map(m => {
+        if (m.id !== id) return m;
+        const updated = { ...m, [field]: value };
+        if (field === 'proveidor') {
+          if (value && !updated.tdCodi) {
+            updated.tdCodi = getNextTdCodi(formData);
+          }
+          if (!value) {
+            updated.tdCodi = undefined;
+          }
+        }
+        return updated;
+      })
+    });
   };
 
   const eliminarMaterial = (id: string) => {
@@ -584,7 +617,23 @@ function ProjecteModal({
     }
   };
 
-  const descarregarDocument = (doc: DocumentProjecte) => {
+  const descarregarDocument = async (doc: DocumentProjecte) => {
+    if (doc.fileRef) {
+      const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+      const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
+      if (!rootPath || !electronDocuments) {
+        alert('No sha trobat la configuracio del gestor documental.');
+        return;
+      }
+      const result = await electronDocuments.openFile({ rootPath, relativePath: doc.fileRef.relativePath });
+      if (!result.success) alert(result.error || 'No sha pogut obrir el document.');
+      return;
+    }
+
+    if (!doc.fitxer) {
+      alert('No sha trobat el fitxer del document.');
+      return;
+    }
     const link = window.document.createElement('a');
     link.href = doc.fitxer;
     link.download = doc.nomFitxer;
@@ -978,7 +1027,12 @@ function ProjecteModal({
       )}
 
       {showDocumentModal && (
-        <DocumentModal onClose={() => setShowDocumentModal(false)} onSave={afegirDocument} />
+        <DocumentModal
+          onClose={() => setShowDocumentModal(false)}
+          onSave={afegirDocument}
+          projecte={formData}
+          client={selectedClient}
+        />
       )}
 
       {showVincularPressupostModal && (

@@ -128,11 +128,12 @@ function ProjecteDetailView({
   }, [projecte]);
 
   const handleSaveWithSync = (data: Projecte) => {
+    const oldProjecte = storage.getProjectes().find((p: Projecte) => p.codi === data.codi) || projecte;
     onSave(data);
     syncAlbaransForProject(data, parametres);
     if (isGoogleCalendarConnected()) {
-      const oldProjecte = projecte;
-      syncProjectDatesToGoogle(data, oldProjecte, clients).then(updated => {
+      const extresEsdevenimentsAuto = storage.getParametres()?.extresEsdevenimentsAuto ?? {};
+      syncProjectDatesToGoogle(data, oldProjecte, clients, extresEsdevenimentsAuto).then(updated => {
         const hasDiff =
           JSON.stringify(updated.datesRodatge) !== JSON.stringify(data.datesRodatge) ||
           JSON.stringify(updated.datesEntrega) !== JSON.stringify(data.datesEntrega);
@@ -551,7 +552,23 @@ function ProjecteDetailView({
     }
   };
 
-  const descarregarDocument = (doc: DocumentProjecte) => {
+  const descarregarDocument = async (doc: DocumentProjecte) => {
+    if (doc.fileRef) {
+      const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+      const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
+      if (!rootPath || !electronDocuments) {
+        alert('No sha trobat la configuracio del gestor documental.');
+        return;
+      }
+      const result = await electronDocuments.openFile({ rootPath, relativePath: doc.fileRef.relativePath });
+      if (!result.success) alert(result.error || 'No sha pogut obrir el document.');
+      return;
+    }
+
+    if (!doc.fitxer) {
+      alert('No sha trobat el fitxer del document.');
+      return;
+    }
     const link = window.document.createElement('a');
     link.href = doc.fitxer;
     link.download = doc.nomFitxer;
@@ -907,7 +924,12 @@ function ProjecteDetailView({
       )}
 
       {showDocumentModal && (
-        <DocumentModal onClose={() => setShowDocumentModal(false)} onSave={afegirDocument} />
+        <DocumentModal
+          onClose={() => setShowDocumentModal(false)}
+          onSave={afegirDocument}
+          projecte={formData}
+          client={selectedClient}
+        />
       )}
 
       {showVincularPressupostModal && (

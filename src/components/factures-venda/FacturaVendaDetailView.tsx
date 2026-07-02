@@ -18,6 +18,8 @@ import { calcularImpostos, determinarEstat, calcularVenciment } from './utils/fa
 import { generarRegistreVerifactu } from '../../utils/verifactuHash';
 import { teCertificatEnMemoria } from '../../utils/verifactuFirma';
 import { enviarRegistreAEAT } from '../../utils/verifactuAPI';
+import { buildFiscalDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
+import type { DocumentFileRef } from '../../types/documental';
 import VerifactuPINModal from '../common/VerifactuPINModal';
 import ResumFacturaTab from './tabs/ResumFacturaTab';
 import DadesTab from './tabs/DadesTab';
@@ -323,13 +325,64 @@ export default function FacturaVendaDetailView({
     if (formData.projecte) storage.setProjectes(storage.getProjectes().map((p: any) => p.codi === formData.projecte ? { ...p, avisFacturacio: nouAvis } : p));
   };
 
+  const crearReferenciaPDFLocal = async (
+    factura: FacturaVenta,
+    idioma: 'ca' | 'es' | 'en',
+    esBorrador: boolean,
+    dataBase64: string
+  ): Promise<DocumentFileRef | null> => {
+    const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+    const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
+    if (!rootPath || !electronDocuments) return null;
+
+    const mode = esBorrador ? 'borrador' : 'factura';
+    const displayName = `${factura.codi}_${idioma}_${mode}`;
+    const existingRefs = factura.documentsGenerats || [];
+    const matchingRefs = existingRefs.filter(ref => ref.displayName.startsWith(displayName));
+    const version = Math.max(0, ...matchingRefs.map(ref => ref.version || 0)) + 1;
+    const filename = versionedPdfName(displayName, version);
+    const relativePath = buildFiscalDocumentPath(factura.dataFactura, 'factures-venda', filename);
+    const result = await electronDocuments.writeFile({ rootPath, relativePath, dataBase64 });
+
+    if (!result.success || !result.data) {
+      alert(result.error || 'No sha pogut guardar el PDF de la factura.');
+      return null;
+    }
+
+    return createDocumentRef({
+      kind: 'factura-venda',
+      ownerType: 'fiscal',
+      ownerCodi: factura.codi,
+      displayName,
+      originalName: filename,
+      relativePath,
+      mimeType: 'application/pdf',
+      size: result.data.size,
+      sha256: result.data.sha256,
+      version,
+      generated: true,
+    });
+  };
+
   // PDF provisional amb marca d'aigua ESBORRANY — no canvia l'estat
   const generarBorradorPDF = async (idioma: 'ca' | 'es' | 'en') => {
     if (formData.avisFacturacio?.actiu) {
       alert('⚠️ Hi ha un avís de facturació actiu. Desactiva\'l a la pestanya 1. Dades abans de generar cap PDF.');
       return;
     }
-    await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig);
+    const canSaveLocal = !!storage.getParametres().gestorDocumental?.rootPath && !!window.electronDocuments;
+    const pdfBase64 = await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig, { save: !canSaveLocal });
+    const fileRef = await crearReferenciaPDFLocal(formData, idioma, true, pdfBase64);
+    if (fileRef) {
+      setFormData(prev => ({
+        ...prev,
+        documentsGenerats: [
+          ...(prev.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
+          fileRef,
+        ],
+      }));
+      alert(`PDF guardat al gestor documental: ${fileRef.originalName}`);
+    }
     setLanguageModalMode(null);
   };
 
@@ -337,13 +390,21 @@ export default function FacturaVendaDetailView({
   const generarPDFDefinitiu = async (idioma: 'ca' | 'es' | 'en') => {
     const f = prepararFactura();
     if (!f) { alert('Cal completar els camps obligatoris (client i almenys una tasca) abans d\'emetre la factura.'); return; }
-    const pdfBase64 = await generarFacturaVentaPDF(f, clients, storage.getProjectes(), idioma, false, verifactuConfig);
+    const canSaveLocal = !!storage.getParametres().gestorDocumental?.rootPath && !!window.electronDocuments;
+    const pdfBase64 = await generarFacturaVentaPDF(f, clients, storage.getProjectes(), idioma, false, verifactuConfig, { save: !canSaveLocal });
+    const fileRef = await crearReferenciaPDFLocal(f, idioma, false, pdfBase64);
     setFormData(prev => {
       const passaAEnviada = prev.estat === 'borrador';
       return {
         ...prev,
         documentPDF: pdfBase64,
         documentPDFName: `${f.codi}_factura.pdf`,
+        documentsGenerats: fileRef
+          ? [
+              ...(prev.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
+              fileRef,
+            ]
+          : prev.documentsGenerats,
         estat: passaAEnviada ? 'enviada' : prev.estat,
         dataEnviada: passaAEnviada ? (prev.dataEnviada || new Date().toISOString()) : prev.dataEnviada,
         fechaExpedicion: passaAEnviada ? (prev.fechaExpedicion || new Date().toISOString()) : prev.fechaExpedicion,

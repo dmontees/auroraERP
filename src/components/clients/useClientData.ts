@@ -20,7 +20,8 @@ export function useClientData(editingClient: Client | null, nextCode: string) {
       contactes: [],
       tipusIVA: 'Normal',
       retencio: 0,
-      tarifesEspecials: []
+      tarifesEspecials: [],
+      documents: []
     }
   );
 

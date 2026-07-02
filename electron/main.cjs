@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -98,7 +98,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.9',
+    version: '3.0.11',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },
@@ -558,6 +558,101 @@ function stripForCloudBackup(data) {
   return strip(data);
 }
 
+const DOCUMENT_BASE_STRUCTURE = [
+  ['00_Sistema'],
+  ['00_Sistema', 'paperera'],
+  ['00_Sistema', 'pendents-de-revisar'],
+  ['Clients'],
+  ['Proveidors'],
+  ['Fiscal']
+];
+
+function isInsidePath(parentPath, childPath) {
+  const parent = path.resolve(parentPath);
+  const child = path.resolve(childPath);
+  return child === parent || child.startsWith(`${parent}${path.sep}`);
+}
+
+function resolveDocumentRoot(rootPath) {
+  if (!rootPath || typeof rootPath !== 'string') {
+    throw new Error('Ruta documental no configurada');
+  }
+  const root = path.resolve(rootPath);
+  if (path.basename(root) !== 'Aurora') {
+    throw new Error('La carpeta documental ha de dir-se Aurora');
+  }
+  return root;
+}
+
+function resolveDocumentPath(rootPath, relativePath) {
+  if (!relativePath || typeof relativePath !== 'string') {
+    throw new Error('Ruta relativa no valida');
+  }
+  if (path.isAbsolute(relativePath)) {
+    throw new Error('La ruta del document ha de ser relativa');
+  }
+
+  const root = resolveDocumentRoot(rootPath);
+  const target = path.resolve(root, relativePath);
+  if (!isInsidePath(root, target)) {
+    throw new Error('La ruta del document queda fora de la carpeta documental');
+  }
+  return { root, target };
+}
+
+function ensureDocumentBaseStructure(rootPath) {
+  const root = resolveDocumentRoot(rootPath);
+  fs.mkdirSync(root, { recursive: true });
+  for (const parts of DOCUMENT_BASE_STRUCTURE) {
+    fs.mkdirSync(path.join(root, ...parts), { recursive: true });
+  }
+  const indexPath = path.join(root, '00_Sistema', 'index-documental.json');
+  if (!fs.existsSync(indexPath)) {
+    writeJsonAtomically(indexPath, {
+      schemaVersion: 1,
+      createdAt: new Date().toISOString(),
+      documents: []
+    });
+  }
+  return root;
+}
+
+function getDocumentFileInfo(rootPath, relativePath, includeHash = false) {
+  const { target } = resolveDocumentPath(rootPath, relativePath);
+  if (!fs.existsSync(target)) {
+    return { exists: false, relativePath };
+  }
+
+  const stat = fs.statSync(target);
+  if (!stat.isFile()) {
+    return { exists: false, relativePath };
+  }
+
+  const info = {
+    exists: true,
+    relativePath,
+    absolutePath: target,
+    size: stat.size,
+    modifiedAt: stat.mtime.toISOString()
+  };
+
+  if (includeHash) {
+    const hash = crypto.createHash('sha256');
+    hash.update(fs.readFileSync(target));
+    info.sha256 = hash.digest('hex');
+  }
+
+  return info;
+}
+
+function decodeDocumentData(dataBase64) {
+  if (!dataBase64 || typeof dataBase64 !== 'string') {
+    throw new Error('Contingut del document buit');
+  }
+  const payload = dataBase64.includes(',') ? dataBase64.split(',').pop() : dataBase64;
+  return Buffer.from(payload, 'base64');
+}
+
 function restoreBackupIfNeeded() {
   const userDataPath = app.getPath('userData');
   const backupFile = path.join(userDataPath, 'aurora-backup.json');
@@ -727,6 +822,109 @@ ipcMain.handle('import-data', (_, data) => {
 // ============================================
 // TANCAMENT CONTROLAT — sync abans de sortir
 // ============================================
+
+ipcMain.handle('documents-select-root', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Selecciona on vols crear la carpeta Aurora',
+      properties: ['openDirectory', 'createDirectory']
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: true, cancelled: true };
+    }
+
+    const selectedPath = result.filePaths[0];
+    const rootPath = path.basename(selectedPath) === 'Aurora'
+      ? selectedPath
+      : path.join(selectedPath, 'Aurora');
+    ensureDocumentBaseStructure(rootPath);
+
+    return { success: true, data: { rootPath } };
+  } catch (error) {
+    console.error('Error seleccionant carpeta documental:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-ensure-structure', async (_, { rootPath }) => {
+  try {
+    const ensuredRoot = ensureDocumentBaseStructure(rootPath);
+    return { success: true, data: { rootPath: ensuredRoot } };
+  } catch (error) {
+    console.error('Error creant estructura documental:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-write-file', async (_, { rootPath, relativePath, dataBase64 }) => {
+  try {
+    ensureDocumentBaseStructure(rootPath);
+    const { target } = resolveDocumentPath(rootPath, relativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, decodeDocumentData(dataBase64));
+    const info = getDocumentFileInfo(rootPath, relativePath, true);
+    return { success: true, data: info };
+  } catch (error) {
+    console.error('Error escrivint document:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-read-file', async (_, { rootPath, relativePath }) => {
+  try {
+    const { target } = resolveDocumentPath(rootPath, relativePath);
+    const dataBase64 = fs.readFileSync(target).toString('base64');
+    return { success: true, data: { relativePath, dataBase64 } };
+  } catch (error) {
+    console.error('Error llegint document:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-file-info', async (_, { rootPath, relativePath, includeHash }) => {
+  try {
+    return { success: true, data: getDocumentFileInfo(rootPath, relativePath, !!includeHash) };
+  } catch (error) {
+    console.error('Error comprovant document:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-open-file', async (_, { rootPath, relativePath }) => {
+  try {
+    const { target } = resolveDocumentPath(rootPath, relativePath);
+    const error = await shell.openPath(target);
+    if (error) throw new Error(error);
+    return { success: true };
+  } catch (error) {
+    console.error('Error obrint document:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-reveal-file', async (_, { rootPath, relativePath }) => {
+  try {
+    const { target } = resolveDocumentPath(rootPath, relativePath);
+    shell.showItemInFolder(target);
+    return { success: true };
+  } catch (error) {
+    console.error('Error mostrant document al Finder:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('documents-open-root', async (_, { rootPath }) => {
+  try {
+    const root = ensureDocumentBaseStructure(rootPath);
+    const error = await shell.openPath(root);
+    if (error) throw new Error(error);
+    return { success: true };
+  } catch (error) {
+    console.error('Error obrint carpeta documental:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle('confirm-close', () => {
   console.log('✅ Sync completat — tancant Aurora ERP');
