@@ -2,7 +2,8 @@ import type { FacturaVenta } from '../types/facturaVenta';
 import type { Pressupost } from '../types/pressupost';
 import { generarFacturaVentaPDF } from './generarFacturaVentaPDF';
 import { generarPressupostPDF } from './generarPressupostPDF';
-import { buildFiscalDocumentPath, buildPendingDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from './documentManager';
+import { buildClientDocumentPath, buildFiscalDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from './documentManager';
+import { mirrorSalesInvoiceToProject } from './documentMirrors';
 import { storage } from './storageManager';
 
 export interface DocumentRegenerationResult {
@@ -51,7 +52,12 @@ export async function regenerateHistoricalGeneratedDocuments(rootPath: string): 
             'pressupostos',
             filename
           )
-        : buildPendingDocumentPath('Pressupostos', filename);
+        : buildClientDocumentPath(
+            client.codi,
+            client.nomComercial || client.nomFiscal || 'Client',
+            'pressupostos',
+            filename
+          );
       const dataBase64 = generarPressupostPDF(pressupost, clients, 'ca', { save: false });
       const writeResult = await electronDocuments.writeFile({ rootPath, relativePath, dataBase64 });
       if (!writeResult.success || !writeResult.data) throw new Error(writeResult.error || 'No sha pogut guardar el PDF');
@@ -111,6 +117,7 @@ export async function regenerateHistoricalGeneratedDocuments(rootPath: string): 
         documentPDF: dataBase64,
         documentPDFName: `${factura.codi}_factura.pdf`,
       });
+      await mirrorSalesInvoiceToProject(rootPath, factura, fileRef);
       result.facturesVenda += 1;
     } catch (error) {
       result.errors.push(`${factura.codi}: ${error instanceof Error ? error.message : String(error)}`);

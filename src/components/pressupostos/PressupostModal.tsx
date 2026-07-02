@@ -8,7 +8,7 @@ import type { Pressupost } from '../../types/pressupost';
 import { usePressupost } from './hooks/usePressupost';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { generarPressupostPDF } from '../../utils/generarPressupostPDF';
-import { buildPendingDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
+import { buildClientDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
 import DadesTab from './tabs/DadesTab';
 import ProjecteTab from './tabs/ProjecteTab';
 import GastosTab from './tabs/GastosTab';
@@ -70,7 +70,12 @@ export default function PressupostModal({
           'pressupostos',
           filename
         )
-      : buildPendingDocumentPath('Pressupostos', filename);
+      : buildClientDocumentPath(
+          client.codi,
+          client.nomComercial || client.nomFiscal || 'Client',
+          'pressupostos',
+          filename
+        );
     const dataBase64 = generarPressupostPDF(formData, clients, idioma, { save: false });
     const result = await electronDocuments.writeFile({ rootPath, relativePath, dataBase64 });
 

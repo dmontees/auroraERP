@@ -29,6 +29,7 @@ import PagamentTab from './tabs/PagamentTab';
 import HistorialTab from './tabs/HistorialTab';
 import { storage } from '../../utils/storageManager';
 import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
+import { mirrorSalesInvoiceToProject } from '../../utils/documentMirrors';
 
 type TabId = 'resum' | 'dades' | 'tasques' | 'notes' | 'pagament' | 'historial';
 
@@ -375,6 +376,7 @@ export default function FacturaVendaDetailView({
     const pdfBase64 = await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig, { save: !canSaveLocal });
     const fileRef = await crearReferenciaPDFLocal(formData, idioma, true, pdfBase64);
     if (fileRef) {
+      await mirrorSalesInvoiceToProject(storage.getParametres().gestorDocumental?.rootPath || '', formData, fileRef);
       const updated = {
         ...formData,
         documentsGenerats: [
@@ -425,6 +427,7 @@ export default function FacturaVendaDetailView({
     setFormData(updated);
     onSave(updated);
     if (fileRef) {
+      await mirrorSalesInvoiceToProject(storage.getParametres().gestorDocumental?.rootPath || '', updated, fileRef);
       const openResult = await window.electronDocuments?.openFile({
         rootPath: storage.getParametres().gestorDocumental?.rootPath || '',
         relativePath: fileRef.relativePath,

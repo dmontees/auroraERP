@@ -5,6 +5,7 @@ import { checkDocumentHealth, type DocumentHealthResult } from '../../../utils/d
 import { materializeExistingDocumentFolders, type DocumentStructureMaterializationResult } from '../../../utils/documentStructure';
 import { migrateLegacyDocuments, scanLegacyDocuments, type LegacyDocumentMigrationResult, type LegacyDocumentMigrationStats } from '../../../utils/documentMigration';
 import { buildDocumentManifest } from '../../../utils/documentManifest';
+import { organizeDocumentMirrors, type DocumentMirrorResult } from '../../../utils/documentMirrors';
 import { updateStoredDocumentRef } from '../../../utils/documentRegistry';
 import { regenerateHistoricalGeneratedDocuments, type DocumentRegenerationResult } from '../../../utils/documentRegeneration';
 import type { Parametres } from '../../../types/parametres';
@@ -26,11 +27,13 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
   const [healthResult, setHealthResult] = useState<DocumentHealthResult | null>(null);
   const [structureResult, setStructureResult] = useState<DocumentStructureMaterializationResult | null>(null);
   const [regenerationResult, setRegenerationResult] = useState<DocumentRegenerationResult | null>(null);
+  const [mirrorResult, setMirrorResult] = useState<DocumentMirrorResult | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isMaterializing, setIsMaterializing] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isExportingBackup, setIsExportingBackup] = useState(false);
+  const [isOrganizing, setIsOrganizing] = useState(false);
 
   const saveRoot = (rootPath: string) => {
     saveParametres({
@@ -138,6 +141,8 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
       const result = await migrateLegacyDocuments(config.rootPath);
       setMigrationResult(result);
       setScanStats(scanLegacyDocuments());
+      const mirrors = await organizeDocumentMirrors(config.rootPath);
+      setMirrorResult(mirrors);
       alert(`Migracio finalitzada. Documents migrats: ${result.migrated}. Errors: ${result.errors.length}.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'No sha pogut executar la migracio.');
@@ -223,11 +228,31 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
     try {
       const result = await regenerateHistoricalGeneratedDocuments(config.rootPath);
       setRegenerationResult(result);
+      const mirrors = await organizeDocumentMirrors(config.rootPath);
+      setMirrorResult(mirrors);
       alert(`Regeneracio finalitzada. Pressupostos: ${result.pressupostos}. Factures: ${result.facturesVenda}. Errors: ${result.errors.length}.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'No sha pogut regenerar els PDFs historics.');
     } finally {
       setIsRegenerating(false);
+    }
+  };
+
+  const handleOrganizeMirrors = async () => {
+    if (!config?.rootPath) {
+      alert('Configura primer la carpeta documental.');
+      return;
+    }
+    setIsOrganizing(true);
+    setMirrorResult(null);
+    try {
+      const result = await organizeDocumentMirrors(config.rootPath);
+      setMirrorResult(result);
+      alert(`Organitzacio finalitzada. Copies creades: ${result.copied}. Referencies actualitzades: ${result.updatedRefs}. Errors: ${result.errors.length}.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No sha pogut organitzar les copies documentals.');
+    } finally {
+      setIsOrganizing(false);
     }
   };
 
@@ -362,7 +387,36 @@ export default function GestorDocumentalTab({ hook }: GestorDocumentalTabProps) 
             <RefreshCw size={16} />
             {isRegenerating ? 'Regenerant...' : 'Generar PDFs historics'}
           </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleOrganizeMirrors}
+            disabled={!isElectronReady || !config?.rootPath || isOrganizing}
+          >
+            <RefreshCw size={16} />
+            {isOrganizing ? 'Organitzant...' : 'Organitzar copies visibles'}
+          </button>
         </div>
+        {mirrorResult && (
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
+            <StatusRow
+              ok={mirrorResult.errors.length === 0}
+              label={`Copies creades: ${mirrorResult.copied}. Referencies actualitzades: ${mirrorResult.updatedRefs}. Omesos: ${mirrorResult.skipped}.`}
+            />
+            {mirrorResult.errors.length > 0 && (
+              <details>
+                <summary style={{ cursor: 'pointer', color: 'var(--color-error-dark)', fontWeight: 600 }}>
+                  Errors organitzant copies ({mirrorResult.errors.length})
+                </summary>
+                <ul style={{ marginTop: '0.5rem', paddingLeft: '1.25rem', color: 'var(--color-text-secondary)' }}>
+                  {mirrorResult.errors.slice(0, 30).map((error, index) => (
+                    <li key={`${error}-${index}`}>{error}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
         {regenerationResult && (
           <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
             <StatusRow

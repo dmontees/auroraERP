@@ -10,6 +10,7 @@ export const DOCUMENT_FOLDERS = {
   clientDocuments: 'Documentacio client',
   clientContracts: 'Contractes',
   clientFiscal: 'Fiscal',
+  clientBudgets: 'Pressupostos',
   clientOther: 'Altres',
   projects: 'Projectes',
   projectBudgets: '01_Pressupostos',
@@ -20,20 +21,22 @@ export const DOCUMENT_FOLDERS = {
   providerInsurance: '02_Asseguranca',
   providerCertificate: '03_Certificat',
   providerPayroll: '04_Nomines',
+  providerInvoices: '05_Factures rebudes',
   providerOther: '99_Altres',
   fiscal: 'Fiscal',
   fiscalExpenses: 'Despeses i obligacions fiscals',
   fiscalSalesInvoices: 'Factures venda',
 } as const;
 
-export type ClientDocumentFolder = 'contractes' | 'fiscal' | 'altres';
+export type ClientDocumentFolder = 'contractes' | 'fiscal' | 'pressupostos' | 'altres';
 export type ProjectDocumentFolder = 'pressupostos' | 'documents' | 'enllacos';
-export type ProviderDocumentFolder = 'contracte' | 'asseguranca' | 'certificat' | 'nomines' | 'altres';
+export type ProviderDocumentFolder = 'contracte' | 'asseguranca' | 'certificat' | 'nomines' | 'factures' | 'altres';
 export type FiscalDocumentFolder = 'despeses' | 'factures-venda';
 
 const CLIENT_FOLDER_MAP: Record<ClientDocumentFolder, string> = {
   contractes: DOCUMENT_FOLDERS.clientContracts,
   fiscal: DOCUMENT_FOLDERS.clientFiscal,
+  pressupostos: DOCUMENT_FOLDERS.clientBudgets,
   altres: DOCUMENT_FOLDERS.clientOther,
 };
 
@@ -48,6 +51,7 @@ const PROVIDER_FOLDER_MAP: Record<ProviderDocumentFolder, string> = {
   asseguranca: DOCUMENT_FOLDERS.providerInsurance,
   certificat: DOCUMENT_FOLDERS.providerCertificate,
   nomines: DOCUMENT_FOLDERS.providerPayroll,
+  factures: DOCUMENT_FOLDERS.providerInvoices,
   altres: DOCUMENT_FOLDERS.providerOther,
 };
 
@@ -173,6 +177,7 @@ export function buildClientDirectoryPaths(clientCodi: string, clientName: string
     joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments),
     joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientContracts),
     joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientFiscal),
+    joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientBudgets),
     joinRelativePath(clientRoot, DOCUMENT_FOLDERS.clientDocuments, DOCUMENT_FOLDERS.clientOther),
     joinRelativePath(clientRoot, DOCUMENT_FOLDERS.projects),
   ];

@@ -13,6 +13,7 @@ import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
 import { storage } from '../../utils/storageManager';
 import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
+import { mirrorPurchaseInvoice } from '../../utils/documentMirrors';
 
 interface FacturaCompraModalProps {
   onClose: () => void;
@@ -436,6 +437,10 @@ export default function FacturaCompraModal({
         dataBase64: documentPDF,
         existingRefs: formData.documentsGenerats,
       });
+      const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+      if (fileRef && rootPath) {
+        await mirrorPurchaseInvoice(rootPath, formData, fileRef);
+      }
       setPdfFileName(fileName);
       setFormData({
         ...formData,

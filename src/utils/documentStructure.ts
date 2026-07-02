@@ -1,5 +1,5 @@
 import { storage } from './storageManager';
-import { buildClientDirectoryPaths, buildProjectDirectoryPaths } from './documentManager';
+import { DOCUMENT_FOLDERS, buildClientDirectoryPaths, buildProjectDirectoryPaths, entityFolderName, joinRelativePath } from './documentManager';
 
 export interface DocumentStructureMaterializationResult {
   requested: number;
@@ -36,6 +36,22 @@ export async function materializeExistingDocumentFolders(rootPath: string): Prom
       projecte.codi,
       projecte.titol || 'Projecte'
     ));
+  }
+
+  for (const proveidor of storage.getProveidors()) {
+    const providerRoot = joinRelativePath(
+      DOCUMENT_FOLDERS.providers,
+      entityFolderName(proveidor.codi, proveidor.nomComercial || proveidor.nomFiscal || 'Proveidor')
+    );
+    directories.push(
+      providerRoot,
+      joinRelativePath(providerRoot, DOCUMENT_FOLDERS.providerContract),
+      joinRelativePath(providerRoot, DOCUMENT_FOLDERS.providerInsurance),
+      joinRelativePath(providerRoot, DOCUMENT_FOLDERS.providerCertificate),
+      joinRelativePath(providerRoot, DOCUMENT_FOLDERS.providerPayroll),
+      joinRelativePath(providerRoot, DOCUMENT_FOLDERS.providerInvoices),
+      joinRelativePath(providerRoot, DOCUMENT_FOLDERS.providerOther)
+    );
   }
 
   const result = await electronDocuments.ensureDirectories({
