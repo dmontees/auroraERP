@@ -1,4 +1,4 @@
-import type { EstatProjecte } from './types'
+import type { EstatPressupost, EstatProjecte } from './types'
 
 export function formatCurrency(val: number | null | undefined): string {
   if (val == null) return '—'
@@ -47,6 +47,17 @@ const ESTAT_LABELS: Record<EstatProjecte, string> = {
 
 export function estatLabel(estat: EstatProjecte): string {
   return ESTAT_LABELS[estat] ?? estat
+}
+
+const ESTAT_PRESSUPOST_LABELS: Record<EstatPressupost, string> = {
+  esborrany: 'Esborrany',
+  enviat: 'Enviat',
+  acceptat: 'Acceptat',
+  rebutjat: 'Rebutjat',
+}
+
+export function estatPressupostLabel(estat: EstatPressupost): string {
+  return ESTAT_PRESSUPOST_LABELS[estat] ?? estat
 }
 
 export function percentLabel(val: number): string {

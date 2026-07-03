@@ -7,12 +7,16 @@ import Layout from './components/Layout/Layout'
 import Dashboard from './components/Dashboard/Dashboard'
 import ProjectesList from './components/Projectes/ProjectesList'
 import ProjecteDetail from './components/Projectes/ProjecteDetail'
+import PressupostosList from './components/Pressupostos/PressupostosList'
+import PressupostDetail from './components/Pressupostos/PressupostDetail'
 
 // Pàgines disponibles de l'app
 type Page =
   | { id: 'dashboard' }
   | { id: 'projectes' }
   | { id: 'projecte-detail'; codi: string }
+  | { id: 'pressupostos' }
+  | { id: 'pressupost-detail'; codi: string }
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -49,11 +53,15 @@ export default function App() {
     setPage(p)
   }
 
+  function navigateSection(id: 'dashboard' | 'projectes' | 'pressupostos') {
+    navigate({ id })
+  }
+
   return (
     <Layout
       page={page.id}
       user={user}
-      onNavigate={(id) => navigate({ id } as Page)}
+      onNavigate={navigateSection}
       onLogout={handleLogout}
     >
       {page.id === 'dashboard' && (
@@ -68,6 +76,18 @@ export default function App() {
         <ProjecteDetail
           codi={page.codi}
           onBack={() => navigate({ id: 'projectes' })}
+        />
+      )}
+      {page.id === 'pressupostos' && (
+        <PressupostosList
+          onSelectPressupost={(codi) => navigate({ id: 'pressupost-detail', codi })}
+        />
+      )}
+      {page.id === 'pressupost-detail' && (
+        <PressupostDetail
+          codi={page.codi}
+          onBack={() => navigate({ id: 'pressupostos' })}
+          onOpenProjecte={(codi) => navigate({ id: 'projecte-detail', codi })}
         />
       )}
     </Layout>

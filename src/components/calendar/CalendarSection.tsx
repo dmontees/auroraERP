@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import CalendarGrid from './CalendarGrid';
 import EventsSidebar from './EventsSidebar';
@@ -9,7 +9,12 @@ import { useCalendarEvents } from './useCalendarEvents';
 import type { CalendarEvent } from './useCalendarEvents';
 import { afegirEntradaHistorial } from '../../utils/projecteHistorial';
 import { storage } from '../../utils/storageManager';
-import { syncCustomEventToGoogle, deleteGoogleEvent, isGoogleCalendarConnected } from '../../utils/googleCalendarSync';
+import {
+  syncCustomEventToGoogle,
+  deleteGoogleEvent,
+  isGoogleCalendarConnected,
+  syncProjectDatesBidirectional
+} from '../../utils/googleCalendarSync';
 import type { Projecte } from '../../types/projecte';
 
 const DEFAULT_CONFIG_CALENDARI = {
@@ -50,8 +55,10 @@ export default function CalendarSection() {
     configCalendari,
     categoriesCalendari,
     extresEsdevenimentsAuto,
-    updateExtresEsdevenimentsAuto
+    updateExtresEsdevenimentsAuto,
+    replaceExtresEsdevenimentsAuto
   } = useCalendarData();
+  const initialGoogleSyncDone = useRef(false);
 
   // Toggle state for auto-categories (persisted in storage)
   const [categoriesActives, setCategoriesActives] = useState<Record<CatKey, boolean>>({
@@ -120,6 +127,18 @@ export default function CalendarSection() {
     });
   }, [tots_els_esdeveniments, customCatsActives]);
 
+  useEffect(() => {
+    if (initialGoogleSyncDone.current || !isGoogleCalendarConnected() || projectes.length === 0) return;
+    initialGoogleSyncDone.current = true;
+
+    syncProjectDatesBidirectional(projectes, clients, extresEsdevenimentsAuto)
+      .then(result => {
+        updateProjectes(result.projectes);
+        replaceExtresEsdevenimentsAuto(result.extresEsdevenimentsAuto);
+      })
+      .catch(console.error);
+  }, [clients, extresEsdevenimentsAuto, projectes, replaceExtresEsdevenimentsAuto, updateProjectes]);
+
   const handleToggleCategoria = (catKey: CatKey, newValue: boolean) => {
     setCategoriesActives(prev => ({ ...prev, [catKey]: newValue }));
     const p = storage.getParametres();
@@ -161,20 +180,6 @@ export default function CalendarSection() {
     : [];
 
   const handleSaveEsdeveniment = (esdeveniment: any) => {
-    // Google Calendar sync (fire and forget)
-    if (isGoogleCalendarConnected()) {
-      syncCustomEventToGoogle(esdeveniment).then(googleEventId => {
-        if (googleEventId && googleEventId !== esdeveniment.googleEventId) {
-          const updatedEvent = { ...esdeveniment, googleEventId };
-          const stored = storage.getEsdevenimentsPersonalitzats();
-          const updated = editingEsdeveniment
-            ? stored.map((e: any) => e.id === updatedEvent.id ? updatedEvent : e)
-            : [...stored, updatedEvent];
-          updateEsdevenimentsPersonalitzats(updated);
-        }
-      }).catch(console.error);
-    }
-
     let nous;
     if (editingEsdeveniment) {
       nous = esdevenimentsPersonalitzats.map(e =>
@@ -185,6 +190,22 @@ export default function CalendarSection() {
     }
 
     updateEsdevenimentsPersonalitzats(nous);
+
+    // Google Calendar sync (fire and forget). Keep Aurora's local event as the
+    // source of truth, then patch in the Google id when it arrives.
+    if (isGoogleCalendarConnected()) {
+      syncCustomEventToGoogle(esdeveniment).then(googleEventId => {
+        if (!googleEventId || googleEventId === esdeveniment.googleEventId) return;
+
+        const stored = storage.getEsdevenimentsPersonalitzats();
+        const exists = stored.some((e: any) => e.id === esdeveniment.id);
+        const updatedEvent = { ...esdeveniment, googleEventId };
+        const updated = exists
+          ? stored.map((e: any) => e.id === updatedEvent.id ? { ...e, googleEventId } : e)
+          : [...stored, updatedEvent];
+        updateEsdevenimentsPersonalitzats(updated);
+      }).catch(console.error);
+    }
 
     if (esdeveniment.projecte && !editingEsdeveniment) {
       const projecte = projectes.find((p: Projecte) => p.codi === esdeveniment.projecte);
@@ -213,6 +234,20 @@ export default function CalendarSection() {
 
     setShowNouEsdeveniment(false);
     setEditingEsdeveniment(null);
+  };
+
+  const handleSaveAutoExtras = (eventId: string, extras: { ubicacio?: string; horaInici?: string; horaFi?: string; enllac?: string }) => {
+    const updatedExtras = { ...extresEsdevenimentsAuto, [eventId]: extras };
+    updateExtresEsdevenimentsAuto(eventId, extras);
+
+    if (isGoogleCalendarConnected()) {
+      syncProjectDatesBidirectional(projectes, clients, updatedExtras)
+        .then(result => {
+          updateProjectes(result.projectes);
+          replaceExtresEsdevenimentsAuto(result.extresEsdevenimentsAuto);
+        })
+        .catch(console.error);
+    }
   };
 
   const handleDeleteEsdeveniment = (id: string) => {
@@ -400,7 +435,7 @@ export default function CalendarSection() {
             handleDeleteEsdeveniment(id);
             setViewingEvent(null);
           }}
-          onSaveExtras={updateExtresEsdevenimentsAuto}
+          onSaveExtras={handleSaveAutoExtras}
         />
       )}
     </div>

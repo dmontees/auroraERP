@@ -219,6 +219,69 @@ try {
     }
 
     // =========================================================================
+    // PRESSUPOSTOS
+    // =========================================================================
+    if (isset($data['pressupostos']) && is_array($data['pressupostos'])) {
+        $pdo->exec('DELETE FROM aurora_pressupostos');
+        $cols = ['codi','estat','client_codi','projecte_creat','projecte_vinculat',
+                 'nom_projecte','modalitat','data_pressupost','data_venciment','data_acceptacio',
+                 'base_imposable','iva_percent','iva_import','irpf_percent','irpf_import',
+                 'total_pressupost','gastos_totals','benefici','percent_benefici','dades_json'];
+        $rows = [];
+
+        foreach ($data['pressupostos'] as $p) {
+            if (empty($p['codi'])) continue;
+
+            $base = 0.0;
+            foreach (($p['tasques'] ?? []) as $t) {
+                $base += safeFloat($t['importe'] ?? 0);
+            }
+
+            $gastos = 0.0;
+            foreach (($p['materials'] ?? []) as $m) {
+                $gastos += safeFloat($m['preuProveidor'] ?? 0) * max(1, safeFloat($m['jornades'] ?? 1));
+            }
+            foreach (($p['recursosHumans'] ?? []) as $r) {
+                $gastos += safeFloat($r['importe'] ?? 0);
+            }
+
+            $ivaPercent = safeFloat($p['iva'] ?? 21);
+            $irpfPercent = safeFloat($p['retencioIRPF'] ?? 0);
+            $ivaImport = $base * ($ivaPercent / 100);
+            $irpfImport = $base * ($irpfPercent / 100);
+            $total = $base + $ivaImport - $irpfImport;
+            $benefici = $base - $gastos;
+            $percentBenefici = $base > 0 ? ($benefici / $base) * 100 : 0;
+
+            $rows[] = [
+                $p['codi'],
+                safeEnum($p['estat'] ?? null, ['esborrany','enviat','acceptat','rebutjat'], 'esborrany'),
+                $p['client']            ?? null,
+                $p['projecteCreat']     ?? null,
+                $p['projecteVinculat']  ?? null,
+                $p['nomProjecte']       ?? null,
+                $p['modalitat']         ?? null,
+                safeDate($p['data'] ?? null),
+                safeDate($p['dataVenciment'] ?? null),
+                safeDate($p['dataAcceptacio'] ?? null),
+                $base,
+                $ivaPercent,
+                $ivaImport,
+                $irpfPercent,
+                $irpfImport,
+                $total,
+                $gastos,
+                $benefici,
+                $percentBenefici,
+                json_encode(stripHeavyFields($p), JSON_UNESCAPED_UNICODE),
+            ];
+        }
+
+        batchInsert('aurora_pressupostos', $cols, $rows);
+        $stats['pressupostos'] = count($rows);
+    }
+
+    // =========================================================================
     // FACTURES DE VENDA
     // =========================================================================
     if (isset($data['facturesVenda']) && is_array($data['facturesVenda'])) {

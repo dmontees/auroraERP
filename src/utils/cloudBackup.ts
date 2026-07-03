@@ -1,4 +1,5 @@
 import { storage } from './storageManager';
+import { isQuotaExceededError, stripBackupBinariesForBrowserStorage } from './backupImport';
 
 export interface BackupUploadResult {
   savedAt: string;
@@ -149,10 +150,20 @@ export async function restoreFromBackup(data: any): Promise<void> {
       'webSyncConfig', 'verifactuConfig', 'verifactuCertificatP12',
       'albaransCompra', 'settings', 'version', 'dataSchemaVersion',
     ];
+    const browserImport = stripBackupBinariesForBrowserStorage(storeData);
     knownKeys.forEach(key => {
-      if (storeData[key] !== undefined) {
-        try { localStorage.setItem(`platea${key.charAt(0).toUpperCase() + key.slice(1)}`, JSON.stringify(storeData[key])); }
-        catch { /* ignore */ }
+      if (browserImport.data[key] !== undefined) {
+        try {
+          storage.set(key as any, browserImport.data[key] as any);
+        } catch (error) {
+          if (isQuotaExceededError(error)) {
+            throw new Error(
+              'La copia del nuvol es massa gran per al localStorage del navegador. ' +
+              'Importa-la des de l\'app Electron o neteja dades del localhost i torna-ho a provar.'
+            );
+          }
+          throw error;
+        }
       }
     });
   }

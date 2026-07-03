@@ -1,24 +1,30 @@
-import { LayoutDashboard, FolderOpen, LogOut, User, Zap } from 'lucide-react'
+import { FileText, FolderOpen, LayoutDashboard, LogOut, User, Zap } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { AuthUser } from '../../types'
 
-type PageId = 'dashboard' | 'projectes' | 'projecte-detail'
+type PageId = 'dashboard' | 'projectes' | 'projecte-detail' | 'pressupostos' | 'pressupost-detail'
+type SectionId = 'dashboard' | 'projectes' | 'pressupostos'
 
 interface Props {
   page: PageId
   user: AuthUser
-  children: React.ReactNode
-  onNavigate: (page: PageId) => void
+  children: ReactNode
+  onNavigate: (page: SectionId) => void
   onLogout: () => void
 }
 
-const NAV_ITEMS: { id: PageId; label: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { id: SectionId; label: string; icon: ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard',  icon: <LayoutDashboard size={16} /> },
   { id: 'projectes', label: 'Projectes',  icon: <FolderOpen size={16} /> },
+  { id: 'pressupostos', label: 'Pressupostos', icon: <FileText size={16} /> },
 ]
 
 export default function Layout({ page, user, children, onNavigate, onLogout }: Props) {
   // 'projecte-detail' es considera dins la secció 'projectes' per al nav actiu
-  const activeSection = page === 'projecte-detail' ? 'projectes' : page
+  const activeSection =
+    page === 'projecte-detail' ? 'projectes'
+    : page === 'pressupost-detail' ? 'pressupostos'
+    : page
 
   return (
     <div className="app-container">

@@ -89,9 +89,14 @@ export interface SyncLog {
 export interface ProjecteResum {
   codi: string;
   titol: string;
+  descripcio?: string;
   estat: EstatProjecte;
   client_codi: string;
   client_nom?: string;
+  pressupost_codi?: string;
+  factura_codi?: string;
+  modalitat?: string;
+  servei?: string;
   data_inici?: string;
   data_entrega?: string;
   data_finalitzacio?: string;
@@ -113,6 +118,16 @@ export interface ProjecteDetall extends ProjecteResum {
   dates_entrega: { data: string; nota?: string; entregada: boolean }[];
   // dades conté l'objecte TypeScript complet del desktop
   dades: Record<string, unknown>;
+  lookups?: ProjecteLookups;
+}
+
+export interface ProjecteLookups {
+  serveis: Record<string, string>;
+  unitats: Record<string, string>;
+  categories: Record<string, string>;
+  materials: Record<string, string>;
+  grups: Record<string, string>;
+  proveidors: Record<string, string>;
 }
 
 export interface ProjectesListResponse {
@@ -122,10 +137,67 @@ export interface ProjectesListResponse {
     estat: string;
     arxivat: number;
     client: string;
+    modalitat?: string;
+    servei?: string;
+    direct?: number;
+    desde?: string | null;
+    fins?: string | null;
     q: string;
     order_by: string;
     order_dir: string;
   };
+}
+
+// --- Pressupostos -----------------------------------------------------------
+
+export type EstatPressupost = 'esborrany' | 'enviat' | 'acceptat' | 'rebutjat';
+
+export interface PressupostResum {
+  codi: string;
+  estat: EstatPressupost;
+  client_codi?: string;
+  client_nom?: string;
+  projecte_creat?: string;
+  projecte_vinculat?: string;
+  nom_projecte?: string;
+  modalitat?: string;
+  data_pressupost?: string;
+  data_venciment?: string;
+  data_acceptacio?: string;
+  base_imposable: number;
+  total_pressupost: number;
+  gastos_totals: number;
+  benefici: number;
+  percent_benefici: number;
+}
+
+export interface PressupostDetall extends PressupostResum {
+  iva_percent: number;
+  iva_import: number;
+  irpf_percent: number;
+  irpf_import: number;
+  dades: Record<string, unknown>;
+}
+
+export interface PressupostosListResponse {
+  data: PressupostResum[];
+  pagination: { total: number; page: number; per_page: number; pages: number };
+  filters: {
+    estat: string;
+    client: string;
+    q: string;
+    order_by: string;
+    order_dir: string;
+  };
+}
+
+export interface PressupostosFilters {
+  estat: string;
+  client: string;
+  q: string;
+  page: number;
+  order_by: string;
+  order_dir: 'ASC' | 'DESC';
 }
 
 // --- Clients ----------------------------------------------------------------
@@ -161,6 +233,11 @@ export interface ProjectesFilters {
   estat: string;
   arxivat: number;
   client: string;
+  modalitat: string;
+  servei: string;
+  direct: number;
+  desde: string;
+  fins: string;
   q: string;
   page: number;
   order_by: string;

@@ -200,6 +200,41 @@ CREATE TABLE IF NOT EXISTS aurora_projectes_dates_entrega (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
+-- PRESSUPOSTOS
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS aurora_pressupostos (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  codi                VARCHAR(20) NOT NULL UNIQUE,  -- PRE-00001
+  estat               ENUM('esborrany','enviat','acceptat','rebutjat') NOT NULL DEFAULT 'esborrany',
+  client_codi         VARCHAR(20),
+  projecte_creat      VARCHAR(20),
+  projecte_vinculat   VARCHAR(20),
+  nom_projecte        VARCHAR(500),
+  modalitat           VARCHAR(100),
+  data_pressupost     DATE,
+  data_venciment      DATE,
+  data_acceptacio     DATE,
+  base_imposable      DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  iva_percent         DECIMAL(5,2)  DEFAULT 21.00,
+  iva_import          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  irpf_percent        DECIMAL(5,2)  DEFAULT 0.00,
+  irpf_import         DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  total_pressupost    DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  gastos_totals       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  benefici            DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  percent_benefici    DECIMAL(8,2)  NOT NULL DEFAULT 0.00,
+  dades_json          LONGTEXT NOT NULL,
+  updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_estat (estat),
+  INDEX idx_client (client_codi),
+  INDEX idx_data_pressupost (data_pressupost),
+  INDEX idx_projecte_creat (projecte_creat),
+  INDEX idx_projecte_vinculat (projecte_vinculat),
+  INDEX idx_total (total_pressupost)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
 -- FACTURES DE VENDA
 -- =============================================================================
 
@@ -380,6 +415,7 @@ VALUES
   ('clients',             0, NOW()),
   ('proveidors',          0, NOW()),
   ('projectes',           0, NOW()),
+  ('pressupostos',        0, NOW()),
   ('factures_venda',      0, NOW()),
   ('factures_compra',     0, NOW()),
   ('obligacions_fiscals', 0, NOW()),

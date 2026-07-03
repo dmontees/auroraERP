@@ -63,13 +63,62 @@ if (!empty($_GET['codi'])) {
     // L'objecte TypeScript complet ve del dades_json
     $dadesCompletes = json_decode($row['dades_json'], true) ?? [];
 
+    // Diccionaris per renderitzar noms en lloc de codis a la web.
+    $lookups = [
+        'serveis'    => [],
+        'unitats'    => [],
+        'categories' => [],
+        'materials'  => [],
+        'grups'      => [],
+        'proveidors' => [],
+    ];
+
+    $stmtParam = $pdo->query('SELECT clau, valor_json FROM aurora_parametres');
+    foreach ($stmtParam->fetchAll() as $paramRow) {
+        $valor = json_decode($paramRow['valor_json'], true);
+        if (!is_array($valor)) continue;
+
+        if ($paramRow['clau'] === 'serveis') {
+            foreach ($valor as $item) {
+                if (!empty($item['codi'])) $lookups['serveis'][$item['codi']] = $item['nom'] ?? $item['codi'];
+            }
+        } elseif ($paramRow['clau'] === 'unitats') {
+            foreach ($valor as $item) {
+                if (!empty($item['codi'])) $lookups['unitats'][$item['codi']] = $item['nom'] ?? $item['codi'];
+            }
+        } elseif ($paramRow['clau'] === 'categories') {
+            foreach ($valor as $item) {
+                if (!empty($item['codi'])) $lookups['categories'][$item['codi']] = $item['nom'] ?? $item['codi'];
+            }
+        } elseif ($paramRow['clau'] === 'materials') {
+            foreach ($valor as $item) {
+                if (!empty($item['codi'])) $lookups['materials'][$item['codi']] = $item['material'] ?? $item['nom'] ?? $item['codi'];
+            }
+        } elseif ($paramRow['clau'] === 'grupsMaterials') {
+            foreach ($valor as $item) {
+                if (!empty($item['codi'])) $lookups['grups'][$item['codi']] = $item['nom'] ?? $item['codi'];
+            }
+        }
+    }
+
+    $stmtProv = $pdo->query('SELECT codi, nom_fiscal, nom_comercial FROM aurora_proveidors');
+    foreach ($stmtProv->fetchAll() as $prov) {
+        $lookups['proveidors'][$prov['codi']] = $prov['nom_comercial'] ?: $prov['nom_fiscal'] ?: $prov['codi'];
+    }
+
     respond([
         // Camps SQL (per filtrar / mostrar sense parsear JSON)
         'codi'             => $row['codi'],
         'titol'            => $row['titol'],
+        'descripcio'       => $dadesCompletes['descripcio'] ?? null,
         'estat'            => $row['estat'],
         'client_codi'      => $row['client_codi'],
         'client_nom'       => $row['client_nom'] ?? $row['client_nom_fiscal'],
+        'pressupost_codi'  => $row['pressupost_codi'],
+        'factura_codi'     => $row['factura_codi'],
+        'modalitat'        => $row['modalitat'],
+        'servei'           => $row['servei'],
+        'es_direct'        => (bool)$row['es_direct'],
         'data_inici'       => $row['data_inici'],
         'data_entrega'     => $row['data_entrega'],
         'data_finalitzacio'=> $row['data_finalitzacio'],
@@ -88,6 +137,7 @@ if (!empty($_GET['codi'])) {
         'dates_entrega'    => $stmtDE->fetchAll(),
         // Objecte complet (recursosHumans, materials, tasques, historial, feedback...)
         'dades'            => $dadesCompletes,
+        'lookups'          => $lookups,
     ]);
 }
 
@@ -99,6 +149,11 @@ if (!empty($_GET['codi'])) {
 $estat    = trim($_GET['estat']    ?? '');
 $arxivat  = isset($_GET['arxivat']) ? (int)$_GET['arxivat'] : 0;
 $client   = trim($_GET['client']   ?? '');
+$modalitat = trim($_GET['modalitat'] ?? '');
+$servei   = trim($_GET['servei']   ?? '');
+$direct   = isset($_GET['direct']) ? (int)$_GET['direct'] : 0;
+$desde    = safeDate($_GET['desde'] ?? null);
+$fins     = safeDate($_GET['fins']  ?? null);
 $q        = trim($_GET['q']        ?? '');
 $page     = max(1, (int)($_GET['page']     ?? 1));
 $perPage  = min(100, max(1, (int)($_GET['per_page'] ?? 20)));
@@ -125,8 +180,29 @@ if ($client !== '') {
     $where[]  = 'p.client_codi = ?';
     $params[] = $client;
 }
+if ($modalitat !== '') {
+    $where[]  = 'p.modalitat = ?';
+    $params[] = $modalitat;
+}
+if ($servei !== '') {
+    $where[]  = 'p.servei = ?';
+    $params[] = $servei;
+}
+if ($direct === 1) {
+    $where[] = 'p.es_direct = 1';
+}
+if ($desde) {
+    $where[] = 'COALESCE(p.data_inici, p.data_entrega, p.data_finalitzacio) >= ?';
+    $params[] = $desde;
+}
+if ($fins) {
+    $where[] = 'COALESCE(p.data_inici, p.data_entrega, p.data_finalitzacio) <= ?';
+    $params[] = $fins;
+}
 if ($q !== '') {
-    $where[]  = '(p.titol LIKE ? OR p.codi LIKE ?)';
+    $where[]  = '(p.titol LIKE ? OR p.codi LIKE ? OR c.nom_fiscal LIKE ? OR c.nom_comercial LIKE ?)';
+    $params[] = "%$q%";
+    $params[] = "%$q%";
     $params[] = "%$q%";
     $params[] = "%$q%";
 }
@@ -134,13 +210,19 @@ if ($q !== '') {
 $whereStr = implode(' AND ', $where);
 
 // --- Total de registres (per a la paginació) ---
-$stmtCount = $pdo->prepare("SELECT COUNT(*) FROM aurora_projectes p WHERE $whereStr");
+$stmtCount = $pdo->prepare(
+    "SELECT COUNT(*)
+     FROM aurora_projectes p
+     LEFT JOIN aurora_clients c ON c.codi = p.client_codi
+     WHERE $whereStr"
+);
 $stmtCount->execute($params);
 $total = (int)$stmtCount->fetchColumn();
 
 // --- Resultats paginats ---
 $sql = "
     SELECT p.codi, p.titol, p.estat, p.es_direct,
+           p.pressupost_codi, p.factura_codi, p.modalitat, p.servei,
            p.data_inici, p.data_entrega, p.data_finalitzacio,
            p.ingres_sense_iva, p.gastos_totals, p.benefici, p.percent_benefici,
            p.facturat, p.arxivat,
@@ -181,6 +263,11 @@ respond([
         'estat'    => $estat,
         'arxivat'  => $arxivat,
         'client'   => $client,
+        'modalitat'=> $modalitat,
+        'servei'   => $servei,
+        'direct'   => $direct,
+        'desde'    => $desde,
+        'fins'     => $fins,
         'q'        => $q,
         'order_by' => $orderBy,
         'order_dir'=> $orderDir,

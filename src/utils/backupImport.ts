@@ -54,9 +54,52 @@ export interface NormalizedBackupImport {
   ignoredKeys: string[];
 }
 
+export interface BrowserBackupImport {
+  data: Partial<Record<ImportableBackupKey, unknown>>;
+  strippedBinaryFields: number;
+}
+
+const BROWSER_STORAGE_BINARY_KEYS = new Set([
+  'documentPDF',
+  'fitxer',
+  'imatgePerfil',
+  'imatgeReferencia',
+]);
+
 function parseLegacyValue(value: unknown): unknown {
   if (typeof value !== 'string') return value;
   return JSON.parse(value);
+}
+
+export function isQuotaExceededError(error: unknown): boolean {
+  if (!(error instanceof DOMException)) return false;
+  return error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED';
+}
+
+export function stripBackupBinariesForBrowserStorage(
+  data: Partial<Record<ImportableBackupKey, unknown>>
+): BrowserBackupImport {
+  let strippedBinaryFields = 0;
+
+  const strip = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(strip);
+    if (!value || typeof value !== 'object') return value;
+
+    const out: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, child]) => {
+      if (BROWSER_STORAGE_BINARY_KEYS.has(key)) {
+        if (typeof child === 'string' && child.length > 0) strippedBinaryFields += 1;
+        return;
+      }
+      out[key] = strip(child);
+    });
+    return out;
+  };
+
+  return {
+    data: strip(data) as Partial<Record<ImportableBackupKey, unknown>>,
+    strippedBinaryFields,
+  };
 }
 
 export function normalizeBackupForImport(backup: unknown): NormalizedBackupImport {

@@ -44,6 +44,10 @@ export interface StoreSchema {
     telefono: string;
     email: string;
     logo: string | null;
+    opcionsDesenvolupador?: {
+      actiu: boolean;
+      permetEliminarFacturesEmeses: boolean;
+    };
   } | null;
   esdevenimentsPersonalitzats: any[];
   googleCalendarToken: {

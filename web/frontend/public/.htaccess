@@ -12,6 +12,14 @@
     ExpiresByType text/html             "access plus 0 seconds"
 </IfModule>
 
+# Fallback per a l'aplicacio SPA
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . index.html [L]
+</IfModule>
+
 # Compressió gzip
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json

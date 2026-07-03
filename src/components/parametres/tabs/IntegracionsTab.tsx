@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { getUserCalendars, setCalendarId, getCalendarId, isGoogleCalendarConnected } from '../../../utils/googleCalendarSync';
+import {
+  getUserCalendars,
+  setCalendarId,
+  getCalendarId,
+  isGoogleCalendarConnected,
+  syncProjectDatesBidirectional
+} from '../../../utils/googleCalendarSync';
 import { storage } from '../../../utils/storageManager';
 
-type Status = 'idle' | 'connecting' | 'success' | 'error';
+type Status = 'idle' | 'connecting' | 'syncing' | 'success' | 'error';
 
 export default function IntegracionsTab() {
   const [clientId, setClientIdState] = useState('');
@@ -76,6 +82,38 @@ export default function IntegracionsTab() {
   const handleCalendarChange = (calId: string) => {
     setSelectedCalendar(calId);
     setCalendarId(calId);
+  };
+
+  const handleSyncNow = async () => {
+    setStatus('syncing');
+    setStatusMsg('Sincronitzant rodatges i entregues amb Google Calendar...');
+
+    try {
+      const projectes = storage.getProjectes();
+      const clients = storage.getClients();
+      const parametres = storage.getParametres();
+      const result = await syncProjectDatesBidirectional(
+        projectes,
+        clients,
+        parametres?.extresEsdevenimentsAuto ?? {}
+      );
+
+      storage.setProjectes(result.projectes);
+      storage.setParametres({
+        ...parametres,
+        extresEsdevenimentsAuto: result.extresEsdevenimentsAuto
+      });
+
+      setStatus('success');
+      setStatusMsg(
+        result.updatedFromGoogle > 0
+          ? `Sincronitzacio completada. ${result.updatedFromGoogle} projecte(s) actualitzat(s) des de Google.`
+          : 'Sincronitzacio completada.'
+      );
+    } catch (e: any) {
+      setStatus('error');
+      setStatusMsg(`Error sincronitzant: ${e?.message || 'desconegut'}`);
+    }
   };
 
   return (
@@ -222,6 +260,16 @@ export default function IntegracionsTab() {
             Desconnectar
           </button>
         )}
+        {connected && (
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleSyncNow}
+            disabled={status === 'syncing'}
+          >
+            {status === 'syncing' ? 'Sincronitzant...' : 'Sincronitzar ara'}
+          </button>
+        )}
       </div>
 
       {/* What gets synced */}
@@ -242,7 +290,7 @@ export default function IntegracionsTab() {
             <li>Dates d'entrega dels projectes</li>
           </ul>
           <p style={{ marginTop: '0.75rem', marginBottom: 0, color: 'var(--color-text-tertiary)' }}>
-            La sincronització és en una direcció: Aurora ERP → Google Calendar.
+            Rodatges i entregues se sincronitzen en dues direccions. Els canvis fets a Google Calendar es recuperen quan obres el calendari o prems "Sincronitzar ara".
           </p>
         </div>
       )}

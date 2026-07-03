@@ -43,7 +43,11 @@ const DEFAULT_SETTINGS: CompanySettings = {
   direccion: '',
   telefono: '',
   email: '',
-  logo: null
+  logo: null,
+  opcionsDesenvolupador: {
+    actiu: false,
+    permetEliminarFacturesEmeses: false
+  }
 };
 
 const NAV_GROUPS = [
@@ -124,7 +128,14 @@ function App() {
       // Cargar settings
       const savedSettings = storage.getSettings();
       if (savedSettings) {
-        setSettings(savedSettings);
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...savedSettings,
+          opcionsDesenvolupador: {
+            ...DEFAULT_SETTINGS.opcionsDesenvolupador,
+            ...savedSettings.opcionsDesenvolupador
+          }
+        });
       }
       
       // Cargar clientes

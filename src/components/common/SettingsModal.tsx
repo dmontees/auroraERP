@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { storage } from '../../utils/storageManager';
 import { Settings, X, Film, Upload, Trash2, RefreshCw, CheckCircle, ShieldCheck, ShieldOff, KeyRound } from 'lucide-react';
 import { carregarCertificatP12, oblidarCertificat, obtenirInfoCertificat } from '../../utils/verifactuFirma';
-import { normalizeBackupForImport } from '../../utils/backupImport';
+import { isQuotaExceededError, normalizeBackupForImport, stripBackupBinariesForBrowserStorage } from '../../utils/backupImport';
 import * as XLSX from 'xlsx';
 import {
   importCategories,
@@ -23,6 +23,10 @@ interface CompanySettings {
   telefono: string;
   email: string;
   logo: string | null;
+  opcionsDesenvolupador?: {
+    actiu: boolean;
+    permetEliminarFacturesEmeses: boolean;
+  };
 }
 
 interface SettingsModalProps {
@@ -34,7 +38,14 @@ interface SettingsModalProps {
 type UpdateCheckState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'error';
 
 export default function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
-  const [formData, setFormData] = useState<CompanySettings>(settings);
+  const [formData, setFormData] = useState<CompanySettings>({
+    ...settings,
+    opcionsDesenvolupador: {
+      actiu: false,
+      permetEliminarFacturesEmeses: false,
+      ...settings.opcionsDesenvolupador,
+    },
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentImportType, setCurrentImportType] = useState<string>('');
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>('idle');
@@ -125,6 +136,21 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
     e.preventDefault();
     onSave(formData);
     onClose();
+  };
+
+  const updateDeveloperOptions = (next: Partial<NonNullable<CompanySettings['opcionsDesenvolupador']>>) => {
+    const current = formData.opcionsDesenvolupador ?? {
+      actiu: false,
+      permetEliminarFacturesEmeses: false,
+    };
+    const merged = { ...current, ...next };
+    setFormData({
+      ...formData,
+      opcionsDesenvolupador: {
+        ...merged,
+        permetEliminarFacturesEmeses: merged.actiu ? merged.permetEliminarFacturesEmeses : false,
+      },
+    });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -358,6 +384,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
           let preImportBackup: string | null | undefined;
           let ignoredKeys = normalized.ignoredKeys;
           let importedKeys = normalized.importedKeys;
+          let strippedBinaryFields = 0;
 
           if (api?.importData) {
             const result = await api.importData(normalized.data);
@@ -368,14 +395,30 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
             ignoredKeys = [...ignoredKeys, ...(result.ignoredKeys ?? [])];
             preImportBackup = result.preImportBackup;
           } else {
-            Object.entries(normalized.data).forEach(([key, value]) => {
-              storage.set(key as any, value as any);
-            });
+            const browserImport = stripBackupBinariesForBrowserStorage(normalized.data);
+            strippedBinaryFields = browserImport.strippedBinaryFields;
+            try {
+              Object.entries(browserImport.data).forEach(([key, value]) => {
+                storage.set(key as any, value as any);
+              });
+            } catch (storageError) {
+              if (isQuotaExceededError(storageError)) {
+                throw new Error(
+                  'La copia es massa gran per al localStorage del navegador. ' +
+                  'S\'han omes els documents adjunts grans, pero les dades encara no caben. ' +
+                  'Importa-la des de l\'app Electron o neteja dades del localhost i torna-ho a provar.'
+                );
+              }
+              throw storageError;
+            }
           }
 
           const ignoredText = ignoredKeys.length ? `\n\nClaus ignorades: ${ignoredKeys.join(', ')}` : '';
           const snapshotText = preImportBackup ? `\n\nSnapshot previ: ${preImportBackup}` : '';
-          alert(`Copia de seguretat importada correctament.\n\n${importedKeys.length} moduls restaurats.${snapshotText}${ignoredText}\n\nLa pagina es recarregara ara.`);
+          const strippedText = strippedBinaryFields > 0
+            ? `\n\nMode navegador: s'han omes ${strippedBinaryFields} adjunts grans per evitar el limit de localStorage. Les dades de les factures s'han restaurat igualment.`
+            : '';
+          alert(`Copia de seguretat importada correctament.\n\n${importedKeys.length} moduls restaurats.${snapshotText}${ignoredText}${strippedText}\n\nLa pagina es recarregara ara.`);
           window.location.reload();
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -686,6 +729,52 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                   </p>
 
                   {/* Verifactu — visible en dev o quan ja està activat */}
+                  <div style={{
+                    marginTop: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    background: 'var(--color-bg-secondary)',
+                    borderRadius: '6px',
+                    border: '1px solid var(--color-border)',
+                  }}>
+                    <div style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      color: 'var(--color-text-tertiary)',
+                      marginBottom: '0.6rem'
+                    }}>
+                      Mode desenvolupador
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.opcionsDesenvolupador?.actiu ?? false}
+                        onChange={e => updateDeveloperOptions({ actiu: e.target.checked })}
+                      />
+                      Activar mode desenvolupador
+                    </label>
+
+                    {formData.opcionsDesenvolupador?.actiu && (
+                      <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={formData.opcionsDesenvolupador?.permetEliminarFacturesEmeses ?? false}
+                            onChange={e => updateDeveloperOptions({ permetEliminarFacturesEmeses: e.target.checked })}
+                            style={{ marginTop: '0.2rem' }}
+                          />
+                          <span>
+                            <strong>Permetre eliminar factures de venda emeses</strong>
+                            <span style={{ display: 'block', color: 'var(--color-text-secondary)', fontSize: '0.78rem', marginTop: '0.2rem', lineHeight: 1.45 }}>
+                              Nomes s'aplica a factures sense cobraments i amb Verifactu desactivat. Aurora demanara escriure el codi de la factura abans d'eliminar-la.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
                   {(process.env.NODE_ENV === 'development' || verifactuEnabled) && (
                     <div style={{
                       marginTop: '0.5rem',

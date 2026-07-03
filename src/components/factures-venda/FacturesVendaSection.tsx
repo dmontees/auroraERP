@@ -41,25 +41,35 @@ export default function FacturesVendaSection() {
     return `FAV-${String(last + 1).padStart(5, '0')}`;
   };
 
+  const permetEliminarFacturesEmeses =
+    storage.getSettings()?.opcionsDesenvolupador?.actiu === true &&
+    storage.getSettings()?.opcionsDesenvolupador?.permetEliminarFacturesEmeses === true;
+
   const handleSave = (factura: FacturaVenta) => {
     const existeix = factures.some(f => f.codi === factura.codi);
     if (existeix) saveFactures(factures.map(f => f.codi === factura.codi ? factura : f));
     else saveFactures([...factures, factura]);
   };
 
-  const handleDelete = (codi: string) => {
+  const handleDelete = (codi: string): boolean | undefined => {
     const factura = factures.find(f => f.codi === codi);
-    if (!factura) return;
-    if (factura.estat !== 'borrador') {
+    if (!factura) return false;
+    const esEliminacioExcepcional = factura.estat !== 'borrador' && permetEliminarFacturesEmeses && !storage.getVerifactuConfig().enabled;
+    if (factura.estat !== 'borrador' && !esEliminacioExcepcional) {
       const verifactu = storage.getVerifactuConfig();
       const msg = verifactu.enabled
         ? 'No es pot eliminar una factura emesa. Verifactu requereix crear una factura rectificativa per corregir-la.'
         : 'No es pot eliminar una factura que ja s\'ha enviat.';
       alert(msg);
-      return;
+      return false;
     }
-    if (factura.pagaments.length > 0) { alert('No es pot eliminar una factura amb pagaments registrats.'); return; }
-    if (!confirm('Estàs segur que vols eliminar aquesta factura?')) return;
+    if (factura.pagaments.length > 0) { alert('No es pot eliminar una factura amb pagaments registrats.'); return false; }
+    if (esEliminacioExcepcional) {
+      if (!confirm(`Estas a punt d'eliminar una factura emesa (${factura.codi}). Aquesta accio es excepcional i no es pot desfer. Vols continuar?`)) return false;
+      const typed = prompt(`Escriu ${factura.codi} per confirmar l'eliminacio definitiva.`);
+      if (typed !== factura.codi) return false;
+    }
+    if (!esEliminacioExcepcional && !confirm('Estàs segur que vols eliminar aquesta factura?')) return;
     if (factura.projecte) {
       const p = projectes.find(pr => pr.codi === factura.projecte);
       if (p) {
@@ -68,6 +78,7 @@ export default function FacturesVendaSection() {
       }
     }
     deleteFactura(codi);
+    return true;
   };
 
   const handleCrearRectificativa = (factura: FacturaVenta) => {
@@ -110,7 +121,7 @@ export default function FacturesVendaSection() {
           allFactures={factures}
           onBack={() => setSelectedFactura(undefined)}
           onSave={handleSave}
-          onDelete={(codi) => { handleDelete(codi); setSelectedFactura(undefined); }}
+          onDelete={handleDelete}
           onCrearRectificativa={handleCrearRectificativa}
         />
         {showRectificativaModal && facturaPerRectificar && (

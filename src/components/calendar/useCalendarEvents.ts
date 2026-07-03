@@ -5,6 +5,7 @@ import type { Gasto } from '../../types/facturaCompra';
 import type { Pressupost } from '../../types/pressupost';
 import type { Client } from '../../types/client';
 import type { Proveidor } from '../../types/proveidor';
+import { getEntregaAutoEventId, getRodatgeAutoEventId } from '../../utils/googleCalendarSync';
 
 export interface CalendarEvent {
   id: string;
@@ -75,8 +76,8 @@ export function useCalendarEvents({
   return useMemo(() => {
     const events: CalendarEvent[] = [];
 
-    const applyExtras = (event: CalendarEvent): CalendarEvent => {
-      const extras = extresEsdevenimentsAuto?.[event.id];
+    const applyExtras = (event: CalendarEvent, fallbackId?: string): CalendarEvent => {
+      const extras = extresEsdevenimentsAuto?.[event.id] || (fallbackId ? extresEsdevenimentsAuto?.[fallbackId] : undefined);
       if (!extras) return event;
       return {
         ...event,
@@ -108,7 +109,8 @@ export function useCalendarEvents({
         if (p.datesRodatge && p.datesRodatge.length > 0) {
           p.datesRodatge.forEach((d: any, i: number) => {
             if (!d.data) return;
-            const eventId = `proj-inici-${p.codi}-${i}`;
+            const eventId = getRodatgeAutoEventId(p, d, i);
+            const legacyEventId = `proj-inici-${p.codi}-${i}`;
             events.push(applyExtras({
               id: eventId,
               tipus: 'projecte-inici',
@@ -118,7 +120,7 @@ export function useCalendarEvents({
               data: d.data,
               color: rodatgeColor,
               estat: p.estat
-            }));
+            }, legacyEventId));
           });
         } else if (p.dataInici) {
           const eventId = `proj-inici-${p.codi}`;
@@ -145,7 +147,8 @@ export function useCalendarEvents({
         if (p.datesEntrega && p.datesEntrega.length > 0) {
           p.datesEntrega.forEach((d: any, i: number) => {
             if (!d.data) return;
-            const eventId = `proj-entrega-${p.codi}-${i}`;
+            const eventId = getEntregaAutoEventId(p, d, i);
+            const legacyEventId = `proj-entrega-${p.codi}-${i}`;
             events.push(applyExtras({
               id: eventId,
               tipus: 'projecte-entrega',
@@ -155,7 +158,7 @@ export function useCalendarEvents({
               data: d.data,
               color: entregaColor,
               estat: p.estat
-            }));
+            }, legacyEventId));
           });
         } else if (p.dataEntrega) {
           const eventId = `proj-entrega-${p.codi}`;

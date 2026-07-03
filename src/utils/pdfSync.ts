@@ -19,6 +19,11 @@ export interface PdfSyncResult {
 
 const REQUEST_TIMEOUT_MS = 45000;
 
+function canPersistDocumentsLocally(): boolean {
+  const api = typeof window !== 'undefined' ? (window as any).electronStore : undefined;
+  return !!api && (api.isAvailable ? api.isAvailable() : typeof api.set === 'function');
+}
+
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -181,6 +186,11 @@ export async function syncDocuments(apiUrl: string, apiKey: string): Promise<Pdf
 // Descarrega tots els documents del servidor i els re-adjunta a les entitats locals.
 // S'ha de cridar DESPRÉS de restaurar el JSON principal (cloudBackup).
 export async function downloadAndRestoreDocuments(apiUrl: string, apiKey: string): Promise<void> {
+  if (!canPersistDocumentsLocally()) {
+    console.warn('[pdfSync] Restauracio de documents omesa en mode navegador: localStorage no pot garantir espai per als adjunts.');
+    return;
+  }
+
   const base = apiUrl.replace(/\/+$/, '');
   let manifest: ServerManifest;
   try {

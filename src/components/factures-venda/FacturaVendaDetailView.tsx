@@ -42,7 +42,7 @@ interface Props {
   allFactures: FacturaVenta[];
   onBack: () => void;
   onSave: (factura: FacturaVenta) => void;
-  onDelete?: (codi: string) => void;
+  onDelete?: (codi: string) => boolean | undefined;
   onCrearRectificativa?: (factura: FacturaVenta) => void;
 }
 
@@ -186,8 +186,12 @@ export default function FacturaVendaDetailView({
   const tePagaments = formData.pagaments.length > 0;
   // Una factura deixa de ser borrador quan s'emet → contingut immutable
   const esEmesa = formData.estat !== 'borrador';
+  const permetEliminarFacturesEmeses =
+    storage.getSettings()?.opcionsDesenvolupador?.actiu === true &&
+    storage.getSettings()?.opcionsDesenvolupador?.permetEliminarFacturesEmeses === true &&
+    !verifactuConfig.enabled;
   // Només es pot eliminar un borrador sense pagaments; un cop emesa, es corregeix amb rectificativa
-  const esEliminable = formData.estat === 'borrador' && !tePagaments;
+  const esEliminable = !tePagaments && (formData.estat === 'borrador' || (esEmesa && permetEliminarFacturesEmeses));
 
   const prepararFactura = (): FacturaVenta | null => {
     if (!validationResult.isValid) return null;
@@ -486,8 +490,8 @@ export default function FacturaVendaDetailView({
         : 'No es pot eliminar una factura amb pagaments o en un estat avançat.';
       alert(msg); return;
     }
-    onDelete?.(factura.codi);
-    onBack();
+    const deleted = onDelete?.(factura.codi);
+    if (deleted) onBack();
   };
 
   const estatInfo = ESTAT_FACTURA_COLORS[formData.estat] || ESTAT_FACTURA_COLORS.borrador;

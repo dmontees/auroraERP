@@ -96,8 +96,21 @@ export function syncAlbaransForProject(
 ): void {
   const today = new Date().toISOString().split('T')[0];
   const albarans = storage.getAlbaransCompra();
+  const proveidors = storage.getProveidors() as Proveidor[];
   const updated = [...albarans];
   let alcCodisBase = updated; // reference for next code generation
+
+  const hasValidProveidor = (codi?: string) =>
+    !!codi && proveidors.some(p => p.codi === codi);
+
+  const removePendingForLine = (tdCodi?: string) => {
+    if (!tdCodi) return;
+    const idx = updated.findIndex(a => a.tdCodi === tdCodi);
+    if (idx >= 0 && updated[idx].estat === 'pendent-factura') {
+      updated.splice(idx, 1);
+      alcCodisBase = updated;
+    }
+  };
 
   const upsert = (
     tdCodi: string,
@@ -126,14 +139,18 @@ export function syncAlbaransForProject(
   };
 
   for (const r of project.recursosHumans || []) {
-    if (r.proveidor && r.tdCodi) {
+    if (hasValidProveidor(r.proveidor) && r.tdCodi) {
       upsert(r.tdCodi, buildAlbaraFromRrhh(r, project, parametres));
+    } else {
+      removePendingForLine(r.tdCodi);
     }
   }
 
   for (const m of project.materials || []) {
-    if (m.proveidor && m.tdCodi) {
+    if (hasValidProveidor(m.proveidor) && m.tdCodi) {
       upsert(m.tdCodi, buildAlbaraFromMaterial(m, project, parametres));
+    } else {
+      removePendingForLine(m.tdCodi);
     }
   }
 

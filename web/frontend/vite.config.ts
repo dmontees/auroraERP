@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  // Si el web es a un subdirectori (ex: tudomini.com/erp/), canvia base a '/erp/'
-  base: '/',
+  // Rutes relatives perque funcioni tant a l'arrel del domini com en un subdirectori.
+  base: './',
   build: {
     outDir: 'dist',
     emptyOutDir: true,

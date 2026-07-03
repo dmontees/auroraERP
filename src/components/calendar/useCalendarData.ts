@@ -50,6 +50,13 @@ export function useCalendarData() {
     setParametres(newParametres);
   };
 
+  const replaceExtresEsdevenimentsAuto = (extras: ExtresAuto) => {
+    const p = storage.getParametres();
+    const newParametres = { ...p!, extresEsdevenimentsAuto: extras };
+    storage.setParametres(newParametres);
+    setParametres(newParametres);
+  };
+
   const configCalendari = parametres?.configCalendari ?? undefined;
   const categoriesCalendari = parametres?.categoriesCalendari ?? [];
   const extresEsdevenimentsAuto: ExtresAuto = parametres?.extresEsdevenimentsAuto ?? {};
@@ -67,6 +74,7 @@ export function useCalendarData() {
     configCalendari,
     categoriesCalendari,
     extresEsdevenimentsAuto,
-    updateExtresEsdevenimentsAuto
+    updateExtresEsdevenimentsAuto,
+    replaceExtresEsdevenimentsAuto
   };
 }

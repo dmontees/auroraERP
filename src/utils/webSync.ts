@@ -61,6 +61,7 @@ export function buildSyncPayload() {
     clients:            storage.getClients(),
     proveidors:         stripProveidors(storage.getProveidors() as any[]),
     projectes:          stripProjectes(storage.getProjectes() as any[]),
+    pressupostos:       storage.getPressupostos(),
     facturesVenda:      stripFacturesVenda(storage.getFacturesVenda() as any[]),
     facturesCompra:     stripFacturesCompra(storage.getFacturesCompra() as any[]),
     obligacionsFiscals: storage.getObligacionsFiscals(),
