@@ -71,6 +71,8 @@ export default function FacturaVendaDetailView({
   const [showEmissioModal, setShowEmissioModal] = useState(false);
   const [showPINModal, setShowPINModal] = useState(false);
   const [copyDialogProjecte, setCopyDialogProjecte] = useState<Projecte | null>(null);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deleteConfirmCode, setDeleteConfirmCode] = useState('');
 
   const [formData, setFormData] = useState<FacturaVenta>(
     factura
@@ -490,8 +492,22 @@ export default function FacturaVendaDetailView({
         : 'No es pot eliminar una factura amb pagaments o en un estat avançat.';
       alert(msg); return;
     }
+    if (esEmesa && permetEliminarFacturesEmeses) {
+      setDeleteConfirmCode('');
+      setShowDeleteConfirmModal(true);
+      return;
+    }
     const deleted = onDelete?.(factura.codi);
     if (deleted) onBack();
+  };
+
+  const confirmarEliminacioExcepcional = () => {
+    if (!factura || deleteConfirmCode !== factura.codi) return;
+    const deleted = onDelete?.(factura.codi);
+    if (deleted) {
+      setShowDeleteConfirmModal(false);
+      onBack();
+    }
   };
 
   const estatInfo = ESTAT_FACTURA_COLORS[formData.estat] || ESTAT_FACTURA_COLORS.borrador;
@@ -777,6 +793,56 @@ export default function FacturaVendaDetailView({
       )}
 
       {/* Modal d'avís previ a l'emissió definitiva */}
+      {showDeleteConfirmModal && factura && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirmModal(false)} style={{ zIndex: 2000 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '1.1rem' }}>Eliminar la factura {factura.codi}</h2>
+              <button className="modal-close" onClick={() => setShowDeleteConfirmModal(false)}>x</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '0.75rem' }}>
+                Estas a punt d'eliminar una factura emesa. Aquesta accio es excepcional i no es pot desfer.
+              </p>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem' }}>
+                Escriu {factura.codi} per confirmar
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                value={deleteConfirmCode}
+                onChange={e => setDeleteConfirmCode(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') confirmarEliminacioExcepcional(); }}
+                autoFocus
+              />
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowDeleteConfirmModal(false)}>CancelÂ·lar</button>
+              <button
+                type="button"
+                onClick={confirmarEliminacioExcepcional}
+                disabled={deleteConfirmCode !== factura.codi}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 0.9rem',
+                  background: deleteConfirmCode === factura.codi ? 'var(--color-error-dark)' : 'var(--color-bg-tertiary)',
+                  color: deleteConfirmCode === factura.codi ? 'white' : 'var(--color-text-tertiary)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: deleteConfirmCode === factura.codi ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                  fontSize: '0.85rem'
+                }}
+              >
+                <Trash2 size={15} /> Eliminar definitivament
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showEmissioModal && (
         <div className="modal-overlay" onClick={() => setShowEmissioModal(false)} style={{ zIndex: 2000 }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>

@@ -64,11 +64,6 @@ export default function FacturesVendaSection() {
       return false;
     }
     if (factura.pagaments.length > 0) { alert('No es pot eliminar una factura amb pagaments registrats.'); return false; }
-    if (esEliminacioExcepcional) {
-      if (!confirm(`Estas a punt d'eliminar una factura emesa (${factura.codi}). Aquesta accio es excepcional i no es pot desfer. Vols continuar?`)) return false;
-      const typed = prompt(`Escriu ${factura.codi} per confirmar l'eliminacio definitiva.`);
-      if (typed !== factura.codi) return false;
-    }
     if (!esEliminacioExcepcional && !confirm('Estàs segur que vols eliminar aquesta factura?')) return;
     if (factura.projecte) {
       const p = projectes.find(pr => pr.codi === factura.projecte);
