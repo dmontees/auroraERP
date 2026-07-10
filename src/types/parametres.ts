@@ -72,6 +72,7 @@ export interface Plantilla {
   textEs?: string;
   textEn?: string;
   perDefecte: boolean;
+  nomesAnticip?: boolean;
 }
 
 export interface Parametres {

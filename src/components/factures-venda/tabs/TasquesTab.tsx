@@ -3,16 +3,19 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { FacturaVenta } from '../../../types/facturaVenta';
 import type { TascaCategoria } from '../../../types/pressupost';
 import SearchableSelect from '../../common/SearchableSelect';
+import { esFacturaFinal } from '../../../utils/facturaAnticipos';
 
 interface Props {
   formData: FacturaVenta;
   setFormData: (data: FacturaVenta) => void;
   parametres: any;
   totals: {
+    baseTasques?: number;
     baseImposable: number;
     ivaImport: number;
     irpfImport: number;
     totalFactura: number;
+    anticiposAplicatsBase?: number;
   };
   clientBlocked: boolean;
   tePagaments: boolean;
@@ -436,6 +439,29 @@ export default function TasquesTab({
           borderRadius: '8px',
           border: '1px solid var(--color-border)'
         }}>
+          {esFacturaFinal(formData) && (totals.baseTasques || 0) > totals.baseImposable && (
+            <>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '0.5rem',
+                fontSize: '0.95rem'
+              }}>
+                <span>Base projecte:</span>
+                <span style={{ fontWeight: 600 }}>{(totals.baseTasques || 0).toFixed(2)}€</span>
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '0.5rem',
+                fontSize: '0.95rem',
+                color: 'var(--color-warning-dark)'
+              }}>
+                <span>Anticips aplicats:</span>
+                <span style={{ fontWeight: 600 }}>-{(totals.anticiposAplicatsBase || 0).toFixed(2)}€</span>
+              </div>
+            </>
+          )}
           <div style={{ 
             display: 'flex', 
             justifyContent: 'space-between',

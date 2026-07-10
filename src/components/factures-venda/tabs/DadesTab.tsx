@@ -3,6 +3,13 @@ import type { FacturaVenta } from '../../../types/facturaVenta';
 import type { Client } from '../../../types/client';
 import type { Projecte } from '../../../types/projecte';
 import SearchableSelect from '../../common/SearchableSelect';
+import {
+  calcularAnticiposAplicats,
+  esFacturaFinal,
+  getCodisAnticipSeleccionats,
+  getFacturesAnticipDisponibles,
+  getTipusComercialFactura,
+} from '../../../utils/facturaAnticipos';
 
 const IVA_OPTIONS = [
   { label: 'Normal (21%)',       tipusIVA: 'Normal',      percent: 21 },
@@ -23,7 +30,9 @@ interface Props {
   setFormData: (data: FacturaVenta) => void;
   clients: Client[];
   projectes: Projecte[];
+  allFactures: FacturaVenta[];
   totals: {
+    baseTasques?: number;
     baseImposable: number;
     ivaImport: number;
     irpfImport: number;
@@ -40,7 +49,7 @@ interface Props {
 }
 
 export default function DadesTab({
-  formData, setFormData, clients, projectes,
+  formData, setFormData, clients, projectes, allFactures,
   clientBlocked, tePagaments, warnings,
   esBloquejatContenido = false,
   onToggleAvis, onUpdateAvisDescripcio, onProjecteSeleccionat,
@@ -49,10 +58,62 @@ export default function DadesTab({
   const client = clients.find(c => c.codi === formData.client);
   const currentTipusIVA = percentToTipus(formData.ivaPercent);
   const esBloquejatPerVerifactu = esBloquejatContenido;
+  const tipusComercial = getTipusComercialFactura(formData);
+  const facturesAnticip = getFacturesAnticipDisponibles(formData, allFactures);
+  const anticiposSeleccionats = getCodisAnticipSeleccionats(formData, allFactures);
+  const anticiposTotals = calcularAnticiposAplicats(formData, allFactures);
+  const projecteSeleccionat = projectes.find(p => p.codi === formData.projecte);
+  const baseProjecteAnticip = projecteSeleccionat?.tasques.reduce(
+    (sum, tasca) => sum + tasca.quantitat * tasca.tarifa,
+    0,
+  ) || 0;
+  const percentAnticip = Math.min(100, Math.max(0, formData.anticipoPercent ?? 30));
 
   const handleIVAChange = (tipusIVA: string) => {
     const opt = IVA_OPTIONS.find(o => o.tipusIVA === tipusIVA);
     if (opt) setFormData({ ...formData, ivaPercent: opt.percent });
+  };
+
+  const handleTipusComercialChange = (tipus: FacturaVenta['tipusComercial']) => {
+    setFormData({
+      ...formData,
+      tipusComercial: tipus,
+      anticipoPercent: tipus === 'anticip' ? (formData.anticipoPercent ?? 30) : formData.anticipoPercent,
+      anticiposAplicats: tipus === 'final'
+        ? getFacturesAnticipDisponibles({ ...formData, tipusComercial: tipus }, allFactures).map(f => f.codi)
+        : [],
+    });
+  };
+
+  const aplicarAnticip = () => {
+    if (!projecteSeleccionat || !baseProjecteAnticip) return;
+    const baseAnticip = Number((baseProjecteAnticip * percentAnticip / 100).toFixed(2));
+    setFormData({
+      ...formData,
+      anticipoPercent: percentAnticip,
+      anticipoBaseProjecte: baseProjecteAnticip,
+      tasques: [{
+        categoria: 'ANTICIP',
+        tasques: [{
+          id: `anticip-${projecteSeleccionat.codi}`,
+          categoria: 'ANTICIP',
+          servei: 'Anticip de projecte',
+          descripcio: `Anticip del ${percentAnticip}% del projecte ${projecteSeleccionat.codi} - ${projecteSeleccionat.titol}`,
+          quantitat: 1,
+          unitat: 'unitat',
+          preu: baseAnticip,
+          importe: baseAnticip,
+          ordre: 0,
+        }],
+      }],
+    });
+  };
+
+  const toggleAnticip = (codi: string) => {
+    const actuals = new Set(anticiposSeleccionats);
+    if (actuals.has(codi)) actuals.delete(codi);
+    else actuals.add(codi);
+    setFormData({ ...formData, anticiposAplicats: Array.from(actuals) });
   };
 
   return (
@@ -149,7 +210,20 @@ export default function DadesTab({
           </div>
 
           {/* Línia 3: IVA · IRPF */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label style={{ fontSize: '0.8rem' }}>Tipus factura</label>
+              <select
+                className="form-input"
+                value={tipusComercial}
+                onChange={e => handleTipusComercialChange(e.target.value as FacturaVenta['tipusComercial'])}
+                disabled={clientBlocked || tePagaments || esBloquejatPerVerifactu || formData.tipus === 'rectificativa'}
+              >
+                <option value="ordinaria">Ordinaria</option>
+                <option value="anticip">Anticip</option>
+                <option value="final">Final amb anticip</option>
+              </select>
+            </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label style={{ fontSize: '0.8rem' }}>Tipus d'IVA</label>
               <select
@@ -204,6 +278,103 @@ export default function DadesTab({
       </div>
 
       {/* ── AVÍS DE FACTURACIÓ ── */}
+      {esFacturaFinal(formData) && (
+        <div style={{
+          padding: '0.85rem 1rem', borderRadius: '8px', marginBottom: '1rem',
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-bg-tertiary)',
+        }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.75rem' }}>
+            Anticips aplicats a la factura final
+          </div>
+          {!formData.projecte ? (
+            <div style={{ fontSize: '0.86rem', color: 'var(--color-warning-dark)' }}>
+              Vincula un projecte per poder aplicar les factures d'anticip emeses.
+            </div>
+          ) : facturesAnticip.length === 0 ? (
+            <div style={{ fontSize: '0.86rem', color: 'var(--color-text-secondary)' }}>
+              Aquest projecte no te factures d'anticip emeses.
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
+                {facturesAnticip.map(f => (
+                  <label key={f.codi} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '0.55rem 0.7rem', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: '6px', cursor: esBloquejatPerVerifactu ? 'not-allowed' : 'pointer' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={anticiposSeleccionats.includes(f.codi)}
+                        onChange={() => toggleAnticip(f.codi)}
+                        disabled={esBloquejatPerVerifactu}
+                      />
+                      <span style={{ fontWeight: 600 }}>{f.codi}</span>
+                      <span style={{ fontSize: '0.82rem', color: 'var(--color-text-tertiary)' }}>{new Date(f.dataFactura).toLocaleDateString('ca-ES')}</span>
+                    </span>
+                    <span style={{ fontWeight: 700 }}>{(f.baseImposable || 0).toFixed(2)}€ base</span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', fontSize: '0.86rem' }}>
+                <div><strong>Base projecte:</strong> {(totals.baseTasques || 0).toFixed(2)}€</div>
+                <div><strong>Anticips:</strong> -{anticiposTotals.base.toFixed(2)}€</div>
+                <div><strong>Base final:</strong> {totals.baseImposable.toFixed(2)}€</div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {tipusComercial === 'anticip' && (
+        <div style={{
+          padding: '0.85rem 1rem', borderRadius: '8px', marginBottom: '1rem',
+          border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)',
+        }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.75rem' }}>
+            Anticip del projecte
+          </div>
+          {!projecteSeleccionat ? (
+            <div style={{ fontSize: '0.86rem', color: 'var(--color-warning-dark)' }}>
+              Vincula un projecte per calcular l'anticip sobre el seu import actual.
+            </div>
+          ) : baseProjecteAnticip <= 0 ? (
+            <div style={{ fontSize: '0.86rem', color: 'var(--color-warning-dark)' }}>
+              Aquest projecte no te tasques facturables per calcular l'anticip.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'end', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div className="form-group" style={{ marginBottom: 0, width: '130px' }}>
+                <label style={{ fontSize: '0.8rem' }}>Percentatge</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.anticipoPercent ?? 30}
+                    onChange={e => setFormData({ ...formData, anticipoPercent: Number(e.target.value) })}
+                    disabled={esBloquejatPerVerifactu}
+                  />
+                  <span>%</span>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.86rem', color: 'var(--color-text-secondary)', paddingBottom: '0.55rem' }}>
+                Base projecte: <strong>{baseProjecteAnticip.toFixed(2)}€</strong><br />
+                Anticip: <strong>{(baseProjecteAnticip * percentAnticip / 100).toFixed(2)}€</strong>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={aplicarAnticip}
+                disabled={esBloquejatPerVerifactu}
+              >
+                Aplicar anticip
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{
         padding: '0.85rem 1rem', borderRadius: '8px', marginBottom: '0',
         border: `1px solid ${formData.avisFacturacio?.actiu ? 'var(--color-warning-light)' : 'var(--color-border)'}`,

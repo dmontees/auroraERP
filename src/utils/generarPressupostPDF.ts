@@ -135,8 +135,14 @@ export const generarPressupostPDF = (
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0);
     if (client.nomFiscal) {
-      doc.text(client.nomFiscal, colIzq, yClient);
-      yClient += lineHeight;
+      // Els salts de línia enganxats al nom no han de forçar una línia extra.
+      // Ajustem el nom a l'ample del bloc i actualitzem l'altura real.
+      const nomFiscal = client.nomFiscal.replace(/\s+/g, ' ').trim();
+      const nomFiscalLines = doc.splitTextToSize(nomFiscal, 85);
+      nomFiscalLines.forEach((line: string) => {
+        doc.text(line, colIzq, yClient);
+        yClient += lineHeight;
+      });
     }
     
     doc.setFont('helvetica', 'normal');
@@ -177,8 +183,12 @@ export const generarPressupostPDF = (
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0);
     if (empresa.nomFiscal) {
-      doc.text(empresa.nomFiscal, margenDer, yEmpresa, { align: 'right' });
-      yEmpresa += 6;
+      const nomFiscal = empresa.nomFiscal.replace(/\s+/g, ' ').trim();
+      const nomFiscalLines = doc.splitTextToSize(nomFiscal, 85);
+      nomFiscalLines.forEach((line: string) => {
+        doc.text(line, margenDer, yEmpresa, { align: 'right' });
+        yEmpresa += 6;
+      });
     }
     
     doc.setFontSize(9);

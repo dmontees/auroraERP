@@ -99,7 +99,7 @@ const store = new Store({
       plantilles: []
     },
     partsTreball: [],
-    version: '3.0.15',
+    version: '3.1.0',
     dataSchemaVersion: 5,
     migrationCompleted: false
   },

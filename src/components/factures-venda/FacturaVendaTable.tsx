@@ -4,6 +4,7 @@ import type { FacturaVenta } from '../../types/facturaVenta';
 import type { Client } from '../../types/client';
 import type { Projecte } from '../../types/projecte';
 import { ESTAT_FACTURA_COLORS } from '../../types/facturaVenta';
+import { getTipusComercialFactura } from '../../utils/facturaAnticipos';
 
 interface Props {
   factures: FacturaVenta[];
@@ -76,6 +77,7 @@ export default function FacturaVendaTable({
             factures.map(factura => {
               const estatInfo = ESTAT_FACTURA_COLORS[factura.estat] || ESTAT_FACTURA_COLORS['borrador'];
               const esRectificativa = factura.tipus === 'rectificativa';
+              const tipusComercial = getTipusComercialFactura(factura);
               const potCrearRectificativa = factura.tipus !== 'rectificativa';
               
               return (
@@ -99,6 +101,30 @@ export default function FacturaVendaTable({
                         display: 'inline-block'
                       }}>
                         RECTIF.
+                      </span>
+                    ) : tipusComercial === 'anticip' ? (
+                      <span style={{
+                        background: 'var(--color-warning)',
+                        color: 'white',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        display: 'inline-block'
+                      }}>
+                        ANTICIP
+                      </span>
+                    ) : tipusComercial === 'final' ? (
+                      <span style={{
+                        background: 'var(--color-success)',
+                        color: 'white',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        display: 'inline-block'
+                      }}>
+                        FINAL
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.85rem', color: 'var(--color-text-tertiary)' }}>

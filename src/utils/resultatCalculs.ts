@@ -1,6 +1,7 @@
 import type { FacturaVenta } from '../types/facturaVenta';
 import type { Projecte } from '../types/projecte';
 import type { Gasto, GastoGeneral } from '../types/facturaCompra';
+import { getBaseProjecteFacturat } from './facturaAnticipos';
 
 export interface Periode {
   dataInici: string;
@@ -14,8 +15,8 @@ export const getProjecteIngressos = (
   p: Projecte,
   facturesVenda: FacturaVenta[],
 ): number => {
-  const factura = facturesVenda.find(f => f.projecte === p.codi);
-  if (factura) return factura.baseImposable || 0;
+  const facturat = getBaseProjecteFacturat(p.codi, facturesVenda);
+  if (facturat > 0) return facturat;
   const fromTasques = (p.tasques || []).reduce((s, t) => s + (t.importe || 0), 0);
   return fromTasques || p.ingresSenseIVA || 0;
 };

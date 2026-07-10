@@ -44,7 +44,7 @@ interface ProjecteDetailViewProps {
   projecte: Projecte | null;
   onBack: () => void;
   onSave: (projecte: Projecte) => void;
-  onCrearFactura?: (projecte: Projecte) => void;
+  onCrearFactura?: (projecte: Projecte, tipus?: 'ordinaria' | 'anticip', anticipoPercent?: number) => void;
   nextCode: string;
   clients: Client[];
   parametres: Parametres | null;
@@ -92,6 +92,8 @@ function ProjecteDetailView({
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showVincularPressupostModal, setShowVincularPressupostModal] = useState(false);
   const [showVincularFacturaModal, setShowVincularFacturaModal] = useState(false);
+  const [showAnticipModal, setShowAnticipModal] = useState(false);
+  const [anticipoPercent, setAnticipoPercent] = useState(30);
   const [pressupostos, setPressupostos] = useState<Pressupost[]>([]);
   const [factures, setFactures] = useState<FacturaVenta[]>([]);
 
@@ -109,6 +111,9 @@ function ProjecteDetailView({
     };
     return migrateProjecteIds(projecte);
   });
+  const facturesAnticip = (storage.getFacturesVenda() as FacturaVenta[]).filter(f =>
+    f.projecte === formData.codi && f.tipusComercial === 'anticip'
+  );
 
   useEffect(() => {
     if (projecte) {
@@ -729,6 +734,16 @@ function ProjecteDetailView({
               </button>
             )}
 
+            {projecte && formData.estat !== 'facturat' && !formData.facturaHistorica && (
+              <button
+                type="button"
+                onClick={() => setShowAnticipModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.9rem', background: 'var(--color-warning)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+              >
+                <FileText size={15} /> Crear Factura Anticip
+              </button>
+            )}
+
             {/* Pressupost badge */}
             {formData.pressupost && (
               <div
@@ -739,6 +754,18 @@ function ProjecteDetailView({
                 📄 {formData.pressupost}
               </div>
             )}
+
+            {/* Badges de factures d'anticip emeses */}
+            {facturesAnticip.map(facturaAnticip => (
+              <div
+                key={facturaAnticip.codi}
+                onClick={() => navigateToFactura(facturaAnticip.codi)}
+                style={{ padding: '0.35rem 0.75rem', background: 'var(--color-warning-bg)', color: 'var(--color-warning-dark)', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', border: '1px solid var(--color-warning-light)', whiteSpace: 'nowrap' }}
+                title={`Anticip ${facturaAnticip.estat === 'borrador' ? 'en esborrany' : 'emes'}: ${facturaAnticip.totalFactura.toFixed(2)}€. Clic per obrir la factura.`}
+              >
+                ANTICIP {facturaAnticip.codi}
+              </div>
+            ))}
 
             {/* Factura badge */}
             {formData.facturaHistorica ? (
@@ -944,6 +971,28 @@ function ProjecteDetailView({
           tipus="factura" factures={factures} clientCodi={formData.client}
           onVincular={vincularFactura} onClose={() => setShowVincularFacturaModal(false)}
         />
+      )}
+
+      {showAnticipModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div style={{ width: '100%', maxWidth: '380px', background: 'var(--color-bg-primary)', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 16px 40px rgba(0,0,0,0.25)' }}>
+            <h2 style={{ margin: '0 0 0.45rem', fontSize: '1.1rem' }}>Crear factura d'anticip</h2>
+            <p style={{ margin: '0 0 1rem', color: 'var(--color-text-secondary)', fontSize: '0.88rem' }}>L'anticip es calculara sobre l'import actual del projecte i no canviara el seu estat.</p>
+            <div className="form-group">
+              <label>Percentatge d'anticip</label>
+              <input type="number" className="form-input" min="0" max="100" step="0.01" value={anticipoPercent} onChange={e => setAnticipoPercent(Number(e.target.value))} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '1.25rem' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowAnticipModal(false)}>CancelÂ·lar</button>
+              <button type="button" className="btn btn-primary" onClick={() => {
+                const percent = Math.min(100, Math.max(0, anticipoPercent || 0));
+                setShowAnticipModal(false);
+                saveNow();
+                onCrearFactura?.(formData, 'anticip', percent);
+              }}>Crear anticip</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { FacturaVenta } from '../../../types/facturaVenta';
 import type { Plantilla } from '../../../types/parametres';
 import LangToggle, { type Lang } from '../../common/LangToggle';
+import { esFacturaAnticip } from '../../../utils/facturaAnticipos';
 
 interface Props {
   formData: FacturaVenta;
@@ -44,7 +45,8 @@ export default function NotesTab({
       setFormData({ ...formData, [field]: textLines } as FacturaVenta);
     }
   }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
-  const plantillesFactura = plantilles.filter(p => p.tipusPlantilla === 'TPL-00002');
+  const esAnticip = esFacturaAnticip(formData);
+  const plantillesFactura = plantilles.filter(p => p.tipusPlantilla === (esAnticip ? 'TPL-00003' : 'TPL-00002'));
 
   const textField = lang === 'ca' ? 'plantillesText' : lang === 'es' ? 'plantillesTextEs' : 'plantillesTextEn';
   const currentText = (formData as any)[textField] || '';

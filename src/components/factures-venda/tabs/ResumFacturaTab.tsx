@@ -5,6 +5,7 @@ import { ESTAT_FACTURA_COLORS } from '../../../types/facturaVenta';
 import type { Client } from '../../../types/client';
 import type { Projecte } from '../../../types/projecte';
 import { storage } from '../../../utils/storageManager';
+import { esFacturaFinal, getTipusComercialFactura } from '../../../utils/facturaAnticipos';
 
 interface Props {
   formData: FacturaVenta;
@@ -12,11 +13,13 @@ interface Props {
   projectes: Projecte[];
   parametres: any;
   totals: {
+    baseTasques?: number;
     baseImposable: number;
     ivaImport: number;
     irpfImport: number;
     totalFactura: number;
     pendentCobrar: number;
+    anticiposAplicatsBase?: number;
   };
 }
 
@@ -46,6 +49,7 @@ export default function ResumFacturaTab({ formData, clients, projectes, parametr
   const totalCobrat = formData.totalPagat;
   const pendent = totals.pendentCobrar;
   const avisActiu = formData.avisFacturacio?.actiu;
+  const tipusComercial = getTipusComercialFactura(formData);
 
   const noClient  = !formData.client;
   const noTasques = formData.tasques.reduce((s, c) => s + c.tasques.length, 0) === 0;
@@ -77,6 +81,12 @@ export default function ResumFacturaTab({ formData, clients, projectes, parametr
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginBottom: '0.2rem' }}>
               {formData.codi}
+              {tipusComercial === 'anticip' && (
+                <span style={{ marginLeft: '0.6rem', padding: '0.1rem 0.45rem', background: 'var(--color-warning)', color: 'white', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>ANTICIP</span>
+              )}
+              {tipusComercial === 'final' && (
+                <span style={{ marginLeft: '0.6rem', padding: '0.1rem 0.45rem', background: 'var(--color-success)', color: 'white', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>FINAL</span>
+              )}
               {formData.tipus === 'rectificativa' && (
                 <span style={{ marginLeft: '0.6rem', padding: '0.1rem 0.45rem', background: 'var(--color-error-dark)', color: 'white', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>NOTA DE CRÈDIT</span>
               )}
@@ -162,6 +172,10 @@ export default function ResumFacturaTab({ formData, clients, projectes, parametr
               Desglossament fiscal
             </div>
             {[
+              ...(esFacturaFinal(formData) ? [
+                { label: 'Base projecte', value: fmt(totals.baseTasques || totals.baseImposable), color: 'var(--color-text-primary)', bold: false },
+                { label: 'Anticips aplicats', value: `-${fmt(totals.anticiposAplicatsBase || 0)}`, color: 'var(--color-warning-dark)', bold: false },
+              ] : []),
               { label: 'Base imposable', value: fmt(totals.baseImposable), color: 'var(--color-text-primary)', bold: false },
               { label: `IVA (${formData.ivaPercent}%)`, value: `+${fmt(totals.ivaImport)}`, color: 'var(--color-text-secondary)', bold: false },
               ...(formData.irpfPercent > 0 ? [{ label: `IRPF (${formData.irpfPercent}%)`, value: `-${fmt(totals.irpfImport)}`, color: 'var(--color-error)', bold: false }] : []),

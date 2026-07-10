@@ -68,7 +68,11 @@ export default function FacturesVendaSection() {
     if (factura.projecte) {
       const p = projectes.find(pr => pr.codi === factura.projecte);
       if (p) {
-        const updated = { ...registrarFacturaDesvinculada(p, factura.codi), estat: 'esperant_feedback' as const, facturaAssociada: undefined };
+        const updated = {
+          ...registrarFacturaDesvinculada(p, factura.codi),
+          estat: 'esperant_feedback' as const,
+          facturaAssociada: p.facturaAssociada === factura.codi ? undefined : p.facturaAssociada
+        };
         storage.setProjectes(projectes.map(pr => pr.codi === p.codi ? updated : pr));
       }
     }

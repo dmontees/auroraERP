@@ -315,3 +315,17 @@ export const obtenirColorHistorial = (tipus: HistorialEntry['tipus']): string =>
   
   return colors[tipus] || '#6b7280';
 };
+
+/** Registrar una factura de anticip vinculada sense tancar el projecte. */
+export const registrarFacturaAnticipVinculada = (
+  projecte: Projecte,
+  codiFactura: string,
+  importFactura: number,
+): Projecte => {
+  return afegirEntradaHistorial(
+    projecte,
+    'factura',
+    `Factura d'anticip vinculada: ${codiFactura}`,
+    `Import de l'anticip: ${importFactura.toFixed(2)}€`
+  );
+};

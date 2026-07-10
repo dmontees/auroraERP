@@ -9,13 +9,14 @@ export function migrateFacturesVendaTipus() {
   let needsMigration = false;
   
   const migrated = factures.map(f => {
-    if (!f.tipus) {
+    if (!f.tipus || !f.tipusComercial) {
       needsMigration = true;
       return {
         ...f,
-        tipus: 'normal' as const,
-        facturaRectificada: undefined,
-        motivoRectificativa: undefined
+        tipus: f.tipus || ('normal' as const),
+        tipusComercial: f.tipusComercial || ('ordinaria' as const),
+        facturaRectificada: f.facturaRectificada,
+        motivoRectificativa: f.motivoRectificativa
       };
     }
     return f;

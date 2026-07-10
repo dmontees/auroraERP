@@ -30,8 +30,24 @@ import HistorialTab from './tabs/HistorialTab';
 import { storage } from '../../utils/storageManager';
 import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 import { mirrorSalesInvoiceToProject } from '../../utils/documentMirrors';
+import { registrarFacturaAnticipVinculada } from '../../utils/projecteHistorial';
+import {
+  calcularAnticiposAplicats,
+  esFacturaAnticip,
+  esFacturaFinal,
+  getCodisAnticipSeleccionats,
+  getFacturesAnticipDisponibles,
+  getTipusComercialFactura,
+} from '../../utils/facturaAnticipos';
 
 type TabId = 'resum' | 'dades' | 'tasques' | 'notes' | 'pagament' | 'historial';
+
+const NOTA_ANTICIP = {
+  codi: 'PLT-00009',
+  text: 'Aquest anticip es descomptara integrament de la factura final. La reserva i acceptacio del projecte nomes queden confirmades en rebre el pagament; fins aleshores no podem garantir la nostra disponibilitat.',
+  textEs: 'Este anticipo se descontara integramente de la factura final. La reserva y aceptacion del proyecto solo quedaran confirmadas al recibir el pago; hasta entonces no podemos garantizar nuestra disponibilidad.',
+  textEn: 'This advance payment will be deducted in full from the final invoice. The project booking and acceptance are confirmed only once payment is received; until then, we cannot guarantee our availability.',
+};
 
 interface Props {
   factura: FacturaVenta | null;   // null = nova factura
@@ -80,6 +96,7 @@ export default function FacturaVendaDetailView({
       : {
           codi: nextCode,
           tipus: 'normal' as const,
+          tipusComercial: 'ordinaria' as const,
           estat: 'borrador' as const,
           client: '',
           projecte: undefined,
@@ -117,6 +134,30 @@ export default function FacturaVendaDetailView({
   const client = clients.find(c => c.codi === formData.client);
   const { validate } = useFacturaValidation(formData, client, allFactures);
   const validationResult = validate();
+
+  useEffect(() => {
+    if (!formData.projecte || !esFacturaAnticip(formData)) return;
+    storage.setProjectes(storage.getProjectes().map((p: any) =>
+      p.codi === formData.projecte && p.facturaAssociada === formData.codi
+        ? { ...p, facturaAssociada: undefined }
+        : p
+    ));
+  }, [formData.tipusComercial, formData.projecte, formData.codi]);
+
+  useEffect(() => {
+    if (!esFacturaAnticip(formData)) return;
+    const plantillesAnticip = plantilles.filter(p => p.tipusPlantilla === 'TPL-00003' && p.perDefecte);
+    const seleccionades = plantillesAnticip.length ? plantillesAnticip : [NOTA_ANTICIP];
+    const codis = seleccionades.map(p => p.codi);
+    if (formData.plantillesSeleccionades.length === codis.length && formData.plantillesSeleccionades.every(codi => codis.includes(codi))) return;
+    setFormData(prev => ({
+      ...prev,
+      plantillesSeleccionades: codis,
+      plantillesText: seleccionades.map(p => p.text).join('\n'),
+      plantillesTextEs: seleccionades.map(p => p.textEs || p.text).join('\n'),
+      plantillesTextEn: seleccionades.map(p => p.textEn || p.text).join('\n'),
+    }));
+  }, [formData.tipusComercial, plantilles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fase 3+6 Verifactu: generar hash SHA-256 i enviar a AEAT (si mode='verifactu') quan la factura s'emet
   useEffect(() => {
@@ -179,10 +220,23 @@ export default function FacturaVendaDetailView({
 
   // Totals
   const calcularTotals = () => {
-    let base = 0;
-    formData.tasques.forEach(cat => { cat.tasques.forEach(t => { base += t.quantitat * t.preu; }); });
+    let baseTasques = 0;
+    formData.tasques.forEach(cat => { cat.tasques.forEach(t => { baseTasques += t.quantitat * t.preu; }); });
+    const anticipos = calcularAnticiposAplicats(formData, allFactures);
+    const base = esFacturaFinal(formData) ? Math.max(0, baseTasques - anticipos.base) : baseTasques;
     const { ivaImport, irpfImport, total } = calcularImpostos(base, formData.ivaPercent, formData.irpfPercent);
-    return { baseImposable: base, ivaImport, irpfImport, totalFactura: total, pendentCobrar: Math.max(0, total - formData.totalPagat) };
+    return {
+      baseTasques,
+      baseImposable: base,
+      ivaImport,
+      irpfImport,
+      totalFactura: total,
+      pendentCobrar: Math.max(0, total - formData.totalPagat),
+      anticiposAplicatsBase: esFacturaFinal(formData) ? anticipos.base : 0,
+      anticiposAplicatsIva: esFacturaFinal(formData) ? anticipos.iva : 0,
+      anticiposAplicatsIrpf: esFacturaFinal(formData) ? anticipos.irpf : 0,
+      anticiposAplicatsTotal: esFacturaFinal(formData) ? anticipos.total : 0,
+    };
   };
   const totals = calcularTotals();
   const tePagaments = formData.pagaments.length > 0;
@@ -198,7 +252,21 @@ export default function FacturaVendaDetailView({
   const prepararFactura = (): FacturaVenta | null => {
     if (!validationResult.isValid) return null;
     const estat = determinarEstat(totals.totalFactura, formData.totalPagat, formData.dataVenciment, formData.estat);
-    return { ...formData, ...totals, estat };
+    const anticiposAplicats = esFacturaFinal(formData)
+      ? getCodisAnticipSeleccionats(formData, allFactures)
+      : [];
+    const plantillesAnticip = plantilles.filter(p => p.tipusPlantilla === 'TPL-00003' && formData.plantillesSeleccionades.includes(p.codi));
+    const notaAnticip = esFacturaAnticip(formData) && plantillesAnticip.length
+      ? {
+          plantillesSeleccionades: plantillesAnticip.map(p => p.codi),
+          plantillesText: plantillesAnticip.map(p => p.text).join('\n'),
+          plantillesTextEs: plantillesAnticip.map(p => p.textEs || p.text).join('\n'),
+          plantillesTextEn: plantillesAnticip.map(p => p.textEn || p.text).join('\n'),
+        }
+      : esFacturaAnticip(formData)
+        ? { plantillesSeleccionades: [NOTA_ANTICIP.codi], plantillesText: NOTA_ANTICIP.text, plantillesTextEs: NOTA_ANTICIP.textEs, plantillesTextEn: NOTA_ANTICIP.textEn }
+        : {};
+    return { ...formData, ...totals, ...notaAnticip, anticiposAplicats, estat };
   };
 
   const { saveNow } = useAutoSave(formData, () => {
@@ -286,15 +354,22 @@ export default function FacturaVendaDetailView({
     if (p) setCopyDialogProjecte(p);
   };
 
-  const vincularProjecteEnStorage = (codi: string) => {
+  const vincularProjecteEnStorage = (codi: string, facturaData: FacturaVenta = formData) => {
+    if (esFacturaAnticip(facturaData)) return;
     storage.setProjectes(storage.getProjectes().map((p: any) =>
-      p.codi === codi ? { ...p, facturaAssociada: formData.codi } : p
+      p.codi === codi ? { ...p, facturaAssociada: facturaData.codi } : p
     ));
   };
 
   const handleVincularSenseCopiar = (p: Projecte) => {
-    setFormData(prev => ({ ...prev, projecte: p.codi }));
-    vincularProjecteEnStorage(p.codi);
+    setFormData(prev => {
+      const updated = { ...prev, projecte: p.codi };
+      if (esFacturaFinal(updated)) {
+        updated.anticiposAplicats = getFacturesAnticipDisponibles(updated, allFactures).map(f => f.codi);
+      }
+      vincularProjecteEnStorage(p.codi, updated);
+      return updated;
+    });
     setCopyDialogProjecte(null);
   };
 
@@ -310,13 +385,19 @@ export default function FacturaVendaDetailView({
     if (cd?.tipusIVA === 'Exempt') iva = 0;
     else if (cd?.tipusIVA === 'Reduit') iva = 10;
     else if (cd?.tipusIVA === 'Superreduit') iva = 4;
-    setFormData(prev => ({
-      ...prev, client: p.client, projecte: p.codi, tasques: cats, ivaPercent: iva,
-      irpfPercent: cd?.retencio || 0, observacions: `Factura generada des del projecte ${p.codi}`,
-      avisFacturacio: p.avisFacturacio ? { ...p.avisFacturacio } : prev.avisFacturacio,
-      accions: [...prev.accions, { data: new Date().toISOString(), descripcio: `Dades copiades del projecte ${p.codi}`, automatic: true }]
-    }));
-    vincularProjecteEnStorage(p.codi);
+    setFormData(prev => {
+      const updated = {
+        ...prev, client: p.client, projecte: p.codi, tasques: cats, ivaPercent: iva,
+        irpfPercent: cd?.retencio || 0, observacions: `Factura generada des del projecte ${p.codi}`,
+        avisFacturacio: p.avisFacturacio ? { ...p.avisFacturacio } : prev.avisFacturacio,
+        accions: [...prev.accions, { data: new Date().toISOString(), descripcio: `Dades copiades del projecte ${p.codi}`, automatic: true }]
+      };
+      if (esFacturaFinal(updated)) {
+        updated.anticiposAplicats = getFacturesAnticipDisponibles(updated, allFactures).map(f => f.codi);
+      }
+      vincularProjecteEnStorage(p.codi, updated);
+      return updated;
+    });
     setCopyDialogProjecte(null);
   };
 
@@ -378,13 +459,14 @@ export default function FacturaVendaDetailView({
       alert('⚠️ Hi ha un avís de facturació actiu. Desactiva\'l a la pestanya 1. Dades abans de generar cap PDF.');
       return;
     }
+    const facturaPDF = prepararFactura() || formData;
     const canSaveLocal = !!storage.getParametres().gestorDocumental?.rootPath && !!window.electronDocuments;
-    const pdfBase64 = await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig, { save: !canSaveLocal });
-    const fileRef = await crearReferenciaPDFLocal(formData, idioma, true, pdfBase64);
+    const pdfBase64 = await generarFacturaVentaPDF(facturaPDF, clients, storage.getProjectes(), idioma, true, verifactuConfig, { save: !canSaveLocal });
+    const fileRef = await crearReferenciaPDFLocal(facturaPDF, idioma, true, pdfBase64);
     if (fileRef) {
-      await mirrorSalesInvoiceToProject(storage.getParametres().gestorDocumental?.rootPath || '', formData, fileRef);
+      await mirrorSalesInvoiceToProject(storage.getParametres().gestorDocumental?.rootPath || '', facturaPDF, fileRef);
       const updated = {
-        ...formData,
+        ...facturaPDF,
         documentsGenerats: [
           ...(formData.documentsGenerats || []).map(ref => ref.displayName === fileRef.displayName ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
           fileRef,
@@ -400,7 +482,7 @@ export default function FacturaVendaDetailView({
         alert(`PDF guardat al gestor documental: ${fileRef.originalName}`);
       }
     } else if (canSaveLocal) {
-      await generarFacturaVentaPDF(formData, clients, storage.getProjectes(), idioma, true, verifactuConfig);
+      await generarFacturaVentaPDF(facturaPDF, clients, storage.getProjectes(), idioma, true, verifactuConfig);
     }
     setLanguageModalMode(null);
   };
@@ -430,6 +512,18 @@ export default function FacturaVendaDetailView({
         ? [...formData.accions, { data: new Date().toISOString(), descripcio: 'Factura emesa i marcada com a Enviada', automatic: true }]
         : formData.accions,
     };
+    if (passaAEnviada && updated.projecte && !esFacturaAnticip(updated)) {
+      vincularProjecteEnStorage(updated.projecte, updated);
+    }
+    if (passaAEnviada && updated.projecte && esFacturaAnticip(updated)) {
+      storage.setProjectes(storage.getProjectes().map((projecte: any) => {
+        if (projecte.codi !== updated.projecte) return projecte;
+        const jaRegistrada = projecte.historial?.some((entrada: any) =>
+          entrada.tipus === 'factura' && entrada.descripcio === `Factura d'anticip vinculada: ${updated.codi}`
+        );
+        return jaRegistrada ? projecte : registrarFacturaAnticipVinculada(projecte, updated.codi, updated.totalFactura);
+      }));
+    }
     setFormData(updated);
     onSave(updated);
     if (fileRef) {
@@ -512,6 +606,7 @@ export default function FacturaVendaDetailView({
 
   const estatInfo = ESTAT_FACTURA_COLORS[formData.estat] || ESTAT_FACTURA_COLORS.borrador;
   const podesCopiarRectificativa = factura && formData.tipus !== 'rectificativa';
+  const tipusComercial = getTipusComercialFactura(formData);
 
   const TabBtn = ({ id, label, locked }: { id: TabId; label: string; locked?: boolean }) => (
     <button
@@ -557,6 +652,12 @@ export default function FacturaVendaDetailView({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <FileText size={20} style={{ color: 'var(--color-text-secondary)' }} />
           <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{formData.codi}</span>
+          {tipusComercial === 'anticip' && (
+            <span style={{ padding: '0.15rem 0.55rem', background: 'var(--color-warning)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>ANTICIP</span>
+          )}
+          {tipusComercial === 'final' && (
+            <span style={{ padding: '0.15rem 0.55rem', background: 'var(--color-success)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>FINAL</span>
+          )}
           {formData.tipus === 'rectificativa' && (
             <span style={{ padding: '0.15rem 0.55rem', background: 'var(--color-error-dark)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>NOTA DE CRÈDIT</span>
           )}
@@ -687,7 +788,7 @@ export default function FacturaVendaDetailView({
         {activeTab === 'dades' && (
           <DadesTab
             formData={formData} setFormData={setFormData}
-            clients={clients} projectes={projectes} totals={totals}
+            clients={clients} projectes={projectes} allFactures={allFactures} totals={totals}
             clientBlocked={clientBlocked} tePagaments={tePagaments}
             warnings={validationResult.warnings}
             esBloquejatContenido={esEmesa}

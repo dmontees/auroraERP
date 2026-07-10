@@ -33,7 +33,8 @@ const DEFAULT_GROUP_TRANSLATIONS: Record<string, { nomEs: string; nomEn: string 
 
 const DEFAULT_TIPUS_PLANTILLES: TipusPlantilla[] = [
   { codi: 'TPL-00001', nom: 'Peu de pàgina de pressupost', esDefault: true },
-  { codi: 'TPL-00002', nom: 'Peu de pàgina de factures', esDefault: true }
+  { codi: 'TPL-00002', nom: 'Peu de pàgina de factures', esDefault: true },
+  { codi: 'TPL-00003', nom: 'Peu de pàgina de factures anticip', esDefault: true }
 ];
 
 const DEFAULT_PLANTILLES: Plantilla[] = [
@@ -91,6 +92,15 @@ const DEFAULT_PLANTILLES: Plantilla[] = [
     tipusPlantilla: 'TPL-00002', 
     titol: 'Avís Legal', 
     text: 'En cas de demora en el pagament, es podran aplicar els interessos legals vigents.\nAquesta factura es considera acceptada si no es reclama en un termini de 7 dies.',
+    perDefecte: true
+  },
+  {
+    codi: 'PLT-00009',
+    tipusPlantilla: 'TPL-00003',
+    titol: 'Condicions de factura d\'anticip',
+    text: 'Aquest anticip es descomptara integrament de la factura final. La reserva i acceptacio del projecte nomes queden confirmades en rebre el pagament; fins aleshores no podem garantir la nostra disponibilitat.',
+    textEs: 'Este anticipo se descontara integramente de la factura final. La reserva y aceptacion del proyecto solo quedaran confirmadas al recibir el pago; hasta entonces no podemos garantizar nuestra disponibilidad.',
+    textEn: 'This advance payment will be deducted in full from the final invoice. The project booking and acceptance are confirmed only once payment is received; until then, we cannot guarantee our availability.',
     perDefecte: true
   }
 ];
@@ -214,6 +224,10 @@ export function useParametres() {
       data.tipusPlantilles = [...(data.tipusPlantilles || []), DEFAULT_TIPUS_PLANTILLES[1]];
       needsUpdate = true;
     }
+    if (!data.tipusPlantilles?.some((t: any) => t.codi === 'TPL-00003')) {
+      data.tipusPlantilles = [...(data.tipusPlantilles || []), DEFAULT_TIPUS_PLANTILLES[2]];
+      needsUpdate = true;
+    }
 
     // Migrar plantillas antiguas de factura
     const plantillesAntiguaFactura = ['PLT-00007', 'PLT-00008', 'PLT-00009'];
@@ -224,6 +238,17 @@ export function useParametres() {
     if (tePlantillesAntiguaFactura) {
       data.plantilles = data.plantilles.filter((p: any) => p.tipusPlantilla !== 'TPL-00002');
       data.plantilles = [...data.plantilles, ...DEFAULT_PLANTILLES.filter(p => p.tipusPlantilla === 'TPL-00002')];
+      needsUpdate = true;
+    }
+
+    if (!data.plantilles?.some((p: any) => p.codi === 'PLT-00009')) {
+      data.plantilles = [...(data.plantilles || []), DEFAULT_PLANTILLES.find(p => p.codi === 'PLT-00009')!];
+      needsUpdate = true;
+    } else {
+      data.plantilles = data.plantilles.map((p: any) => p.codi === 'PLT-00009'
+        ? { ...p, tipusPlantilla: 'TPL-00003', perDefecte: true, nomesAnticip: undefined }
+        : p
+      );
       needsUpdate = true;
     }
 

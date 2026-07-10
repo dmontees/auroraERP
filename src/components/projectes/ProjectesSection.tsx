@@ -190,7 +190,11 @@ const saveProjectes = (newProjectes: Projecte[]) => {
 };
 
 // Crear factura desde proyecto
-const crearFacturaDesdeProjecte = (projecte: Projecte) => {
+const crearFacturaDesdeProjecte = (
+  projecte: Projecte,
+  tipusComercial: 'ordinaria' | 'anticip' = 'ordinaria',
+  anticipoPercent = 30,
+) => {
   // Generar código de factura
   const facturesVenda = storage.getFacturesVenda();
   const maxNum = facturesVenda.length === 0 ? 234 : Math.max(...facturesVenda.map((f: any) => parseInt(f.codi.split('-')[1])));
@@ -228,12 +232,25 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
     });
   });
 
+  const baseProjecte = baseImposable;
+  if (tipusComercial === 'anticip') {
+    const baseAnticip = Number((baseProjecte * anticipoPercent / 100).toFixed(2));
+    tascasCategoritzades.splice(0, tascasCategoritzades.length, {
+      categoria: 'ANTICIP',
+      tasques: [{ id: `anticip-${projecte.codi}`, categoria: 'ANTICIP', servei: 'Anticip de projecte', descripcio: `Anticip del ${anticipoPercent}% del projecte ${projecte.codi} - ${projecte.titol}`, quantitat: 1, unitat: 'unitat', preu: baseAnticip, importe: baseAnticip, ordre: 0 }],
+    });
+    baseImposable = baseAnticip;
+  }
   const ivaImport = baseImposable * 0.21;
   const totalFactura = baseImposable + ivaImport;
 
   // Crear factura
   const novaFactura = {
     codi: codiFactura,
+    tipus: 'normal',
+    tipusComercial,
+    anticipoPercent: tipusComercial === 'anticip' ? anticipoPercent : undefined,
+    anticipoBaseProjecte: tipusComercial === 'anticip' ? baseProjecte : undefined,
     estat: 'borrador',
     client: projecte.client,
     projecte: projecte.codi,
@@ -273,23 +290,24 @@ const crearFacturaDesdeProjecte = (projecte: Projecte) => {
   storage.setFacturesVenda([...facturesVenda, novaFactura]);
 
   // Actualizar proyecto: añadir factura asociada y cambiar estado
-  const projectesActualitzats = projectes.map(p => 
-    p.codi === projecte.codi 
-      ? { 
-          ...p, 
-          facturaAssociada: codiFactura, 
-          estat: 'facturat'
-        }
-      : p
-  );
-
-  saveProjectes(projectesActualitzats);
+  if (tipusComercial === 'ordinaria') {
+    saveProjectes(projectes.map(p =>
+      p.codi === projecte.codi
+        ? { ...p, facturaAssociada: codiFactura, estat: 'facturat' }
+        : p
+    ));
+  }
 
   // Tornar a la llista
   setShowDetailView(false);
   setEditingProjecte(null);
 
-  alert(`✅ Factura ${codiFactura} creada correctament!\n\nEl projecte ha estat marcat com facturat i vinculat a la factura.`);
+  storage.setNavigateTo({ type: 'factura', codi: codiFactura });
+  setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'factures-venda', codi: codiFactura } })), 100);
+
+  alert(tipusComercial === 'anticip'
+    ? `Factura d'anticip ${codiFactura} creada correctament. El projecte continua actiu.`
+    : `Factura ${codiFactura} creada correctament. El projecte ha estat marcat com facturat i vinculat a la factura.`);
 };
 
   // Generar próximo código
@@ -374,7 +392,9 @@ const getFacturaProjecte = (projecte: Projecte) => {
     if (facturaAssociada) return facturaAssociada;
   }
 
-  return facturesVenda.find(f => f.projecte === projecte.codi);
+  return facturesVenda.find(f => f.projecte === projecte.codi && f.tipusComercial === 'final')
+    || facturesVenda.find(f => f.projecte === projecte.codi && (f.tipusComercial || 'ordinaria') === 'ordinaria')
+    || facturesVenda.find(f => f.projecte === projecte.codi);
 };
 
 const getDataFacturaProjecte = (projecte: Projecte) => {

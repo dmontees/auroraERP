@@ -27,6 +27,7 @@ export interface CategoriaFacturaVenda {
 }
 
 export type TipusFactura = 'normal' | 'rectificativa';
+export type TipusFacturaComercial = 'ordinaria' | 'anticip' | 'final';
 
 export type EstatFacturaVenta =
   | 'borrador'
@@ -52,6 +53,14 @@ export interface AccioFactura {
 export interface FacturaVenta {
   codi: string;
   tipus: TipusFactura;
+  tipusComercial?: TipusFacturaComercial;
+  anticipoPercent?: number;
+  anticipoBaseProjecte?: number;
+  anticiposAplicats?: string[];
+  anticiposAplicatsBase?: number;
+  anticiposAplicatsIva?: number;
+  anticiposAplicatsIrpf?: number;
+  anticiposAplicatsTotal?: number;
   facturaRectificada?: string;
   motivoRectificativa?: string;
 

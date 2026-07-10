@@ -5,6 +5,7 @@ import type { Client } from '../types/client';
 import type { VerifactuConfig } from '../types/verifactu';
 import { storage } from './storageManager';
 import { generarQRVerifactu, generarQRPlaceholder } from './verifactuQR';
+import { esFacturaFinal } from './facturaAnticipos';
 
 export const generarFacturaVentaPDF = async (
   formData: FacturaVenta,
@@ -143,8 +144,18 @@ export const generarFacturaVentaPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0);
     if (client.nomFiscal) {
-      doc.text(client.nomFiscal, colIzq, yClient);
-      yClient += lineHeight;
+      // Algunos nombres importados o pegados contienen saltos de línea. En un
+      // PDF estos son cortes obligatorios, incluso si la palabra cabría en la
+      // línea anterior; los normalizamos antes de calcular el ajuste.
+      const nomFiscal = client.nomFiscal.replace(/\s+/g, ' ').trim();
+      // El nom fiscal pot ser més ample que la columna del client. Cal
+      // fragmentar-lo i avançar una línia per cada fragment per evitar que
+      // el domicili se superposi al nom.
+      const nomFiscalLines = doc.splitTextToSize(nomFiscal, 85);
+      nomFiscalLines.forEach((line: string) => {
+        doc.text(line, colIzq, yClient);
+        yClient += lineHeight;
+      });
     }
     
     doc.setFont('helvetica', 'normal');
@@ -441,7 +452,8 @@ const boxWidth = 85;
 
 // Calcular altura del recuadro según si hay IRPF o no
 const irpfImportTemp = formData.irpfImport || 0;
-const numLineasTotales = irpfImportTemp > 0 ? 4 : 3; // Subtotal, IVA, (IRPF?), Total
+const teAnticipos = esFacturaFinal(formData) && (formData.anticiposAplicatsBase || 0) > 0;
+const numLineasTotales = (irpfImportTemp > 0 ? 4 : 3) + (teAnticipos ? 2 : 0); // Subtotal, IVA, (IRPF?), Total + anticipos
 const boxHeight = (numLineasTotales * 7) + 2; // 7px por línea + 2px extra para el total
 
 doc.setDrawColor(...colorSecondary);
@@ -472,6 +484,8 @@ if (parametresData?.dadesEmpresa?.ibanDefecte) {
 let yTotals = startYTotales - 5;
 
 const baseImposable = formData.baseImposable || 0;
+const baseTasques = teAnticipos ? baseImposable + (formData.anticiposAplicatsBase || 0) : baseImposable;
+const anticiposBase = formData.anticiposAplicatsBase || 0;
 const ivaPercent = formData.ivaPercent || 0;
 const ivaImport = formData.ivaImport || 0;
 const irpfPercent = formData.irpfPercent || 0;
@@ -482,6 +496,20 @@ doc.setTextColor(0);
 doc.setFontSize(11);
 doc.setFont('helvetica', 'bold');
 doc.setTextColor(...colorSecondary);
+if (teAnticipos) {
+  doc.text('BASE PROJECTE', 120, yTotals);
+  doc.text(`${baseTasques.toFixed(2)}€`, margenDer, yTotals, { align: 'right' });
+  yTotals += 7;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text('Anticips aplicats:', 120, yTotals);
+  doc.text(`-${anticiposBase.toFixed(2)}€`, margenDer, yTotals, { align: 'right' });
+  yTotals += 7;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...colorSecondary);
+}
 doc.text(tr.subtotal, 120, yTotals);
 doc.text(`${baseImposable.toFixed(2)}€`, margenDer, yTotals, { align: 'right' });
 

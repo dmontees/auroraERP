@@ -24,6 +24,10 @@ export default function HistorialTab({
   onDescarregarDocument,
   onClose
 }: Props) {
+  const facturesAnticip = storage.getFacturesVenda().filter((factura: any) =>
+    factura.projecte === formData.codi && factura.tipusComercial === 'anticip'
+  );
+
   return (
     <div className="tab-content">
       {/* Documents Vinculats */}
@@ -154,6 +158,27 @@ export default function HistorialTab({
               </div>
             </div>
           )}
+
+          {facturesAnticip.map((factura: any) => (
+            <div
+              key={factura.codi}
+              onClick={() => {
+                storage.setNavigateTo({ type: 'factura', codi: factura.codi });
+                onClose();
+                setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', {
+                  detail: { section: 'factures-venda', codi: factura.codi }
+                })), 100);
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-light)', borderRadius: '6px', cursor: 'pointer' }}
+              title={`Factura d'anticip ${factura.estat === 'borrador' ? 'en esborrany' : 'emesa'}. Clic per obrir-la.`}
+            >
+              <FileText size={20} style={{ color: 'var(--color-warning-dark)', flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '0.9rem' }}>Factura d'anticip {factura.estat === 'borrador' ? '(esborrany)' : ''}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>{factura.codi} · {factura.totalFactura.toFixed(2)}€</div>
+              </div>
+            </div>
+          ))}
 
           {/* Documents manuals */}
           {formData.documents && formData.documents.length > 0 && (
