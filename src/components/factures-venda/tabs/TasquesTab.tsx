@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { FacturaVenta } from '../../../types/facturaVenta';
 import type { TascaCategoria } from '../../../types/pressupost';
 import SearchableSelect from '../../common/SearchableSelect';
-import { esFacturaFinal } from '../../../utils/facturaAnticipos';
+import { esFacturaFinal } from '../../../utils/facturaBestretes';
 
 interface Props {
   formData: FacturaVenta;
@@ -15,7 +15,7 @@ interface Props {
     ivaImport: number;
     irpfImport: number;
     totalFactura: number;
-    anticiposAplicatsBase?: number;
+    bestretesAplicadesBase?: number;
   };
   clientBlocked: boolean;
   tePagaments: boolean;
@@ -457,8 +457,8 @@ export default function TasquesTab({
                 fontSize: '0.95rem',
                 color: 'var(--color-warning-dark)'
               }}>
-                <span>Anticips aplicats:</span>
-                <span style={{ fontWeight: 600 }}>-{(totals.anticiposAplicatsBase || 0).toFixed(2)}€</span>
+                <span>Bestretes aplicades:</span>
+                <span style={{ fontWeight: 600 }}>-{(totals.bestretesAplicadesBase || 0).toFixed(2)}€</span>
               </div>
             </>
           )}

@@ -5,7 +5,7 @@ import { ESTAT_FACTURA_COLORS } from '../../../types/facturaVenta';
 import type { Client } from '../../../types/client';
 import type { Projecte } from '../../../types/projecte';
 import { storage } from '../../../utils/storageManager';
-import { esFacturaFinal, getTipusComercialFactura } from '../../../utils/facturaAnticipos';
+import { esFacturaFinal, getTipusComercialFactura } from '../../../utils/facturaBestretes';
 
 interface Props {
   formData: FacturaVenta;
@@ -19,7 +19,7 @@ interface Props {
     irpfImport: number;
     totalFactura: number;
     pendentCobrar: number;
-    anticiposAplicatsBase?: number;
+    bestretesAplicadesBase?: number;
   };
 }
 
@@ -81,8 +81,8 @@ export default function ResumFacturaTab({ formData, clients, projectes, parametr
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--color-text-tertiary)', marginBottom: '0.2rem' }}>
               {formData.codi}
-              {tipusComercial === 'anticip' && (
-                <span style={{ marginLeft: '0.6rem', padding: '0.1rem 0.45rem', background: 'var(--color-warning)', color: 'white', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>ANTICIP</span>
+              {tipusComercial === 'bestreta' && (
+                <span style={{ marginLeft: '0.6rem', padding: '0.1rem 0.45rem', background: 'var(--color-warning)', color: 'white', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>BESTRETA</span>
               )}
               {tipusComercial === 'final' && (
                 <span style={{ marginLeft: '0.6rem', padding: '0.1rem 0.45rem', background: 'var(--color-success)', color: 'white', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>FINAL</span>
@@ -174,7 +174,7 @@ export default function ResumFacturaTab({ formData, clients, projectes, parametr
             {[
               ...(esFacturaFinal(formData) ? [
                 { label: 'Base projecte', value: fmt(totals.baseTasques || totals.baseImposable), color: 'var(--color-text-primary)', bold: false },
-                { label: 'Anticips aplicats', value: `-${fmt(totals.anticiposAplicatsBase || 0)}`, color: 'var(--color-warning-dark)', bold: false },
+                { label: 'Bestretes aplicades', value: `-${fmt(totals.bestretesAplicadesBase || 0)}`, color: 'var(--color-warning-dark)', bold: false },
               ] : []),
               { label: 'Base imposable', value: fmt(totals.baseImposable), color: 'var(--color-text-primary)', bold: false },
               { label: `IVA (${formData.ivaPercent}%)`, value: `+${fmt(totals.ivaImport)}`, color: 'var(--color-text-secondary)', bold: false },

@@ -4,7 +4,7 @@ import type { FacturaVenta } from '../../types/facturaVenta';
 import type { Client } from '../../types/client';
 import type { Projecte } from '../../types/projecte';
 import { ESTAT_FACTURA_COLORS } from '../../types/facturaVenta';
-import { getTipusComercialFactura } from '../../utils/facturaAnticipos';
+import { getTipusComercialFactura } from '../../utils/facturaBestretes';
 
 interface Props {
   factures: FacturaVenta[];
@@ -102,7 +102,7 @@ export default function FacturaVendaTable({
                       }}>
                         RECTIF.
                       </span>
-                    ) : tipusComercial === 'anticip' ? (
+                    ) : tipusComercial === 'bestreta' ? (
                       <span style={{
                         background: 'var(--color-warning)',
                         color: 'white',
@@ -112,7 +112,7 @@ export default function FacturaVendaTable({
                         fontWeight: 600,
                         display: 'inline-block'
                       }}>
-                        ANTICIP
+                        BESTRETA
                       </span>
                     ) : tipusComercial === 'final' ? (
                       <span style={{

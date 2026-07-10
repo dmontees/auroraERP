@@ -5,7 +5,7 @@ import type { Client } from '../types/client';
 import type { VerifactuConfig } from '../types/verifactu';
 import { storage } from './storageManager';
 import { generarQRVerifactu, generarQRPlaceholder } from './verifactuQR';
-import { esFacturaFinal } from './facturaAnticipos';
+import { esFacturaFinal } from './facturaBestretes';
 
 export const generarFacturaVentaPDF = async (
   formData: FacturaVenta,
@@ -452,7 +452,7 @@ const boxWidth = 85;
 
 // Calcular altura del recuadro según si hay IRPF o no
 const irpfImportTemp = formData.irpfImport || 0;
-const teAnticipos = esFacturaFinal(formData) && (formData.anticiposAplicatsBase || 0) > 0;
+const teAnticipos = esFacturaFinal(formData) && (formData.bestretesAplicadesBase || 0) > 0;
 const numLineasTotales = (irpfImportTemp > 0 ? 4 : 3) + (teAnticipos ? 2 : 0); // Subtotal, IVA, (IRPF?), Total + anticipos
 const boxHeight = (numLineasTotales * 7) + 2; // 7px por línea + 2px extra para el total
 
@@ -484,8 +484,8 @@ if (parametresData?.dadesEmpresa?.ibanDefecte) {
 let yTotals = startYTotales - 5;
 
 const baseImposable = formData.baseImposable || 0;
-const baseTasques = teAnticipos ? baseImposable + (formData.anticiposAplicatsBase || 0) : baseImposable;
-const anticiposBase = formData.anticiposAplicatsBase || 0;
+const baseTasques = teAnticipos ? baseImposable + (formData.bestretesAplicadesBase || 0) : baseImposable;
+const anticiposBase = formData.bestretesAplicadesBase || 0;
 const ivaPercent = formData.ivaPercent || 0;
 const ivaImport = formData.ivaImport || 0;
 const irpfPercent = formData.irpfPercent || 0;
@@ -503,7 +503,7 @@ if (teAnticipos) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(80);
-  doc.text('Anticips aplicats:', 120, yTotals);
+  doc.text('Bestretes aplicades:', 120, yTotals);
   doc.text(`-${anticiposBase.toFixed(2)}€`, margenDer, yTotals, { align: 'right' });
   yTotals += 7;
   doc.setFont('helvetica', 'bold');

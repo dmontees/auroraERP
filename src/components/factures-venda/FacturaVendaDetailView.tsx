@@ -30,21 +30,21 @@ import HistorialTab from './tabs/HistorialTab';
 import { storage } from '../../utils/storageManager';
 import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 import { mirrorSalesInvoiceToProject } from '../../utils/documentMirrors';
-import { registrarFacturaAnticipVinculada } from '../../utils/projecteHistorial';
+import { registrarFacturaBestretaVinculada } from '../../utils/projecteHistorial';
 import {
-  calcularAnticiposAplicats,
-  esFacturaAnticip,
+  calcularBestretesAplicades,
+  esFacturaBestreta,
   esFacturaFinal,
-  getCodisAnticipSeleccionats,
-  getFacturesAnticipDisponibles,
+  getCodisBestretaSeleccionats,
+  getFacturesBestretaDisponibles,
   getTipusComercialFactura,
-} from '../../utils/facturaAnticipos';
+} from '../../utils/facturaBestretes';
 
 type TabId = 'resum' | 'dades' | 'tasques' | 'notes' | 'pagament' | 'historial';
 
 const NOTA_ANTICIP = {
   codi: 'PLT-00009',
-  text: 'Aquest anticip es descomptara integrament de la factura final. La reserva i acceptacio del projecte nomes queden confirmades en rebre el pagament; fins aleshores no podem garantir la nostra disponibilitat.',
+  text: 'Aquesta bestreta es descomptara integrament de la factura final. La reserva i acceptacio del projecte nomes queden confirmades en rebre el pagament; fins aleshores no podem garantir la nostra disponibilitat.',
   textEs: 'Este anticipo se descontara integramente de la factura final. La reserva y aceptacion del proyecto solo quedaran confirmadas al recibir el pago; hasta entonces no podemos garantizar nuestra disponibilidad.',
   textEn: 'This advance payment will be deducted in full from the final invoice. The project booking and acceptance are confirmed only once payment is received; until then, we cannot guarantee our availability.',
 };
@@ -136,7 +136,7 @@ export default function FacturaVendaDetailView({
   const validationResult = validate();
 
   useEffect(() => {
-    if (!formData.projecte || !esFacturaAnticip(formData)) return;
+    if (!formData.projecte || !esFacturaBestreta(formData)) return;
     storage.setProjectes(storage.getProjectes().map((p: any) =>
       p.codi === formData.projecte && p.facturaAssociada === formData.codi
         ? { ...p, facturaAssociada: undefined }
@@ -145,7 +145,7 @@ export default function FacturaVendaDetailView({
   }, [formData.tipusComercial, formData.projecte, formData.codi]);
 
   useEffect(() => {
-    if (!esFacturaAnticip(formData)) return;
+    if (!esFacturaBestreta(formData)) return;
     const plantillesAnticip = plantilles.filter(p => p.tipusPlantilla === 'TPL-00003' && p.perDefecte);
     const seleccionades = plantillesAnticip.length ? plantillesAnticip : [NOTA_ANTICIP];
     const codis = seleccionades.map(p => p.codi);
@@ -222,7 +222,7 @@ export default function FacturaVendaDetailView({
   const calcularTotals = () => {
     let baseTasques = 0;
     formData.tasques.forEach(cat => { cat.tasques.forEach(t => { baseTasques += t.quantitat * t.preu; }); });
-    const anticipos = calcularAnticiposAplicats(formData, allFactures);
+    const anticipos = calcularBestretesAplicades(formData, allFactures);
     const base = esFacturaFinal(formData) ? Math.max(0, baseTasques - anticipos.base) : baseTasques;
     const { ivaImport, irpfImport, total } = calcularImpostos(base, formData.ivaPercent, formData.irpfPercent);
     return {
@@ -232,10 +232,10 @@ export default function FacturaVendaDetailView({
       irpfImport,
       totalFactura: total,
       pendentCobrar: Math.max(0, total - formData.totalPagat),
-      anticiposAplicatsBase: esFacturaFinal(formData) ? anticipos.base : 0,
-      anticiposAplicatsIva: esFacturaFinal(formData) ? anticipos.iva : 0,
-      anticiposAplicatsIrpf: esFacturaFinal(formData) ? anticipos.irpf : 0,
-      anticiposAplicatsTotal: esFacturaFinal(formData) ? anticipos.total : 0,
+      bestretesAplicadesBase: esFacturaFinal(formData) ? anticipos.base : 0,
+      bestretesAplicadesIva: esFacturaFinal(formData) ? anticipos.iva : 0,
+      bestretesAplicadesIrpf: esFacturaFinal(formData) ? anticipos.irpf : 0,
+      bestretesAplicadesTotal: esFacturaFinal(formData) ? anticipos.total : 0,
     };
   };
   const totals = calcularTotals();
@@ -252,21 +252,21 @@ export default function FacturaVendaDetailView({
   const prepararFactura = (): FacturaVenta | null => {
     if (!validationResult.isValid) return null;
     const estat = determinarEstat(totals.totalFactura, formData.totalPagat, formData.dataVenciment, formData.estat);
-    const anticiposAplicats = esFacturaFinal(formData)
-      ? getCodisAnticipSeleccionats(formData, allFactures)
+    const bestretesAplicades = esFacturaFinal(formData)
+      ? getCodisBestretaSeleccionats(formData, allFactures)
       : [];
     const plantillesAnticip = plantilles.filter(p => p.tipusPlantilla === 'TPL-00003' && formData.plantillesSeleccionades.includes(p.codi));
-    const notaAnticip = esFacturaAnticip(formData) && plantillesAnticip.length
+    const notaAnticip = esFacturaBestreta(formData) && plantillesAnticip.length
       ? {
           plantillesSeleccionades: plantillesAnticip.map(p => p.codi),
           plantillesText: plantillesAnticip.map(p => p.text).join('\n'),
           plantillesTextEs: plantillesAnticip.map(p => p.textEs || p.text).join('\n'),
           plantillesTextEn: plantillesAnticip.map(p => p.textEn || p.text).join('\n'),
         }
-      : esFacturaAnticip(formData)
+      : esFacturaBestreta(formData)
         ? { plantillesSeleccionades: [NOTA_ANTICIP.codi], plantillesText: NOTA_ANTICIP.text, plantillesTextEs: NOTA_ANTICIP.textEs, plantillesTextEn: NOTA_ANTICIP.textEn }
         : {};
-    return { ...formData, ...totals, ...notaAnticip, anticiposAplicats, estat };
+    return { ...formData, ...totals, ...notaAnticip, bestretesAplicades, estat };
   };
 
   const { saveNow } = useAutoSave(formData, () => {
@@ -355,7 +355,7 @@ export default function FacturaVendaDetailView({
   };
 
   const vincularProjecteEnStorage = (codi: string, facturaData: FacturaVenta = formData) => {
-    if (esFacturaAnticip(facturaData)) return;
+    if (esFacturaBestreta(facturaData)) return;
     storage.setProjectes(storage.getProjectes().map((p: any) =>
       p.codi === codi ? { ...p, facturaAssociada: facturaData.codi } : p
     ));
@@ -365,7 +365,7 @@ export default function FacturaVendaDetailView({
     setFormData(prev => {
       const updated = { ...prev, projecte: p.codi };
       if (esFacturaFinal(updated)) {
-        updated.anticiposAplicats = getFacturesAnticipDisponibles(updated, allFactures).map(f => f.codi);
+        updated.bestretesAplicades = getFacturesBestretaDisponibles(updated, allFactures).map(f => f.codi);
       }
       vincularProjecteEnStorage(p.codi, updated);
       return updated;
@@ -393,7 +393,7 @@ export default function FacturaVendaDetailView({
         accions: [...prev.accions, { data: new Date().toISOString(), descripcio: `Dades copiades del projecte ${p.codi}`, automatic: true }]
       };
       if (esFacturaFinal(updated)) {
-        updated.anticiposAplicats = getFacturesAnticipDisponibles(updated, allFactures).map(f => f.codi);
+        updated.bestretesAplicades = getFacturesBestretaDisponibles(updated, allFactures).map(f => f.codi);
       }
       vincularProjecteEnStorage(p.codi, updated);
       return updated;
@@ -512,16 +512,16 @@ export default function FacturaVendaDetailView({
         ? [...formData.accions, { data: new Date().toISOString(), descripcio: 'Factura emesa i marcada com a Enviada', automatic: true }]
         : formData.accions,
     };
-    if (passaAEnviada && updated.projecte && !esFacturaAnticip(updated)) {
+    if (passaAEnviada && updated.projecte && !esFacturaBestreta(updated)) {
       vincularProjecteEnStorage(updated.projecte, updated);
     }
-    if (passaAEnviada && updated.projecte && esFacturaAnticip(updated)) {
+    if (passaAEnviada && updated.projecte && esFacturaBestreta(updated)) {
       storage.setProjectes(storage.getProjectes().map((projecte: any) => {
         if (projecte.codi !== updated.projecte) return projecte;
         const jaRegistrada = projecte.historial?.some((entrada: any) =>
-          entrada.tipus === 'factura' && entrada.descripcio === `Factura d'anticip vinculada: ${updated.codi}`
+          entrada.tipus === 'factura' && entrada.descripcio === `Factura de bestreta vinculada: ${updated.codi}`
         );
-        return jaRegistrada ? projecte : registrarFacturaAnticipVinculada(projecte, updated.codi, updated.totalFactura);
+        return jaRegistrada ? projecte : registrarFacturaBestretaVinculada(projecte, updated.codi, updated.totalFactura);
       }));
     }
     setFormData(updated);
@@ -652,8 +652,8 @@ export default function FacturaVendaDetailView({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <FileText size={20} style={{ color: 'var(--color-text-secondary)' }} />
           <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{formData.codi}</span>
-          {tipusComercial === 'anticip' && (
-            <span style={{ padding: '0.15rem 0.55rem', background: 'var(--color-warning)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>ANTICIP</span>
+          {tipusComercial === 'bestreta' && (
+            <span style={{ padding: '0.15rem 0.55rem', background: 'var(--color-warning)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>BESTRETA</span>
           )}
           {tipusComercial === 'final' && (
             <span style={{ padding: '0.15rem 0.55rem', background: 'var(--color-success)', color: 'white', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>FINAL</span>

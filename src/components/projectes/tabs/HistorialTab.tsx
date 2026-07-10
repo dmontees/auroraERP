@@ -25,7 +25,7 @@ export default function HistorialTab({
   onClose
 }: Props) {
   const facturesAnticip = storage.getFacturesVenda().filter((factura: any) =>
-    factura.projecte === formData.codi && factura.tipusComercial === 'anticip'
+    factura.projecte === formData.codi && factura.tipusComercial === 'bestreta'
   );
 
   return (
@@ -170,11 +170,11 @@ export default function HistorialTab({
                 })), 100);
               }}
               style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-light)', borderRadius: '6px', cursor: 'pointer' }}
-              title={`Factura d'anticip ${factura.estat === 'borrador' ? 'en esborrany' : 'emesa'}. Clic per obrir-la.`}
+              title={`Factura de bestreta ${factura.estat === 'borrador' ? 'en esborrany' : 'emesa'}. Clic per obrir-la.`}
             >
               <FileText size={20} style={{ color: 'var(--color-warning-dark)', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '0.9rem' }}>Factura d'anticip {factura.estat === 'borrador' ? '(esborrany)' : ''}</div>
+                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '0.9rem' }}>Factura de bestreta {factura.estat === 'borrador' ? '(esborrany)' : ''}</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>{factura.codi} · {factura.totalFactura.toFixed(2)}€</div>
               </div>
             </div>

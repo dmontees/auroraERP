@@ -1,7 +1,7 @@
 import type { FacturaVenta } from '../types/facturaVenta';
 import type { Projecte } from '../types/projecte';
 import type { Gasto, GastoGeneral } from '../types/facturaCompra';
-import { getBaseProjecteFacturat } from './facturaAnticipos';
+import { getBaseProjecteFacturat } from './facturaBestretes';
 
 export interface Periode {
   dataInici: string;

@@ -4,12 +4,12 @@ import type { Client } from '../../../types/client';
 import type { Projecte } from '../../../types/projecte';
 import SearchableSelect from '../../common/SearchableSelect';
 import {
-  calcularAnticiposAplicats,
+  calcularBestretesAplicades,
   esFacturaFinal,
-  getCodisAnticipSeleccionats,
-  getFacturesAnticipDisponibles,
+  getCodisBestretaSeleccionats,
+  getFacturesBestretaDisponibles,
   getTipusComercialFactura,
-} from '../../../utils/facturaAnticipos';
+} from '../../../utils/facturaBestretes';
 
 const IVA_OPTIONS = [
   { label: 'Normal (21%)',       tipusIVA: 'Normal',      percent: 21 },
@@ -59,15 +59,15 @@ export default function DadesTab({
   const currentTipusIVA = percentToTipus(formData.ivaPercent);
   const esBloquejatPerVerifactu = esBloquejatContenido;
   const tipusComercial = getTipusComercialFactura(formData);
-  const facturesAnticip = getFacturesAnticipDisponibles(formData, allFactures);
-  const anticiposSeleccionats = getCodisAnticipSeleccionats(formData, allFactures);
-  const anticiposTotals = calcularAnticiposAplicats(formData, allFactures);
+  const facturesAnticip = getFacturesBestretaDisponibles(formData, allFactures);
+  const anticiposSeleccionats = getCodisBestretaSeleccionats(formData, allFactures);
+  const anticiposTotals = calcularBestretesAplicades(formData, allFactures);
   const projecteSeleccionat = projectes.find(p => p.codi === formData.projecte);
   const baseProjecteAnticip = projecteSeleccionat?.tasques.reduce(
     (sum, tasca) => sum + tasca.quantitat * tasca.tarifa,
     0,
   ) || 0;
-  const percentAnticip = Math.min(100, Math.max(0, formData.anticipoPercent ?? 30));
+  const percentAnticip = Math.min(100, Math.max(0, formData.bestretaPercent ?? 30));
 
   const handleIVAChange = (tipusIVA: string) => {
     const opt = IVA_OPTIONS.find(o => o.tipusIVA === tipusIVA);
@@ -78,9 +78,9 @@ export default function DadesTab({
     setFormData({
       ...formData,
       tipusComercial: tipus,
-      anticipoPercent: tipus === 'anticip' ? (formData.anticipoPercent ?? 30) : formData.anticipoPercent,
-      anticiposAplicats: tipus === 'final'
-        ? getFacturesAnticipDisponibles({ ...formData, tipusComercial: tipus }, allFactures).map(f => f.codi)
+      bestretaPercent: tipus === 'bestreta' ? (formData.bestretaPercent ?? 30) : formData.bestretaPercent,
+      bestretesAplicades: tipus === 'final'
+        ? getFacturesBestretaDisponibles({ ...formData, tipusComercial: tipus }, allFactures).map(f => f.codi)
         : [],
     });
   };
@@ -90,15 +90,15 @@ export default function DadesTab({
     const baseAnticip = Number((baseProjecteAnticip * percentAnticip / 100).toFixed(2));
     setFormData({
       ...formData,
-      anticipoPercent: percentAnticip,
-      anticipoBaseProjecte: baseProjecteAnticip,
+      bestretaPercent: percentAnticip,
+      bestretaBaseProjecte: baseProjecteAnticip,
       tasques: [{
         categoria: 'ANTICIP',
         tasques: [{
           id: `anticip-${projecteSeleccionat.codi}`,
           categoria: 'ANTICIP',
-          servei: 'Anticip de projecte',
-          descripcio: `Anticip del ${percentAnticip}% del projecte ${projecteSeleccionat.codi} - ${projecteSeleccionat.titol}`,
+          servei: 'Bestreta de projecte',
+          descripcio: `Bestreta del ${percentAnticip}% del projecte ${projecteSeleccionat.codi} - ${projecteSeleccionat.titol}`,
           quantitat: 1,
           unitat: 'unitat',
           preu: baseAnticip,
@@ -113,7 +113,7 @@ export default function DadesTab({
     const actuals = new Set(anticiposSeleccionats);
     if (actuals.has(codi)) actuals.delete(codi);
     else actuals.add(codi);
-    setFormData({ ...formData, anticiposAplicats: Array.from(actuals) });
+    setFormData({ ...formData, bestretesAplicades: Array.from(actuals) });
   };
 
   return (
@@ -220,8 +220,8 @@ export default function DadesTab({
                 disabled={clientBlocked || tePagaments || esBloquejatPerVerifactu || formData.tipus === 'rectificativa'}
               >
                 <option value="ordinaria">Ordinaria</option>
-                <option value="anticip">Anticip</option>
-                <option value="final">Final amb anticip</option>
+                <option value="anticip">Bestreta</option>
+                <option value="final">Final amb bestreta</option>
               </select>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -285,15 +285,15 @@ export default function DadesTab({
           background: 'var(--color-bg-tertiary)',
         }}>
           <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.75rem' }}>
-            Anticips aplicats a la factura final
+            Bestretes aplicades a la factura final
           </div>
           {!formData.projecte ? (
             <div style={{ fontSize: '0.86rem', color: 'var(--color-warning-dark)' }}>
-              Vincula un projecte per poder aplicar les factures d'anticip emeses.
+              Vincula un projecte per poder aplicar les factures de bestreta emeses.
             </div>
           ) : facturesAnticip.length === 0 ? (
             <div style={{ fontSize: '0.86rem', color: 'var(--color-text-secondary)' }}>
-              Aquest projecte no te factures d'anticip emeses.
+              Aquest projecte no te factures de bestreta emeses.
             </div>
           ) : (
             <>
@@ -316,7 +316,7 @@ export default function DadesTab({
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', fontSize: '0.86rem' }}>
                 <div><strong>Base projecte:</strong> {(totals.baseTasques || 0).toFixed(2)}€</div>
-                <div><strong>Anticips:</strong> -{anticiposTotals.base.toFixed(2)}€</div>
+                <div><strong>Bestretes:</strong> -{anticiposTotals.base.toFixed(2)}€</div>
                 <div><strong>Base final:</strong> {totals.baseImposable.toFixed(2)}€</div>
               </div>
             </>
@@ -324,21 +324,21 @@ export default function DadesTab({
         </div>
       )}
 
-      {tipusComercial === 'anticip' && (
+      {tipusComercial === 'bestreta' && (
         <div style={{
           padding: '0.85rem 1rem', borderRadius: '8px', marginBottom: '1rem',
           border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)',
         }}>
           <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--color-text-tertiary)', marginBottom: '0.75rem' }}>
-            Anticip del projecte
+            Bestreta del projecte
           </div>
           {!projecteSeleccionat ? (
             <div style={{ fontSize: '0.86rem', color: 'var(--color-warning-dark)' }}>
-              Vincula un projecte per calcular l'anticip sobre el seu import actual.
+              Vincula un projecte per calcular la bestreta sobre el seu import actual.
             </div>
           ) : baseProjecteAnticip <= 0 ? (
             <div style={{ fontSize: '0.86rem', color: 'var(--color-warning-dark)' }}>
-              Aquest projecte no te tasques facturables per calcular l'anticip.
+              Aquest projecte no te tasques facturables per calcular la bestreta.
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'end', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -351,8 +351,8 @@ export default function DadesTab({
                     min="0"
                     max="100"
                     step="0.01"
-                    value={formData.anticipoPercent ?? 30}
-                    onChange={e => setFormData({ ...formData, anticipoPercent: Number(e.target.value) })}
+                    value={formData.bestretaPercent ?? 30}
+                    onChange={e => setFormData({ ...formData, bestretaPercent: Number(e.target.value) })}
                     disabled={esBloquejatPerVerifactu}
                   />
                   <span>%</span>
@@ -360,7 +360,7 @@ export default function DadesTab({
               </div>
               <div style={{ fontSize: '0.86rem', color: 'var(--color-text-secondary)', paddingBottom: '0.55rem' }}>
                 Base projecte: <strong>{baseProjecteAnticip.toFixed(2)}€</strong><br />
-                Anticip: <strong>{(baseProjecteAnticip * percentAnticip / 100).toFixed(2)}€</strong>
+                Bestreta: <strong>{(baseProjecteAnticip * percentAnticip / 100).toFixed(2)}€</strong>
               </div>
               <button
                 type="button"
@@ -368,7 +368,7 @@ export default function DadesTab({
                 onClick={aplicarAnticip}
                 disabled={esBloquejatPerVerifactu}
               >
-                Aplicar anticip
+                Aplicar bestreta
               </button>
             </div>
           )}

@@ -1,6 +1,6 @@
 import type { FacturaVenta } from '../types/facturaVenta';
 
-export interface AnticiposAplicatsTotals {
+export interface BestretesAplicadesTotals {
   base: number;
   iva: number;
   irpf: number;
@@ -11,15 +11,15 @@ export function getTipusComercialFactura(factura: Partial<FacturaVenta>): NonNul
   return factura.tipusComercial || 'ordinaria';
 }
 
-export function esFacturaAnticip(factura: Partial<FacturaVenta>): boolean {
-  return getTipusComercialFactura(factura) === 'anticip';
+export function esFacturaBestreta(factura: Partial<FacturaVenta>): boolean {
+  return getTipusComercialFactura(factura) === 'bestreta';
 }
 
 export function esFacturaFinal(factura: Partial<FacturaVenta>): boolean {
   return getTipusComercialFactura(factura) === 'final';
 }
 
-export function getFacturesAnticipDisponibles(
+export function getFacturesBestretaDisponibles(
   factura: Partial<FacturaVenta>,
   allFactures: FacturaVenta[],
 ): FacturaVenta[] {
@@ -29,34 +29,34 @@ export function getFacturesAnticipDisponibles(
     .filter(f =>
       f.codi !== factura.codi &&
       f.projecte === factura.projecte &&
-      getTipusComercialFactura(f) === 'anticip' &&
+      getTipusComercialFactura(f) === 'bestreta' &&
       f.tipus !== 'rectificativa' &&
       f.estat !== 'borrador'
     )
     .sort((a, b) => a.dataFactura.localeCompare(b.dataFactura) || a.codi.localeCompare(b.codi));
 }
 
-export function getCodisAnticipSeleccionats(
+export function getCodisBestretaSeleccionats(
   factura: Partial<FacturaVenta>,
   allFactures: FacturaVenta[],
 ): string[] {
   if (!esFacturaFinal(factura)) return [];
-  const disponibles = getFacturesAnticipDisponibles(factura, allFactures);
-  if (Array.isArray(factura.anticiposAplicats)) {
+  const disponibles = getFacturesBestretaDisponibles(factura, allFactures);
+  if (Array.isArray(factura.bestretesAplicades)) {
     const disponiblesSet = new Set(disponibles.map(f => f.codi));
-    return factura.anticiposAplicats.filter(codi => disponiblesSet.has(codi));
+    return factura.bestretesAplicades.filter(codi => disponiblesSet.has(codi));
   }
   return disponibles.map(f => f.codi);
 }
 
-export function calcularAnticiposAplicats(
+export function calcularBestretesAplicades(
   factura: Partial<FacturaVenta>,
   allFactures: FacturaVenta[],
-): AnticiposAplicatsTotals {
-  const codis = new Set(getCodisAnticipSeleccionats(factura, allFactures));
+): BestretesAplicadesTotals {
+  const codis = new Set(getCodisBestretaSeleccionats(factura, allFactures));
   return allFactures
     .filter(f => codis.has(f.codi))
-    .reduce<AnticiposAplicatsTotals>((sum, f) => ({
+    .reduce<BestretesAplicadesTotals>((sum, f) => ({
       base: sum.base + (f.baseImposable || 0),
       iva: sum.iva + (f.ivaImport || 0),
       irpf: sum.irpf + (f.irpfImport || 0),
@@ -75,7 +75,7 @@ export function getBaseProjecteFacturat(
   );
   const finals = facturesProjecte.filter(esFacturaFinal);
   if (finals.length > 0) {
-    return finals.reduce((sum, f) => sum + (f.baseImposable || 0) + (f.anticiposAplicatsBase || 0), 0);
+    return finals.reduce((sum, f) => sum + (f.baseImposable || 0) + (f.bestretesAplicadesBase || 0), 0);
   }
   return facturesProjecte.reduce((sum, f) => sum + (f.baseImposable || 0), 0);
 }

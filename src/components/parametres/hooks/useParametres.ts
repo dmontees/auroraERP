@@ -34,7 +34,7 @@ const DEFAULT_GROUP_TRANSLATIONS: Record<string, { nomEs: string; nomEn: string 
 const DEFAULT_TIPUS_PLANTILLES: TipusPlantilla[] = [
   { codi: 'TPL-00001', nom: 'Peu de pàgina de pressupost', esDefault: true },
   { codi: 'TPL-00002', nom: 'Peu de pàgina de factures', esDefault: true },
-  { codi: 'TPL-00003', nom: 'Peu de pàgina de factures anticip', esDefault: true }
+  { codi: 'TPL-00003', nom: 'Peu de pàgina de factures de bestreta', esDefault: true }
 ];
 
 const DEFAULT_PLANTILLES: Plantilla[] = [
@@ -97,8 +97,8 @@ const DEFAULT_PLANTILLES: Plantilla[] = [
   {
     codi: 'PLT-00009',
     tipusPlantilla: 'TPL-00003',
-    titol: 'Condicions de factura d\'anticip',
-    text: 'Aquest anticip es descomptara integrament de la factura final. La reserva i acceptacio del projecte nomes queden confirmades en rebre el pagament; fins aleshores no podem garantir la nostra disponibilitat.',
+    titol: 'Condicions de factura de bestreta',
+    text: 'Aquesta bestreta es descomptara integrament de la factura final. La reserva i acceptacio del projecte nomes queden confirmades en rebre el pagament; fins aleshores no podem garantir la nostra disponibilitat.',
     textEs: 'Este anticipo se descontara integramente de la factura final. La reserva y aceptacion del proyecto solo quedaran confirmadas al recibir el pago; hasta entonces no podemos garantizar nuestra disponibilidad.',
     textEn: 'This advance payment will be deducted in full from the final invoice. The project booking and acceptance are confirmed only once payment is received; until then, we cannot guarantee our availability.',
     perDefecte: true

@@ -192,8 +192,8 @@ const saveProjectes = (newProjectes: Projecte[]) => {
 // Crear factura desde proyecto
 const crearFacturaDesdeProjecte = (
   projecte: Projecte,
-  tipusComercial: 'ordinaria' | 'anticip' = 'ordinaria',
-  anticipoPercent = 30,
+  tipusComercial: 'ordinaria' | 'bestreta' = 'ordinaria',
+  bestretaPercent = 30,
 ) => {
   // Generar código de factura
   const facturesVenda = storage.getFacturesVenda();
@@ -233,11 +233,11 @@ const crearFacturaDesdeProjecte = (
   });
 
   const baseProjecte = baseImposable;
-  if (tipusComercial === 'anticip') {
-    const baseAnticip = Number((baseProjecte * anticipoPercent / 100).toFixed(2));
+  if (tipusComercial === 'bestreta') {
+    const baseAnticip = Number((baseProjecte * bestretaPercent / 100).toFixed(2));
     tascasCategoritzades.splice(0, tascasCategoritzades.length, {
       categoria: 'ANTICIP',
-      tasques: [{ id: `anticip-${projecte.codi}`, categoria: 'ANTICIP', servei: 'Anticip de projecte', descripcio: `Anticip del ${anticipoPercent}% del projecte ${projecte.codi} - ${projecte.titol}`, quantitat: 1, unitat: 'unitat', preu: baseAnticip, importe: baseAnticip, ordre: 0 }],
+      tasques: [{ id: `anticip-${projecte.codi}`, categoria: 'ANTICIP', servei: 'Bestreta de projecte', descripcio: `Bestreta del ${bestretaPercent}% del projecte ${projecte.codi} - ${projecte.titol}`, quantitat: 1, unitat: 'unitat', preu: baseAnticip, importe: baseAnticip, ordre: 0 }],
     });
     baseImposable = baseAnticip;
   }
@@ -249,8 +249,8 @@ const crearFacturaDesdeProjecte = (
     codi: codiFactura,
     tipus: 'normal',
     tipusComercial,
-    anticipoPercent: tipusComercial === 'anticip' ? anticipoPercent : undefined,
-    anticipoBaseProjecte: tipusComercial === 'anticip' ? baseProjecte : undefined,
+    bestretaPercent: tipusComercial === 'bestreta' ? bestretaPercent : undefined,
+    bestretaBaseProjecte: tipusComercial === 'bestreta' ? baseProjecte : undefined,
     estat: 'borrador',
     client: projecte.client,
     projecte: projecte.codi,
@@ -305,8 +305,8 @@ const crearFacturaDesdeProjecte = (
   storage.setNavigateTo({ type: 'factura', codi: codiFactura });
   setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { section: 'factures-venda', codi: codiFactura } })), 100);
 
-  alert(tipusComercial === 'anticip'
-    ? `Factura d'anticip ${codiFactura} creada correctament. El projecte continua actiu.`
+  alert(tipusComercial === 'bestreta'
+    ? `Factura de bestreta ${codiFactura} creada correctament. El projecte continua actiu.`
     : `Factura ${codiFactura} creada correctament. El projecte ha estat marcat com facturat i vinculat a la factura.`);
 };
 

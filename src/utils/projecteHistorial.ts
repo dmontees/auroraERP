@@ -317,7 +317,7 @@ export const obtenirColorHistorial = (tipus: HistorialEntry['tipus']): string =>
 };
 
 /** Registrar una factura de anticip vinculada sense tancar el projecte. */
-export const registrarFacturaAnticipVinculada = (
+export const registrarFacturaBestretaVinculada = (
   projecte: Projecte,
   codiFactura: string,
   importFactura: number,
@@ -325,7 +325,7 @@ export const registrarFacturaAnticipVinculada = (
   return afegirEntradaHistorial(
     projecte,
     'factura',
-    `Factura d'anticip vinculada: ${codiFactura}`,
-    `Import de l'anticip: ${importFactura.toFixed(2)}€`
+    `Factura de bestreta vinculada: ${codiFactura}`,
+    `Import de la bestreta: ${importFactura.toFixed(2)}€`
   );
 };
