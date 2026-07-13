@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Pressupost, TascaPressupost, MaterialPressupost, RecursHumaPressupost } from '../../../types/pressupost';
 import type { Client } from '../../../types/client';
 import type { Proveidor } from '../../../types/proveidor';
+import type { Projecte } from '../../../types/projecte';
 import { storage } from '../../../utils/storageManager';
 import { registrarCreacioProjecte } from '../../../utils/projecteHistorial';
+import { getNextTdCodi, syncAlbaransForProject } from '../../../utils/albaraSync';
 
 interface UsePressupostProps {
   initialPressupost: Pressupost | null;
@@ -520,10 +522,36 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
       historial: []
     };
   
-    const nouProjecteAmbHistorial = registrarCreacioProjecte(nouProjecte as any, formData.codi);
+    // Les línies que venen del pressupost no passen pels formularis de projecte,
+    // que normalment assignen el TD i creen l'albarà. Els assignem aquí perquè
+    // entrin al mateix circuit de seguiment de factures i pagaments.
+    const projecteAmbTdCodis = {
+      ...nouProjecte,
+      recursosHumans: [] as typeof nouProjecte.recursosHumans,
+      materials: [] as typeof nouProjecte.materials,
+    };
+
+    projecteAmbTdCodis.recursosHumans = nouProjecte.recursosHumans.map(recurs => {
+      const linia = recurs.proveidor
+        ? { ...recurs, tdCodi: getNextTdCodi(projecteAmbTdCodis as Projecte) }
+        : recurs;
+      projecteAmbTdCodis.recursosHumans.push(linia);
+      return linia;
+    });
+
+    projecteAmbTdCodis.materials = nouProjecte.materials.map(material => {
+      const linia = material.proveidor
+        ? { ...material, tdCodi: getNextTdCodi(projecteAmbTdCodis as Projecte) }
+        : material;
+      projecteAmbTdCodis.materials.push(linia);
+      return linia;
+    });
+
+    const nouProjecteAmbHistorial = registrarCreacioProjecte(projecteAmbTdCodis as Projecte, formData.codi);
 
     const novosProjectes = [...projectesActuals, nouProjecteAmbHistorial];
     storage.setProjectes(novosProjectes);
+    syncAlbaransForProject(nouProjecteAmbHistorial, parametres);
   
     const pressupostActualitzat = { 
       ...formData, 

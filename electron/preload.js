@@ -63,7 +63,7 @@ try {
         plantilles: []
       },
       partsTreball: [],
-      version: '3.1.2',
+      version: '3.1.3',
       dataSchemaVersion: 5,
       migrationCompleted: false
     }
