@@ -236,8 +236,8 @@ const crearFacturaDesdeProjecte = (
   if (tipusComercial === 'bestreta') {
     const baseAnticip = Number((baseProjecte * bestretaPercent / 100).toFixed(2));
     tascasCategoritzades.splice(0, tascasCategoritzades.length, {
-      categoria: 'ANTICIP',
-      tasques: [{ id: `anticip-${projecte.codi}`, categoria: 'ANTICIP', servei: 'Bestreta de projecte', descripcio: `Bestreta del ${bestretaPercent}% del projecte ${projecte.codi} - ${projecte.titol}`, quantitat: 1, unitat: 'unitat', preu: baseAnticip, importe: baseAnticip, ordre: 0 }],
+      categoria: 'BESTRETA',
+      tasques: [{ id: `bestreta-${projecte.codi}`, categoria: 'BESTRETA', servei: 'Bestreta de projecte', descripcio: `Bestreta del ${bestretaPercent}% del projecte ${projecte.codi} - ${projecte.titol}`, quantitat: 1, unitat: 'unitat', preu: baseAnticip, importe: baseAnticip, ordre: 0 }],
     });
     baseImposable = baseAnticip;
   }

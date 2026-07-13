@@ -93,10 +93,10 @@ export default function DadesTab({
       bestretaPercent: percentAnticip,
       bestretaBaseProjecte: baseProjecteAnticip,
       tasques: [{
-        categoria: 'ANTICIP',
+        categoria: 'BESTRETA',
         tasques: [{
           id: `anticip-${projecteSeleccionat.codi}`,
-          categoria: 'ANTICIP',
+          categoria: 'BESTRETA',
           servei: 'Bestreta de projecte',
           descripcio: `Bestreta del ${percentAnticip}% del projecte ${projecteSeleccionat.codi} - ${projecteSeleccionat.titol}`,
           quantitat: 1,
