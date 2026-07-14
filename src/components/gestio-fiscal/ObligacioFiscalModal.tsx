@@ -203,6 +203,7 @@ export default function ObligacioFiscalModal({
   const subtipusInfo = SUBTIPUS_OBLIGACIO_FISCAL.find(s => s.codi === subtipus);
 
   const needsPDF = subtipus === 'cuota-autonomo' || subtipus === 'regularitzacio-ss' || subtipus === 'nomina-treballador';
+  const isTaxDeclaration = subtipus === 'irpf-trimestral' || subtipus === 'irpf-anual' || subtipus === 'iva-trimestral';
 
   const prepararGasto = (): ObligacioFiscal | null => {
     if (!data || !periode) return null;
@@ -313,6 +314,8 @@ export default function ObligacioFiscalModal({
         originalName: file.name,
         dataBase64: nextDocumentPDF,
         existingRefs: documentsGenerats,
+        folder: isTaxDeclaration ? 'declaracions' : 'despeses',
+        periode,
       });
       setDocumentPDF(nextDocumentPDF);
       setDocumentPDFName(file.name);
@@ -799,6 +802,21 @@ export default function ObligacioFiscalModal({
               disabled={camposBloquejats}
               required
             />
+          )}
+
+          {isTaxDeclaration && (
+            <div style={{ marginTop: '1rem' }}>
+              <PDFUploader
+                documentPDF={documentPDF}
+                fileName={documentPDFName}
+                onUpload={handlePDFUpload}
+                onDelete={handlePDFDelete}
+                disabled={camposBloquejats}
+              />
+              <p style={{ margin: '-0.5rem 0 1rem', fontSize: '0.8rem', color: 'var(--color-text-tertiary)' }}>
+                Opcional. El model presentat es desa a Fiscal / any / trimestre (o Anual) / Declaracions fiscals.
+              </p>
+            </div>
           )}
 
           <div style={{

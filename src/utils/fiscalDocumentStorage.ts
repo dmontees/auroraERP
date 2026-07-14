@@ -1,5 +1,6 @@
 import type { DocumentFileRef, DocumentKind } from '../types/documental';
-import { buildFiscalDocumentPath, createDocumentRef, safeFileName } from './documentManager';
+import { buildFiscalDeclarationDocumentPath, buildFiscalDocumentPath, createDocumentRef, safeFileName } from './documentManager';
+import type { FiscalDocumentFolder } from './documentManager';
 import { storage } from './storageManager';
 
 export async function saveFiscalDocumentVersion(input: {
@@ -10,6 +11,8 @@ export async function saveFiscalDocumentVersion(input: {
   originalName: string;
   dataBase64: string;
   existingRefs?: DocumentFileRef[];
+  folder?: FiscalDocumentFolder;
+  periode?: string;
 }): Promise<DocumentFileRef | null> {
   const rootPath = storage.getParametres().gestorDocumental?.rootPath;
   const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
@@ -19,7 +22,9 @@ export async function saveFiscalDocumentVersion(input: {
   const version = Math.max(0, ...matchingRefs.map(ref => ref.version || 0)) + 1;
   const extension = input.originalName.includes('.') ? input.originalName.split('.').pop() || 'pdf' : 'pdf';
   const filename = `${safeFileName(input.displayName)}_v${String(version).padStart(3, '0')}.${safeFileName(extension)}`;
-  const relativePath = buildFiscalDocumentPath(input.dataGasto, 'despeses', filename);
+  const relativePath = input.folder === 'declaracions' && input.periode
+    ? buildFiscalDeclarationDocumentPath(input.periode, filename)
+    : buildFiscalDocumentPath(input.dataGasto, input.folder || 'despeses', filename);
   const result = await electronDocuments.writeFile({
     rootPath,
     relativePath,

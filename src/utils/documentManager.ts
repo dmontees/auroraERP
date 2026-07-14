@@ -25,13 +25,14 @@ export const DOCUMENT_FOLDERS = {
   providerOther: '99_Altres',
   fiscal: 'Fiscal',
   fiscalExpenses: 'Despeses i obligacions fiscals',
+  fiscalDeclarations: 'Declaracions fiscals',
   fiscalSalesInvoices: 'Factures venda',
 } as const;
 
 export type ClientDocumentFolder = 'contractes' | 'fiscal' | 'pressupostos' | 'altres';
 export type ProjectDocumentFolder = 'pressupostos' | 'documents' | 'enllacos';
 export type ProviderDocumentFolder = 'contracte' | 'asseguranca' | 'certificat' | 'nomines' | 'factures' | 'altres';
-export type FiscalDocumentFolder = 'despeses' | 'factures-venda';
+export type FiscalDocumentFolder = 'despeses' | 'declaracions' | 'factures-venda';
 
 const CLIENT_FOLDER_MAP: Record<ClientDocumentFolder, string> = {
   contractes: DOCUMENT_FOLDERS.clientContracts,
@@ -57,6 +58,7 @@ const PROVIDER_FOLDER_MAP: Record<ProviderDocumentFolder, string> = {
 
 const FISCAL_FOLDER_MAP: Record<FiscalDocumentFolder, string> = {
   despeses: DOCUMENT_FOLDERS.fiscalExpenses,
+  declaracions: DOCUMENT_FOLDERS.fiscalDeclarations,
   'factures-venda': DOCUMENT_FOLDERS.fiscalSalesInvoices,
 };
 
@@ -154,6 +156,20 @@ export function buildFiscalDocumentPath(
     getFiscalYear(date),
     getFiscalQuarter(date),
     FISCAL_FOLDER_MAP[folder],
+    safeFileName(filename)
+  );
+}
+
+export function buildFiscalDeclarationDocumentPath(periode: string, filename: string): string {
+  const quarterlyPeriod = periode.match(/^(\d{4})-Q([1-4])$/);
+  const year = quarterlyPeriod?.[1] || (periode.match(/^\d{4}$/)?.[0]) || getFiscalYear(new Date());
+  const periodFolder = quarterlyPeriod ? `T${quarterlyPeriod[2]}` : 'Anual';
+
+  return joinRelativePath(
+    DOCUMENT_FOLDERS.fiscal,
+    year,
+    periodFolder,
+    DOCUMENT_FOLDERS.fiscalDeclarations,
     safeFileName(filename)
   );
 }
