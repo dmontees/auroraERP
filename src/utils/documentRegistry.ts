@@ -41,7 +41,8 @@ export function collectDocumentRefs(): DocumentRefEntry[] {
   }
 
   for (const pressupost of storage.getPressupostos()) {
-    for (const ref of pressupost.documentsGenerats || []) {
+    const allRefs = [...(pressupost.documentsGenerats || []), ...(pressupost.alternatives || []).flatMap(a => a.documentsGenerats || [])];
+    for (const ref of new Map(allRefs.map(ref => [ref.id, ref])).values()) {
       refs.push({ owner: { type: 'pressupost', codi: pressupost.codi, label: `${pressupost.codi}/${ref.displayName}` }, ref });
     }
   }
@@ -109,7 +110,11 @@ export function updateStoredDocumentRef(owner: DocumentRefOwner, refId: string, 
 
   if (owner.type === 'pressupost') {
     storage.setPressupostos(storage.getPressupostos().map(pressupost =>
-      pressupost.codi === owner.codi ? { ...pressupost, documentsGenerats: replaceRef(pressupost.documentsGenerats, refId, nextRef) } : pressupost
+      pressupost.codi === owner.codi ? {
+        ...pressupost,
+        documentsGenerats: replaceRef(pressupost.documentsGenerats, refId, nextRef),
+        alternatives: pressupost.alternatives?.map(a => ({ ...a, documentsGenerats: replaceRef(a.documentsGenerats, refId, nextRef) })),
+      } : pressupost
     ));
     return;
   }

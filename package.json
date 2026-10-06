@@ -1,7 +1,7 @@
 {
   "name": "Aurora-erp",
   "private": true,
-  "version": "3.1.4",
+  "version": "3.1.5",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Dani Montes",
@@ -10,7 +10,7 @@
     "dev": "vite",
     "typecheck": "tsc",
     "check:electron": "node --check electron/main.cjs && node --check electron/preload.js",
-    "test:critical": "node scripts/test-updater-utils.mjs && node scripts/test-critical-contracts.mjs",
+    "test:critical": "node scripts/test-updater-utils.mjs && node scripts/test-critical-contracts.mjs && node scripts/test-pressupost-alternatives.mjs",
     "check": "npm run typecheck && npm run test:critical && npm run check:electron",
     "build": "tsc && vite build",
     "preview": "vite preview",

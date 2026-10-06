@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import type { Pressupost } from '../../types/pressupost';
 import type { Client } from '../../types/client';
 import PressupostModal from './PressupostModal';
+import { estatProposta } from '../../utils/pressupostAlternatives';
 import { storage } from '../../utils/storageManager';
 
 function PressupostosSection() {
@@ -65,7 +66,7 @@ function PressupostosSection() {
         clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
         pressupost.nomProjecte.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchEstat = filterEstat === 'Tots' || pressupost.estat === filterEstat;
+      const matchEstat = filterEstat === 'Tots' || estatProposta(pressupost) === filterEstat;
       
       return matchSearch && matchEstat;
     })
@@ -90,13 +91,15 @@ function PressupostosSection() {
 
   // Exportar a Excel
   const exportarExcel = () => {
-    const excelData = filteredPressupostos.map(pressupost => {
+    const excelData = filteredPressupostos.flatMap(proposta => (proposta.alternatives || [proposta]).map(pressupost => {
       const client = clients.find(c => c.codi === pressupost.client);
       const totals = calcularTotals(pressupost);
       
       return {
         'Codi': pressupost.codi,
-        'Estat': pressupost.estat.toUpperCase(),
+        'Alternatives': proposta.alternatives?.length || 1,
+        'Opció': pressupost.alternativaNom || '',
+        'Estat': proposta.alternativaAcceptadaId && proposta.alternativaAcceptadaId !== pressupost.alternativaId ? 'NO ESCOLLIDA' : pressupost.estat.toUpperCase(),
         'Client': client?.nomComercial || client?.nomFiscal || '-',
         'Projecte': pressupost.nomProjecte || '-',
         'Data': pressupost.data,
@@ -106,14 +109,14 @@ function PressupostosSection() {
         'Benefici (€)': totals.benefici.toFixed(2),
         '% Benefici': totals.percentBenefici.toFixed(1) + '%'
       };
-    });
+    }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pressupostos');
 
     const colWidths = [
-      { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 30 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 30 }, { wch: 30 }, { wch: 12 },
       { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 12 }
     ];
     ws['!cols'] = colWidths;
@@ -189,6 +192,10 @@ function PressupostosSection() {
               filteredPressupostos.map((pressupost) => {
                 const client = clients.find(c => c.codi === pressupost.client);
                 const totals = calcularTotals(pressupost);
+                const optionTotals = !pressupost.alternativaAcceptadaId && pressupost.alternatives?.length
+                  ? pressupost.alternatives.map(a => calcularTotals(a).totalPressupost) : [];
+                const min = Math.min(...optionTotals);
+                const max = Math.max(...optionTotals);
                 
                 const estatColors = {
                   esborrany: { bg: '#f3f4f6', text: 'var(--color-text-secondary)' },
@@ -210,21 +217,21 @@ function PressupostosSection() {
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        background: estatColors[pressupost.estat].bg,
-                        color: estatColors[pressupost.estat].text,
+                        background: estatColors[estatProposta(pressupost)].bg,
+                        color: estatColors[estatProposta(pressupost)].text,
                         textTransform: 'uppercase'
                       }}>
-                        {pressupost.estat}
+                        {estatProposta(pressupost)}
                       </span>
                     </td>
-                    <td style={{ padding: '0.75rem', fontWeight: 500 }}>{pressupost.codi}</td>
+                    <td style={{ padding: '0.75rem', fontWeight: 500 }}>{pressupost.codi}{pressupost.alternatives && <div style={{ fontSize: '0.8rem', fontWeight: 400 }}>{pressupost.alternatives.length} alternatives{pressupost.alternativaAcceptadaId ? ` · ${pressupost.alternativaNom} acceptada` : ''}</div>}</td>
                     <td style={{ padding: '0.75rem' }}>
                       {client?.nomComercial || client?.nomFiscal || '-'}
                     </td>
                     <td style={{ padding: '0.75rem' }}>{pressupost.nomProjecte || '-'}</td>
                     <td style={{ padding: '0.75rem' }}>{pressupost.data}</td>
                     <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>
-                      {totals.totalPressupost.toFixed(2)}€
+                      {optionTotals.length && min !== max ? `${min.toFixed(2)}–${max.toFixed(2)}` : totals.totalPressupost.toFixed(2)}€
                     </td>
                     <td style={{ 
                       padding: '0.75rem', 
@@ -232,7 +239,7 @@ function PressupostosSection() {
                       color: totals.benefici >= 0 ? 'var(--color-success-dark)' : 'var(--color-error-darker)',
                       fontWeight: 600
                     }}>
-                      {totals.benefici.toFixed(2)}€ ({totals.percentBenefici.toFixed(1)}%)
+                      {optionTotals.length > 1 ? 'Segons alternativa' : `${totals.benefici.toFixed(2)}€ (${totals.percentBenefici.toFixed(1)}%)`}
                     </td>
                   </tr>
                 );

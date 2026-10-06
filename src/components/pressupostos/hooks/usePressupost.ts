@@ -6,6 +6,7 @@ import type { Projecte } from '../../../types/projecte';
 import { storage } from '../../../utils/storageManager';
 import { registrarCreacioProjecte } from '../../../utils/projecteHistorial';
 import { getNextTdCodi, syncAlbaransForProject } from '../../../utils/albaraSync';
+import { pressupostPerGuardar } from '../../../utils/pressupostAlternatives';
 
 interface UsePressupostProps {
   initialPressupost: Pressupost | null;
@@ -450,6 +451,8 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
   // ============================================================================
 
   const crearProjecteDesdePressupost = useCallback(() => {
+    if (formData.estat !== 'acceptat' || formData.projecteCreat || formData.projecteVinculat ||
+        (formData.alternativaAcceptadaId && formData.alternativaAcceptadaId !== formData.alternativaId)) return;
     if (!confirm('Vols crear un projecte nou a partir d\'aquest pressupost?')) {
       return;
     }
@@ -501,14 +504,14 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
         preuPlatea: m.preuPlatea || 0,
         jornades: m.jornades ?? 1
       })),
-      ingresSenseIVA: (formData as any).baseImposable,
+      ingresSenseIVA: formData.tasques.reduce((sum, t) => sum + t.importe, 0),
       iva: formData.iva,
-      ingresAmbIVA: (formData as any).totalAmbIVA,
+      ingresAmbIVA: formData.tasques.reduce((sum, t) => sum + t.importe, 0) * (1 + formData.iva / 100),
       gastosMaterials: formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0),
       gastosHumans: formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0),
       gastosTotals: formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) +
                     formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0),
-      benefici: (formData as any).totalAmbIVA - (formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) +
+      benefici: formData.tasques.reduce((sum, t) => sum + t.importe, 0) - (formData.recursosHumans.reduce((sum, r) => sum + (r.importe || 0), 0) +
                                         formData.materials.reduce((sum, m) => sum + (m.preuProveidor || 0) * (m.jornades ?? 1), 0)),
       percentBenefici: 0,
       instruccionsClient: '',
@@ -563,7 +566,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
 
     const pressupostosActuals = storage.getPressupostos();
     const pressupostosActualitzats = pressupostosActuals.map((p: Pressupost) =>
-      p.codi === formData.codi ? pressupostActualitzat : p
+      p.codi === formData.codi ? pressupostPerGuardar(pressupostActualitzat) : p
     );
     storage.setPressupostos(pressupostosActualitzats);
 
@@ -598,6 +601,7 @@ export function usePressupost({ initialPressupost, nextCode }: UsePressupostProp
 
   const esEliminable = initialPressupost ? (() => {
     if (formData.estat !== 'esborrany') return false;
+    if (formData.alternativaAcceptadaId || formData.alternatives?.some(a => a.estat !== 'esborrany' || a.projecteCreat || a.projecteVinculat)) return false;
     
     if (formData.projecteCreat) {
       const projecteExisteix = projectes.some(p => p.codi === formData.projecteCreat);

@@ -1,3 +1,4 @@
+import { referenciaAlternativa } from './pressupostAlternatives';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Pressupost } from '../types/pressupost';
@@ -8,9 +9,11 @@ export const generarPressupostPDF = (
   formData: Pressupost,
   clients: Client[],
   idioma: 'ca' | 'es' | 'en',
-  options: { save?: boolean } = {}
+  options: { save?: boolean; doc?: jsPDF } = {}
 ) => {
-  const doc = new jsPDF();
+  const doc = options.doc || new jsPDF();
+  if (options.doc) doc.addPage();
+  const firstPage = doc.getNumberOfPages();
   
   // Traducciones
   const t = {
@@ -233,8 +236,14 @@ export const generarPressupostPDF = (
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...colorPrimary);
-  doc.text(`${tr.pressupost} ${formData.codi}`, 105, yPos, { align: 'center' });
+  doc.text(`${tr.pressupost} ${referenciaAlternativa(formData)}`, 105, yPos, { align: 'center' });
   yPos += 6;
+  if (formData.alternativaNom) {
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(formData.alternativaNom, 170);
+    doc.text(lines, 105, yPos, { align: 'center' });
+    yPos += lines.length * 5;
+  }
   
 // FECHA DEL PRESUPUESTO (centrado)
 doc.setFontSize(9);
@@ -494,14 +503,24 @@ if (notesText) {
 const pageCount = doc.getNumberOfPages();
 doc.setFontSize(7);
 doc.setTextColor(150);
-for (let i = 1; i <= pageCount; i++) {
+for (let i = firstPage; i <= pageCount; i++) {
   doc.setPage(i);
-  doc.text(`${tr.pagina} ${i}/${pageCount}`, margenDer, 287, { align: 'right' });
+  doc.text(`${tr.pagina} ${i - firstPage + 1}/${pageCount - firstPage + 1}`, margenDer, 287, { align: 'right' });
 }
 
 const dataUri = doc.output('datauristring');
 if (options.save !== false) {
-  doc.save(`${formData.codi}_pressupost.pdf`);
+  doc.save(`${referenciaAlternativa(formData)}_pressupost.pdf`);
 }
 return dataUri;
 };
+
+export function generarAlternativesPressupostPDF(pressupost: Pressupost, clients: Client[], idioma: 'ca' | 'es' | 'en', options: { save?: boolean } = {}) {
+  const doc = new jsPDF();
+  for (const alternativa of pressupost.alternatives || []) {
+    generarPressupostPDF(alternativa, clients, idioma, { save: false, doc });
+  }
+  doc.deletePage(1);
+  if (options.save !== false) doc.save(`${pressupost.codi}_alternatives.pdf`);
+  return doc.output('datauristring');
+}

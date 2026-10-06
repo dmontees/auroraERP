@@ -51,7 +51,7 @@ export default function DadesTab({ hook }: DadesTabProps) {
           }}
           onFocus={() => setShowClientDropdown(true)}
           placeholder="Cerca client..."
-          disabled={pressupostBloquejat}
+          disabled={pressupostBloquejat || !!formData.alternatives?.length}
           required
         />
         

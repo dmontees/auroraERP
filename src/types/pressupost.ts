@@ -27,6 +27,10 @@ export type TascaPressupost = import('./tascaVenda').TascaVenda;
 export type TascaCategoria  = import('./tascaVenda').TascaVenda;
 
 export interface Pressupost {
+  alternativaId?: string;
+  alternativaNom?: string;
+  alternativaAcceptadaId?: string;
+  alternatives?: AlternativaPressupost[];
   codi: string;
   client: string;
   data: string;
@@ -61,3 +65,8 @@ export interface Pressupost {
   estat: 'esborrany' | 'enviat' | 'acceptat' | 'rebutjat';
   documentsGenerats?: DocumentFileRef[];
 }
+
+export type AlternativaPressupost = Omit<Pressupost, 'alternatives' | 'alternativaAcceptadaId'> & {
+  alternativaId: string;
+  alternativaNom: string;
+};

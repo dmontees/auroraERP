@@ -7,7 +7,7 @@ import flagEn from '../../assets/flag-en.png';
 import type { Pressupost } from '../../types/pressupost';
 import { usePressupost } from './hooks/usePressupost';
 import { useAutoSave } from '../../hooks/useAutoSave';
-import { generarPressupostPDF } from '../../utils/generarPressupostPDF';
+import { generarPressupostPDF, generarAlternativesPressupostPDF } from '../../utils/generarPressupostPDF';
 import { buildClientDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from '../../utils/documentManager';
 import DadesTab from './tabs/DadesTab';
 import ProjecteTab from './tabs/ProjecteTab';
@@ -16,6 +16,7 @@ import TasquesTab from './tabs/TasquesTab';
 import NotesTab from './tabs/NotesTab';
 import { Trash2 } from 'lucide-react';
 import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
+import { actualitzarAlternatives, crearAlternativa, eliminarAlternativa, seleccionarAlternativa, canviarEstatAlternativa, pressupostPerGuardar, referenciaAlternativa } from '../../utils/pressupostAlternatives';
 
 interface PressupostModalProps {
   onClose: () => void;
@@ -35,6 +36,8 @@ export default function PressupostModal({
   
   const [activeTab, setActiveTab] = useState<'dades' | 'projecte' | 'gastos' | 'tasques' | 'notes'>('dades');
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [pdfTotes, setPdfTotes] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const hook = usePressupost({
     initialPressupost: editingPressupost || null,
@@ -43,9 +46,30 @@ export default function PressupostModal({
 
   const { formData, setFormData, clients, pressupostBloquejat, esEliminable, crearProjecteDesdePressupost } = hook;
 
-  const { saveNow } = useAutoSave(formData, onSave);
+  const savePressupost = (data: Pressupost) => onSave(pressupostPerGuardar(data));
+  const { saveNow } = useAutoSave(formData, savePressupost);
+  const alternatives = formData.alternatives?.map(a => a.alternativaId === formData.alternativaId
+    ? { ...a, alternativaNom: formData.alternativaNom || a.alternativaNom, estat: formData.estat, tasques: formData.tasques }
+    : a) || [];
+  const propostaAcceptada = !!formData.alternativaAcceptadaId || formData.estat === 'acceptat';
+  const canCreateAlternative = !formData.alternativaAcceptadaId && !formData.projecteCreat && !formData.projecteVinculat && formData.estat !== 'acceptat';
+  const contingutBloquejat = pressupostBloquejat || formData.estat !== 'esborrany';
+  const updateOption = (data: Pressupost) => {
+    setFormData(data);
+    savePressupost(data);
+  };
+  const changeStatus = (estat: Pressupost['estat']) => {
+    if ((estat === 'enviat' || estat === 'acceptat') && (!formData.client || !formData.tasques.length)) {
+      alert('Selecciona un client i afegeix les tasques abans d’enviar o acceptar el pressupost.');
+      return;
+    }
+    updateOption(canviarEstatAlternativa(formData, estat));
+  };
 
   const generarPDF = async (idioma: 'ca' | 'es' | 'en') => {
+    const pdfReference = pdfTotes ? `${formData.codi}_alternatives` : referenciaAlternativa(formData);
+    const pdfData = pdfTotes ? actualitzarAlternatives(formData) : formData;
+    const generate = pdfTotes ? generarAlternativesPressupostPDF : generarPressupostPDF;
     const rootPath = storage.getParametres().gestorDocumental?.rootPath;
     const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
     const projecteCodi = formData.projecteCreat || formData.projecteVinculat;
@@ -53,14 +77,14 @@ export default function PressupostModal({
     const client = clients.find(c => c.codi === formData.client);
 
     if (!rootPath || !electronDocuments || !client) {
-      generarPressupostPDF(formData, clients, idioma);
+      generate(pdfData, clients, idioma);
       return;
     }
 
     const existingRefs = formData.documentsGenerats || [];
-    const matchingRefs = existingRefs.filter(ref => ref.displayName.startsWith(`${formData.codi}_${idioma}`));
+    const matchingRefs = existingRefs.filter(ref => ref.displayName.startsWith(`${pdfReference}_${idioma}`));
     const version = Math.max(0, ...matchingRefs.map(ref => ref.version || 0)) + 1;
-    const filename = versionedPdfName(`${formData.codi}_${idioma}`, version);
+    const filename = versionedPdfName(`${pdfReference}_${idioma}`, version);
     const relativePath = projecte
       ? buildProjectDocumentPath(
           client.codi,
@@ -76,12 +100,12 @@ export default function PressupostModal({
           'pressupostos',
           filename
         );
-    const dataBase64 = generarPressupostPDF(formData, clients, idioma, { save: false });
+    const dataBase64 = generate(pdfData, clients, idioma, { save: false });
     const result = await electronDocuments.writeFile({ rootPath, relativePath, dataBase64 });
 
     if (!result.success || !result.data) {
       alert(result.error || 'No sha pogut guardar el PDF del pressupost.');
-      generarPressupostPDF(formData, clients, idioma);
+      generate(pdfData, clients, idioma);
       return;
     }
 
@@ -89,7 +113,7 @@ export default function PressupostModal({
       kind: 'pressupost',
       ownerType: projecte ? 'projecte' : 'client',
       ownerCodi: projecte?.codi || client.codi,
-      displayName: `${formData.codi}_${idioma}`,
+      displayName: `${pdfReference}_${idioma}`,
       originalName: filename,
       relativePath,
       mimeType: 'application/pdf',
@@ -102,12 +126,12 @@ export default function PressupostModal({
     const updated: Pressupost = {
       ...formData,
       documentsGenerats: [
-        ...existingRefs.map(ref => ref.displayName.startsWith(`${formData.codi}_${idioma}`) ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
+        ...existingRefs.map(ref => ref.displayName.startsWith(`${pdfReference}_${idioma}`) ? { ...ref, current: false, replacedBy: fileRef.id } : ref),
         fileRef,
       ],
     };
     setFormData(updated);
-    onSave(updated);
+    savePressupost(updated);
     const openResult = await electronDocuments.openFile({ rootPath, relativePath });
     if (!openResult.success) {
       alert(`PDF guardat al gestor documental: ${filename}`);
@@ -116,6 +140,10 @@ export default function PressupostModal({
 
   const handleDelete = () => {
     if (!editingPressupost) return;
+    if (!esEliminable) {
+      alert('Només es pot eliminar una proposta si totes les alternatives són esborranys sense projectes vinculats.');
+      return;
+    }
     
     let motiu = '';
     
@@ -138,16 +166,28 @@ export default function PressupostModal({
     }
   };
 
+  const handlePDF = async (idioma: 'ca' | 'es' | 'en') => {
+    setShowLanguageModal(false);
+    setGeneratingPdf(true);
+    try {
+      await generarPDF(idioma);
+    } catch (error) {
+      alert(`No s’ha pogut generar el PDF: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   const handleCrearProjecte = () => {
     const pressupostActualitzat = crearProjecteDesdePressupost();
     if (pressupostActualitzat) {
-      onSave(pressupostActualitzat);
+      savePressupost(pressupostActualitzat);
     }
   };
 
   return (
     <div className="modal-overlay">
-      <div 
+      <div aria-busy={generatingPdf}
         className="modal-content" 
         onClick={(e) => e.stopPropagation()} 
         style={{ 
@@ -158,6 +198,7 @@ export default function PressupostModal({
           flexDirection: 'column' 
         }}
       >
+        <fieldset disabled={generatingPdf} style={{ display: 'contents' }}>
         {/* HEADER DEL MODAL */}
         <div className="modal-header">
           <h2>
@@ -167,7 +208,7 @@ export default function PressupostModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
               type="button"
-              onClick={() => setShowLanguageModal(true)}
+              onClick={() => { setPdfTotes(false); setShowLanguageModal(true); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -249,7 +290,9 @@ export default function PressupostModal({
             <select
               className="form-input"
               value={formData.estat}
-              onChange={(e) => setFormData({ ...formData, estat: e.target.value as any })}
+              aria-label="Estat de l'alternativa"
+              disabled={!!formData.alternativaAcceptadaId || pressupostBloquejat || formData.estat === 'acceptat'}
+              onChange={(e) => changeStatus(e.target.value as Pressupost['estat'])}
               style={{
                 padding: '0.5rem',
                 borderRadius: '6px',
@@ -263,7 +306,7 @@ export default function PressupostModal({
                 border: 'none'
               }}
             >
-              <option value="esborrany">Esborrany</option>
+              <option value="esborrany" disabled={formData.estat !== 'esborrany'}>Esborrany</option>
               <option value="enviat">Enviat</option>
               <option value="acceptat">Acceptat</option>
               <option value="rebutjat">Rebutjat</option>
@@ -300,6 +343,31 @@ export default function PressupostModal({
           </div>
         </div>
 
+        <div style={{ padding: '1rem var(--spacing-xl)', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
+          {alternatives.length > 0 && <button type="button" className="btn-secondary" onClick={() => { setPdfTotes(true); setShowLanguageModal(true); }}>PDF de totes les alternatives</button>}
+          {alternatives.length > 0 && <>
+            <label htmlFor="pressupost-alternativa">Alternativa:</label>
+            <select id="pressupost-alternativa" className="form-input" style={{ width: 'auto' }} value={formData.alternativaId}
+              onChange={e => updateOption(seleccionarAlternativa(formData, e.target.value))}>
+              {alternatives.map(a => <option key={a.alternativaId} value={a.alternativaId}>
+                {a.alternativaNom} · {a.tasques.reduce((sum, t) => sum + t.importe, 0).toFixed(2)} € · {formData.alternativaAcceptadaId && formData.alternativaAcceptadaId !== a.alternativaId ? 'No escollida' : a.estat}
+              </option>)}
+            </select>
+            <input aria-label="Nom de l'alternativa" className="form-input" style={{ width: '220px' }} value={formData.alternativaNom || ''}
+              disabled={contingutBloquejat || propostaAcceptada}
+              onChange={e => setFormData(prev => ({ ...prev, alternativaNom: e.target.value }))} />
+          </>}
+          <button type="button" className="btn-secondary" disabled={!canCreateAlternative || !formData.client}
+            onClick={() => updateOption(crearAlternativa(formData))}>Crear alternativa a partir d’aquesta</button>
+          {alternatives.length > 0 && !propostaAcceptada && <button type="button" className="btn-primary" disabled={pressupostBloquejat || !formData.client || !formData.tasques.length}
+            onClick={() => changeStatus('acceptat')}>Acceptar aquesta alternativa</button>}
+          {alternatives.length > 1 && formData.estat === 'esborrany' && canCreateAlternative && <button type="button" className="btn-secondary"
+            onClick={() => {
+              if (confirm(`Vols eliminar l’alternativa «${formData.alternativaNom}»? La resta es conservaran.`)) updateOption(eliminarAlternativa(formData));
+            }}>Eliminar alternativa</button>}
+          {formData.alternativaAcceptadaId && <span role="status">Alternativa acceptada: {alternatives.find(a => a.alternativaId === formData.alternativaAcceptadaId)?.alternativaNom}. La resta es conserven com a no escollides.</span>}
+          {!propostaAcceptada && formData.estat === 'enviat' && <span>Opció enviada: crea una alternativa per modificar-ne el contingut.</span>}
+        </div>
         <DocumentVersionsPanel title="PDFs generats del pressupost" documents={formData.documentsGenerats} />
 
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -338,11 +406,13 @@ export default function PressupostModal({
           </div>
 
           <div className="modal-body" style={{ flex: 1, overflow: 'auto' }}>
-            {activeTab === 'dades' && <DadesTab hook={hook} />}
-            {activeTab === 'projecte' && <ProjecteTab hook={hook} />}
-            {activeTab === 'gastos' && <GastosTab hook={hook} />}
-            {activeTab === 'tasques' && <TasquesTab hook={hook} />}
-            {activeTab === 'notes' && <NotesTab hook={hook} />}
+            <fieldset disabled={contingutBloquejat || !!formData.alternativaAcceptadaId} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+            {activeTab === 'dades' && <DadesTab key={formData.alternativaId} hook={hook} />}
+            {activeTab === 'projecte' && <ProjecteTab key={formData.alternativaId} hook={hook} />}
+            {activeTab === 'gastos' && <GastosTab key={formData.alternativaId} hook={hook} />}
+            {activeTab === 'tasques' && <TasquesTab key={formData.alternativaId} hook={hook} />}
+            {activeTab === 'notes' && <NotesTab key={formData.alternativaId} hook={hook} />}
+            </fieldset>
           </div>
         </div>
 
@@ -372,9 +442,10 @@ export default function PressupostModal({
             saveNow();
             onClose();
           }}>
-            Acceptar
+            Tancar
           </button>
         </div>
+        </fieldset>
       </div>
 
       {/* MODAL DE SELECCIÓN DE IDIOMA PARA PDF */}
@@ -404,7 +475,7 @@ export default function PressupostModal({
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => { generarPDF('ca'); setShowLanguageModal(false); }}
+                  onClick={() => { void handlePDF('ca'); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
                   <img src={flagCa} alt="Català" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
@@ -413,7 +484,7 @@ export default function PressupostModal({
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => { generarPDF('es'); setShowLanguageModal(false); }}
+                  onClick={() => { void handlePDF('es'); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
                   <img src={flagEs} alt="Castellano" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
@@ -422,7 +493,7 @@ export default function PressupostModal({
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => { generarPDF('en'); setShowLanguageModal(false); }}
+                  onClick={() => { void handlePDF('en'); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', padding: '1rem', gap: '1.25rem' }}
                 >
                   <img src={flagEn} alt="English" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />

@@ -104,6 +104,19 @@ export async function mirrorPurchaseInvoice(rootPath: string, gasto: FacturaComp
 }
 
 async function normalizeBudget(rootPath: string, pressupost: Pressupost): Promise<{ pressupost: Pressupost; copied: number; updatedRefs: number }> {
+  if (pressupost.alternatives?.length) {
+    let copied = 0;
+    let updatedRefs = 0;
+    const alternatives = [];
+    for (const alternativa of pressupost.alternatives) {
+      const normalized = await normalizeBudget(rootPath, alternativa);
+      copied += normalized.copied;
+      updatedRefs += normalized.updatedRefs;
+      alternatives.push({ ...alternativa, documentsGenerats: normalized.pressupost.documentsGenerats });
+    }
+    const current = alternatives.find(a => a.alternativaId === pressupost.alternativaId);
+    return { pressupost: { ...pressupost, alternatives, documentsGenerats: current?.documentsGenerats || pressupost.documentsGenerats }, copied, updatedRefs };
+  }
   const clients = storage.getClients();
   const projectes = storage.getProjectes();
   const client = clients.find(c => c.codi === pressupost.client);

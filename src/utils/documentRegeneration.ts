@@ -5,6 +5,7 @@ import { generarPressupostPDF } from './generarPressupostPDF';
 import { buildClientDocumentPath, buildFiscalDocumentPath, buildProjectDocumentPath, createDocumentRef, versionedPdfName } from './documentManager';
 import { mirrorSalesInvoiceToProject } from './documentMirrors';
 import { storage } from './storageManager';
+import { pressupostPerGuardar, referenciaAlternativa } from './pressupostAlternatives';
 
 export interface DocumentRegenerationResult {
   pressupostos: number;
@@ -42,7 +43,7 @@ export async function regenerateHistoricalGeneratedDocuments(rootPath: string): 
 
       const projecteCodi = pressupost.projecteCreat || pressupost.projecteVinculat;
       const projecte = projecteCodi ? projectes.find(p => p.codi === projecteCodi) : undefined;
-      const filename = versionedPdfName(`${pressupost.codi}_ca`, 1, 'historic');
+      const filename = versionedPdfName(`${referenciaAlternativa(pressupost)}_ca`, 1, 'historic');
       const relativePath = projecte
         ? buildProjectDocumentPath(
             client.codi,
@@ -66,7 +67,7 @@ export async function regenerateHistoricalGeneratedDocuments(rootPath: string): 
         kind: 'pressupost',
         ownerType: projecte ? 'projecte' : 'client',
         ownerCodi: projecte?.codi || client.codi,
-        displayName: `${pressupost.codi}_ca`,
+        displayName: `${referenciaAlternativa(pressupost)}_ca`,
         originalName: filename,
         relativePath,
         mimeType: 'application/pdf',
@@ -75,7 +76,7 @@ export async function regenerateHistoricalGeneratedDocuments(rootPath: string): 
         version: 1,
         generated: true,
       });
-      nextPressupostos.push({ ...pressupost, documentsGenerats: [fileRef] });
+      nextPressupostos.push(pressupostPerGuardar({ ...pressupost, documentsGenerats: [fileRef] }));
       result.pressupostos += 1;
     } catch (error) {
       result.errors.push(`${pressupost.codi}: ${error instanceof Error ? error.message : String(error)}`);
