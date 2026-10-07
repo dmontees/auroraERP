@@ -122,10 +122,10 @@ function ProjecteDetailView({
       if (updated) {
         const data = JSON.parse(JSON.stringify(updated));
         if ((!data.datesRodatge || data.datesRodatge.length === 0) && data.dataInici) {
-          data.datesRodatge = [{ id: `rod-${Date.now()}`, data: data.dataInici, hora: '', nota: '' }];
+          data.datesRodatge = [{ id: `rod-${data.codi}-legacy`, data: data.dataInici, hora: '', nota: '' }];
         }
         if ((!data.datesEntrega || data.datesEntrega.length === 0) && data.dataEntrega) {
-          data.datesEntrega = [{ id: `ent-${Date.now()}`, data: data.dataEntrega, nota: '' }];
+          data.datesEntrega = [{ id: `ent-${data.codi}-legacy`, data: data.dataEntrega, nota: '' }];
         }
         setFormData(migrateProjecteIds(data));
       }
@@ -143,9 +143,8 @@ function ProjecteDetailView({
           JSON.stringify(updated.datesRodatge) !== JSON.stringify(data.datesRodatge) ||
           JSON.stringify(updated.datesEntrega) !== JSON.stringify(data.datesEntrega);
         if (hasDiff) {
-          setFormData(updated);
-          const stored = storage.getProjectes();
-          storage.setProjectes(stored.map((p: Projecte) => p.codi === updated.codi ? updated : p));
+          // A late Google response must not replace edits made while syncing.
+          setFormData(current => JSON.stringify(current) === JSON.stringify(data) ? updated : current);
         }
       }).catch(console.error);
     }

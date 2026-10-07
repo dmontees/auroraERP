@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useState, useEffect } from 'react';
 import auroraIcon from '../build/icon_A.png';
 import { Film, LayoutDashboard, Users, Briefcase, FileText, Receipt, ShoppingCart, TrendingUp, Clock, Calendar as CalendarIcon, BadgePlus, Settings, Scale, Cloud, CloudOff, Sun, Moon } from 'lucide-react';
+import { useGoogleCalendarSync } from './hooks/useGoogleCalendarSync';
 import { useWebSync } from './hooks/useWebSync';
 import WebSyncModal from './components/common/WebSyncModal';
 import CronometreWidget from './components/parts-treball/CronometreWidget';
@@ -66,6 +67,7 @@ const NAV_GROUPS = [
 ];
 
 function App() {
+  const googleCalendarError = useGoogleCalendarSync();
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [showSettings, setShowSettings] = useState(false);
   const [showCronometreModal, setShowCronometreModal] = useState(false);
@@ -296,6 +298,7 @@ function App() {
       </aside>
 
       <main className="main-content">
+        {googleCalendarError && <div role="alert" style={{ padding: '0.75rem', color: 'var(--color-error)' }}>Google Calendar: {googleCalendarError} Els canvis pendents es tornaran a intentar. Revisa Paràmetres → Integracions si persisteix.</div>}
         <header className="content-header">
           <div className="header-info">
             <h2 className="section-title">{navItems.find(item => item.id === activeSection)?.label}</h2>

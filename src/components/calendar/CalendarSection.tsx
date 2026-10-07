@@ -11,7 +11,7 @@ import { afegirEntradaHistorial } from '../../utils/projecteHistorial';
 import { storage } from '../../utils/storageManager';
 import {
   syncCustomEventToGoogle,
-  deleteGoogleEvent,
+  deleteCustomEventFromGoogle,
   isGoogleCalendarConnected,
   syncProjectDatesBidirectional
 } from '../../utils/googleCalendarSync';
@@ -133,8 +133,8 @@ export default function CalendarSection() {
 
     syncProjectDatesBidirectional(projectes, clients, extresEsdevenimentsAuto)
       .then(result => {
-        updateProjectes(result.projectes);
-        replaceExtresEsdevenimentsAuto(result.extresEsdevenimentsAuto);
+        updateProjectes(storage.getProjectes());
+        replaceExtresEsdevenimentsAuto(storage.getParametres()?.extresEsdevenimentsAuto ?? result.extresEsdevenimentsAuto);
       })
       .catch(console.error);
   }, [clients, extresEsdevenimentsAuto, projectes, replaceExtresEsdevenimentsAuto, updateProjectes]);
@@ -199,10 +199,8 @@ export default function CalendarSection() {
 
         const stored = storage.getEsdevenimentsPersonalitzats();
         const exists = stored.some((e: any) => e.id === esdeveniment.id);
-        const updatedEvent = { ...esdeveniment, googleEventId };
-        const updated = exists
-          ? stored.map((e: any) => e.id === updatedEvent.id ? { ...e, googleEventId } : e)
-          : [...stored, updatedEvent];
+        if (!exists) return;
+        const updated = stored.map((e: any) => e.id === esdeveniment.id ? { ...e, googleEventId } : e);
         updateEsdevenimentsPersonalitzats(updated);
       }).catch(console.error);
     }
@@ -243,8 +241,8 @@ export default function CalendarSection() {
     if (isGoogleCalendarConnected()) {
       syncProjectDatesBidirectional(projectes, clients, updatedExtras)
         .then(result => {
-          updateProjectes(result.projectes);
-          replaceExtresEsdevenimentsAuto(result.extresEsdevenimentsAuto);
+          updateProjectes(storage.getProjectes());
+          replaceExtresEsdevenimentsAuto(storage.getParametres()?.extresEsdevenimentsAuto ?? result.extresEsdevenimentsAuto);
         })
         .catch(console.error);
     }
@@ -252,8 +250,8 @@ export default function CalendarSection() {
 
   const handleDeleteEsdeveniment = (id: string) => {
     const event = esdevenimentsPersonalitzats.find(e => e.id === id);
-    if (event?.googleEventId && isGoogleCalendarConnected()) {
-      deleteGoogleEvent(event.googleEventId).catch(console.error);
+    if (event && isGoogleCalendarConnected()) {
+      deleteCustomEventFromGoogle(event).catch(console.error);
     }
     const nous = esdevenimentsPersonalitzats.filter(e => e.id !== id);
     updateEsdevenimentsPersonalitzats(nous);

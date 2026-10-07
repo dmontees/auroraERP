@@ -21,14 +21,19 @@ export function useCalendarData() {
   const [parametres, setParametres] = useState<Parametres | null>(null);
 
   useEffect(() => {
-    setProjectes(storage.getProjectes());
-    setFacturesVenda(storage.getFacturesVenda());
-    setGastos(storage.getFacturesCompra());
-    setPressupostos(storage.getPressupostos());
-    setClients(storage.getClients());
-    setProveidors(storage.getProveidors());
-    setEsdevenimentsPersonalitzats(storage.getEsdevenimentsPersonalitzats());
-    setParametres(storage.getParametres());
+    const reload = () => {
+      setProjectes(storage.getProjectes());
+      setFacturesVenda(storage.getFacturesVenda());
+      setGastos(storage.getFacturesCompra());
+      setPressupostos(storage.getPressupostos());
+      setClients(storage.getClients());
+      setProveidors(storage.getProveidors());
+      setEsdevenimentsPersonalitzats(storage.getEsdevenimentsPersonalitzats());
+      setParametres(storage.getParametres());
+    };
+    reload();
+    window.addEventListener('google-calendar-sync-status', reload);
+    return () => window.removeEventListener('google-calendar-sync-status', reload);
   }, []);
 
   const updateEsdevenimentsPersonalitzats = (events: any[]) => {

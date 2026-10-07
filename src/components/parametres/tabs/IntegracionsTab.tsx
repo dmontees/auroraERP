@@ -98,12 +98,6 @@ export default function IntegracionsTab() {
         parametres?.extresEsdevenimentsAuto ?? {}
       );
 
-      storage.setProjectes(result.projectes);
-      storage.setParametres({
-        ...parametres,
-        extresEsdevenimentsAuto: result.extresEsdevenimentsAuto
-      });
-
       setStatus('success');
       setStatusMsg(
         result.updatedFromGoogle > 0
