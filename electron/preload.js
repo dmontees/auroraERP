@@ -1,90 +1,23 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Initialize electron-store with error handling — if it fails, IPC-based features
-// (window.electron) must still be exposed so the app doesn't degrade to web mode.
-let store = null;
-const ALLOWED_STORE_KEYS = new Set([
-  'clients',
-  'proveidors',
-  'projectes',
-  'facturesVenda',
-  'facturesCompra',
-  'pressupostos',
-  'obligacionsFiscals',
-  'albaransCompra',
-  'navigateTo',
-  'parametres',
-  'partsTreball',
-  'cronometre',
-  'settings',
-  'esdevenimentsPersonalitzats',
-  'googleCalendarToken',
-  'webSyncConfig',
-  'verifactuConfig',
-  'verifactuCertificatP12',
-  'lastCloudBackup',
-  'version',
-  'dataSchemaVersion',
-  'migrationCompleted',
-  'migrationV2Completed',
-  'migrationV3Completed',
-  'migrationV4Completed',
-  'migrationV5Completed'
-]);
-
-function isAllowedStoreKey(key) {
-  const allowed = ALLOWED_STORE_KEYS.has(String(key));
-  if (!allowed) {
-    console.warn('âš ï¸  electronStore key rebutjada:', key);
+// The sandboxed preload uses IPC; electron-store lives in the main process.
+function storeRequest(operation, key, value) {
+  const result = ipcRenderer.sendSync('aurora-store', { operation, key, value });
+  if (!result || !result.success) {
+    throw new Error(result?.error || 'No s’ha pogut accedir al fitxer de dades d’Aurora.');
   }
-  return allowed;
+  return result.data;
 }
 
-try {
-  const Store = require('electron-store');
-  store = new Store({
-    name: 'aurora-data',
-    defaults: {
-      clients: [],
-      proveidors: [],
-      projectes: [],
-      facturesVenda: [],
-      facturesCompra: [],
-      pressupostos: [],
-      obligacionsFiscals: [],
-      albaransCompra: [],
-      parametres: {
-        categories: [],
-        serveis: [],
-        unitats: [],
-        tarifes: [],
-        materials: [],
-        grupsMaterials: [],
-        plantilles: []
-      },
-      partsTreball: [],
-      version: '3.1.3',
-      dataSchemaVersion: 5,
-      migrationCompleted: false
-    }
-  });
-  console.log('✅ electron-store inicialitzat correctament');
-  console.log('📁 Store path:', store.path);
-} catch (e) {
-  console.error('❌ Error inicialitzant electron-store:', e);
-  console.warn('⚠️  Preload continuarà sense electron-store (usarà localStorage al renderer)');
-}
-
-// Expose electron-store API (null-safe — returns undefined if store is unavailable)
+// ALLOWED_STORE_KEYS are enforced in the main process, never by the renderer.
 contextBridge.exposeInMainWorld('electronStore', {
-  get: (key) => store && isAllowedStoreKey(key) ? store.get(key) : undefined,
-  set: (key, value) => store && isAllowedStoreKey(key) ? store.set(key, value) : undefined,
-  delete: (key) => store && isAllowedStoreKey(key) ? store.delete(key) : undefined,
-  getPath: () => store ? store.path : undefined,
-  has: (key) => store ? store.has(key) : false,
-  isAvailable: () => store !== null
+  get: (key) => storeRequest('get', key),
+  set: (key, value) => storeRequest('set', key, value),
+  delete: (key) => storeRequest('delete', key),
+  getPath: () => storeRequest('path'),
+  has: (key) => storeRequest('has', key),
+  isAvailable: () => storeRequest('available')
 });
-
 // Expose IPC and auto-updater API — always available regardless of electron-store
 contextBridge.exposeInMainWorld('electron', {
   // App version

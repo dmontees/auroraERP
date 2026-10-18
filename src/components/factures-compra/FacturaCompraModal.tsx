@@ -14,6 +14,7 @@ import { calcularImpostos, determinarEstat } from './utils/facturesCalculations'
 import { storage } from '../../utils/storageManager';
 import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
 import { mirrorPurchaseInvoice } from '../../utils/documentMirrors';
+import { storageErrorMessage } from '../../utils/storageErrors';
 
 interface FacturaCompraModalProps {
   onClose: () => void;
@@ -420,7 +421,7 @@ export default function FacturaCompraModal({
           setError('');
         } catch (err) {
           console.error('Error guardant la factura de compra:', err);
-          setError('No s’ha pogut guardar la factura. Torna-ho a provar.');
+          setError(`No s’ha pogut guardar la factura: ${storageErrorMessage(err)}`);
         }
       }
     }
@@ -526,7 +527,7 @@ export default function FacturaCompraModal({
       onClose();
     } catch (err) {
       console.error('Error guardant la factura de compra:', err);
-      setError('No s’ha pogut guardar la factura. Torna-ho a provar abans de tancar.');
+      setError(`No s’ha pogut guardar la factura: ${storageErrorMessage(err)}`);
     }
   };
 

@@ -14,6 +14,7 @@ const React = {
 };
 const PDFUploader = () => {}, PagamentsManager = () => {};
 const mocks = {
+  '../../utils/storageErrors': { storageErrorMessage: error => error.message },
   react: React, 'lucide-react': {},
   '../../types/facturaCompra': { CATEGORIES_GASTO_GENERAL: [] },
   '../../hooks/useAutoSave': { useAutoSave() {} },

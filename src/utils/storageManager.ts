@@ -520,6 +520,7 @@ class StorageManager {
         console.log('🔄 Migrando datos de localStorage a electron-store...');
 
         let migratedCount = 0;
+        let migrationFailed = false;
 
         Object.entries(STORAGE_KEYS).forEach(([storeKey, lsKey]) => {
           const data = localStorage.getItem(lsKey);
@@ -530,12 +531,13 @@ class StorageManager {
               console.log(`✅ Migrado: ${lsKey} → ${storeKey}`);
               migratedCount++;
             } catch (error) {
+              migrationFailed = true;
               console.error(`❌ Error migrando ${lsKey}:`, error);
             }
           }
         });
 
-        if (migratedCount > 0) {
+        if (migratedCount > 0 && !migrationFailed) {
           this.electronStoreAPI.set('migrationCompleted', true);
           console.log(`✅ Migración completada: ${migratedCount} entidades`);
         }

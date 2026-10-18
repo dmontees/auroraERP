@@ -8,6 +8,7 @@ import PDFUploader from './shared/PDFUploader';
 import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
 import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
+import { storageErrorMessage } from '../../utils/storageErrors';
 
 interface GastoGeneralModalProps {
   onClose: () => void;
@@ -128,7 +129,7 @@ export default function GastoGeneralModal({
           setError('');
         } catch (err) {
           console.error('Error guardant la despesa', err);
-          setError('No s’ha pogut guardar la despesa. Torna-ho a provar.');
+          setError(`No s’ha pogut guardar la despesa: ${storageErrorMessage(err)}`);
         }
       }
     }
@@ -234,7 +235,7 @@ export default function GastoGeneralModal({
       onClose();
     } catch (err) {
       console.error('Error guardant la despesa', err);
-      setError('No s’ha pogut guardar la despesa. Torna-ho a provar abans de tancar.');
+      setError(`No s’ha pogut guardar la despesa: ${storageErrorMessage(err)}`);
     }
   };
 

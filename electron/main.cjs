@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const JSZip = require('jszip');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
+const { handleStoreRequest } = require('./store-bridge.cjs');
 const {
   GITHUB_LATEST_MAC_YML,
   GITHUB_RELEASES_API,
@@ -111,6 +112,17 @@ const store = new Store({
     version: { type: 'string' },
     dataSchemaVersion: { type: 'number' }
   }
+});
+
+// Synchronous to preserve the existing storage API and report write failures
+// before a modal can close. Only this main-process instance writes the store.
+const ALLOWED_STORE_KEYS = new Set([...BACKUP_RESTORE_ALLOWED_KEYS, 'navigateTo']);
+ipcMain.on('aurora-store', (event, request) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
+    event.returnValue = { success: false, error: 'Accés a les dades no permès.' };
+    return;
+  }
+  event.returnValue = handleStoreRequest(store, ALLOWED_STORE_KEYS, request);
 });
 
 function createWindow() {

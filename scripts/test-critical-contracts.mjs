@@ -4,13 +4,15 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const preload = read('electron/preload.js');
-assert.match(preload, /ALLOWED_STORE_KEYS/);
+assert.match(preload, /sendSync\('aurora-store'/);
+assert.doesNotMatch(preload, /require\('electron-store'\)/);
 assert.doesNotMatch(preload, /clear:\s*\(/);
 assert.doesNotMatch(preload, /store:\s*\(/);
-assert.match(preload, /dataSchemaVersion/);
 assert.match(preload, /onUpdateError/);
 
 const main = read('electron/main.cjs');
+assert.match(main, /ALLOWED_STORE_KEYS/);
+assert.match(main, /dataSchemaVersion/);
 assert.match(main, /export-cloud-backup-data/);
 assert.match(main, /aurora-pre-import-backup/);
 assert.match(main, /https:/);

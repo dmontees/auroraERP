@@ -36,6 +36,7 @@ const calculations = compile('src/components/factures-compra/utils/facturesCalcu
 const PDF = () => {}, Payments = () => {};
 let reader, archiveResolve, archiveReject, writes = [], closed = false;
 const component = compile('src/components/factures-compra/FacturaCompraModal.tsx', {
+  '../../utils/storageErrors': { storageErrorMessage: error => error.message },
   react: React, 'lucide-react': {}, jspdf: {},
   '../common/SearchableSelect': {},
   '../../hooks/useAutoSave': hook,
