@@ -713,6 +713,7 @@ export default function FacturaVendaDetailView({
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <DocumentVersionsPanel compact title="PDFs de la factura" documents={formData.documentsGenerats} />
           <button type="button" className="btn-secondary" onClick={() => setLanguageModalMode('borrador')}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
             title="PDF provisional amb marca d'aigua ESBORRANY (per revisar abans d'emetre)"
@@ -747,7 +748,6 @@ export default function FacturaVendaDetailView({
         </div>
       </div>
 
-      <DocumentVersionsPanel title="PDFs generats de la factura" documents={formData.documentsGenerats} />
 
       {/* ── TABS BAR ── */}
       <div style={{ display: 'flex', alignItems: 'flex-end', borderBottom: '2px solid var(--color-border)', marginBottom: '1.5rem', flexShrink: 0, gap: 0 }}>

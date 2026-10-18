@@ -16,8 +16,8 @@ export function useFacturesData() {
   }, []);
 
   const saveGastos = (newGastos: Gasto[]) => {
-    setGastos(newGastos);
     storage.setFacturesCompra(newGastos);
+    setGastos(newGastos);
   };
 
   const deleteGasto = (codi: string) => {

@@ -19,10 +19,6 @@ export interface DocumentMirrorResult {
 
 const emptyResult = (): DocumentMirrorResult => ({ copied: 0, updatedRefs: 0, skipped: 0, errors: [] });
 
-function isPendingBudgetPath(ref: DocumentFileRef): boolean {
-  return ref.relativePath.startsWith('pendents-de-revisar/Pressupostos/');
-}
-
 function fileNameForMirror(ref: DocumentFileRef): string {
   return safeFileName(ref.originalName || `${ref.displayName}_v${String(ref.version).padStart(3, '0')}.pdf`);
 }
@@ -103,7 +99,7 @@ export async function mirrorPurchaseInvoice(rootPath: string, gasto: FacturaComp
   return copied;
 }
 
-async function normalizeBudget(rootPath: string, pressupost: Pressupost): Promise<{ pressupost: Pressupost; copied: number; updatedRefs: number }> {
+export async function normalizeBudget(rootPath: string, pressupost: Pressupost): Promise<{ pressupost: Pressupost; copied: number; updatedRefs: number }> {
   if (pressupost.alternatives?.length) {
     let copied = 0;
     let updatedRefs = 0;
@@ -129,7 +125,9 @@ async function normalizeBudget(rootPath: string, pressupost: Pressupost): Promis
 
   const documentsGenerats = [];
   for (const ref of pressupost.documentsGenerats || []) {
-    if (!isPendingBudgetPath(ref)) {
+    const pending = ref.relativePath.startsWith('pendents-de-revisar/Pressupostos/');
+    const clientBudget = ref.relativePath.startsWith('Clients/') && ref.relativePath.includes('/Documentacio client/Pressupostos/');
+    if (!pending && !(projecte && clientBudget)) {
       documentsGenerats.push(ref);
       continue;
     }
@@ -151,7 +149,7 @@ async function normalizeBudget(rootPath: string, pressupost: Pressupost): Promis
         );
 
     if (await copyRef(rootPath, ref, target)) copied += 1;
-    documentsGenerats.push({ ...ref, relativePath: target });
+    documentsGenerats.push({ ...ref, relativePath: target, ownerType: projecte ? 'projecte' : 'client', ownerCodi: projecte?.codi || client.codi });
     updatedRefs += 1;
   }
 

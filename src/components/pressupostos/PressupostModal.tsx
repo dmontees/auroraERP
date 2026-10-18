@@ -16,6 +16,7 @@ import TasquesTab from './tabs/TasquesTab';
 import NotesTab from './tabs/NotesTab';
 import { Trash2 } from 'lucide-react';
 import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
+import { normalizeBudget } from '../../utils/documentMirrors';
 import { actualitzarAlternatives, crearAlternativa, eliminarAlternativa, seleccionarAlternativa, canviarEstatAlternativa, pressupostPerGuardar, referenciaAlternativa } from '../../utils/pressupostAlternatives';
 
 interface PressupostModalProps {
@@ -178,10 +179,20 @@ export default function PressupostModal({
     }
   };
 
-  const handleCrearProjecte = () => {
+  const handleCrearProjecte = async () => {
     const pressupostActualitzat = crearProjecteDesdePressupost();
     if (pressupostActualitzat) {
       savePressupost(pressupostActualitzat);
+      const rootPath = storage.getParametres().gestorDocumental?.rootPath;
+      if (rootPath && window.electronDocuments) {
+        try {
+          const result = await normalizeBudget(rootPath, pressupostPerGuardar(pressupostActualitzat));
+          setFormData(result.pressupost);
+          savePressupost(result.pressupost);
+        } catch (error) {
+          alert(`El projecte s'ha creat, però no s'han pogut copiar tots els PDFs. Pots tornar-ho a provar a Paràmetres > Gestor documental > Organitzar còpies.\n${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
     }
   };
 
@@ -206,6 +217,7 @@ export default function PressupostModal({
             {editingPressupost ? 'Editar' : 'Nou'} Pressupost - {formData.codi}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <DocumentVersionsPanel compact title="PDFs del pressupost" documents={formData.documentsGenerats} />
             <button
               type="button"
               onClick={() => { setPdfTotes(false); setShowLanguageModal(true); }}
@@ -368,7 +380,6 @@ export default function PressupostModal({
           {formData.alternativaAcceptadaId && <span role="status">Alternativa acceptada: {alternatives.find(a => a.alternativaId === formData.alternativaAcceptadaId)?.alternativaNom}. La resta es conserven com a no escollides.</span>}
           {!propostaAcceptada && formData.estat === 'enviat' && <span>Opció enviada: crea una alternativa per modificar-ne el contingut.</span>}
         </div>
-        <DocumentVersionsPanel title="PDFs generats del pressupost" documents={formData.documentsGenerats} />
 
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* PESTAÑAS DE NAVEGACIÓN */}

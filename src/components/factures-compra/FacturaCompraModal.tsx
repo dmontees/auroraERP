@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash2, Lock } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import type { FacturaCompra, TipusDocumentCompra } from '../../types/facturaCompra';
@@ -270,13 +270,8 @@ export default function FacturaCompraModal({
     setShowAlbaransNotif(next.length > 0);
   };
 
-  const esNova = !editingFactura;
-  const [initialData] = useState(JSON.stringify({ formData, conceptes, pagaments }));
-  const [haCambiat, setHaCambiat] = useState(false);
-
-  useEffect(() => {
-    setHaCambiat(JSON.stringify({ formData, conceptes, pagaments }) !== initialData);
-  }, [formData, conceptes, pagaments, initialData]);
+  const [initialData] = useState(JSON.stringify({ formData, conceptes, pagaments, vinculatProjecte, albaransLinked }));
+  const haCambiat = JSON.stringify({ formData, conceptes, pagaments, vinculatProjecte, albaransLinked }) !== initialData;
 
   const baseTotal = conceptes.reduce((sum, c) => sum + c.base, 0);
   const { ivaImport, irpfImport, total: totalFactura } = calcularImpostos(
@@ -409,13 +404,24 @@ export default function FacturaCompraModal({
     ));
   };
 
-  const { saveNow } = useAutoSave(
-    { formData, conceptes, pagaments },
+  const [error, setError] = useState('');
+  const autoSaveData = useMemo(
+    () => ({ formData, conceptes, pagaments, vinculatProjecte, albaransLinked }),
+    [formData, conceptes, pagaments, vinculatProjecte, albaransLinked]
+  );
+  useAutoSave(
+    autoSaveData,
     () => {
       const facturaCompleta = prepararFactura();
       if (facturaCompleta) {
-        onSave(facturaCompleta);
-        syncAlbaransAfterSave(facturaCompleta);
+        try {
+          onSave(facturaCompleta);
+          syncAlbaransAfterSave(facturaCompleta);
+          setError('');
+        } catch (err) {
+          console.error('Error guardant la factura de compra:', err);
+          setError('No s’ha pogut guardar la factura. Torna-ho a provar.');
+        }
       }
     }
   );
@@ -427,6 +433,8 @@ export default function FacturaCompraModal({
         ? await convertImageToPdfDataUrl(file)
         : await readFileAsDataUrl(file);
       const fileName = isImage ? file.name.replace(/\.(jpe?g|png)$/i, '.pdf') : file.name;
+      setPdfFileName(fileName);
+      setFormData(prev => ({ ...prev, documentPDF, documentPDFName: fileName }));
       const displayName = `${formData.codi}_${TIPUS_DOCUMENT_LABELS[getTipusDocument(formData)]}_${fileName.replace(/\.[^.]+$/, '')}`;
       const fileRef = await saveFiscalDocumentVersion({
         kind: 'factura-compra',
@@ -436,23 +444,21 @@ export default function FacturaCompraModal({
         originalName: fileName,
         dataBase64: documentPDF,
         existingRefs: formData.documentsGenerats,
+        onError: message => setError(`El PDF està adjunt, però no s’ha pogut arxivar: ${message}`),
       });
+      if (fileRef) {
+        setFormData(prev => ({
+          ...prev,
+          documentsGenerats: appendCurrentDocumentRef(prev.documentsGenerats, fileRef),
+        }));
+      }
       const rootPath = storage.getParametres().gestorDocumental?.rootPath;
       if (fileRef && rootPath) {
         await mirrorPurchaseInvoice(rootPath, formData, fileRef);
       }
-      setPdfFileName(fileName);
-      setFormData({
-        ...formData,
-        documentPDF,
-        documentPDFName: fileName,
-        documentsGenerats: fileRef
-          ? appendCurrentDocumentRef(formData.documentsGenerats, fileRef)
-          : formData.documentsGenerats,
-      });
     } catch (error) {
       console.error('Error processant el document:', error);
-      alert('No s\'ha pogut processar el document. Prova amb un altre PDF, JPG o PNG.');
+      setError('No s’ha pogut completar la pujada o l’arxiu del document. Revisa el PDF adjunt i la carpeta del gestor documental.');
     }
   };
 
@@ -464,6 +470,11 @@ export default function FacturaCompraModal({
   };
 
   const handleAfegirPagament = (nouPagament: any) => {
+    const validationMessage = getValidationMessage();
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
     afegirPagament(nouPagament);
   };
 
@@ -487,26 +498,36 @@ export default function FacturaCompraModal({
     onClose();
   };
 
-  const handleClose = () => {
-    if (esNova && !haCambiat) {
+  const handleClose = (discardIncomplete = false) => {
+    if (!haCambiat) {
       onClose();
       return;
     }
     
     const validationMessage = getValidationMessage();
     if (validationMessage) {
-      alert(validationMessage);
+      if (discardIncomplete && confirm('La factura està incompleta. Vols tancar sense guardar els canvis pendents?')) {
+        onClose();
+        return;
+      }
+      setError(validationMessage);
       return;
     }
 
     const facturaCompleta = prepararFactura();
     if (!facturaCompleta) {
-      alert('No s\'ha pogut preparar el document. Revisa les dades i torna-ho a provar.');
+      setError('No s’ha pogut preparar el document. Revisa les dades i torna-ho a provar.');
       return;
     }
     
-    saveNow();
-    onClose();
+    try {
+      onSave(facturaCompleta);
+      syncAlbaransAfterSave(facturaCompleta);
+      onClose();
+    } catch (err) {
+      console.error('Error guardant la factura de compra:', err);
+      setError('No s’ha pogut guardar la factura. Torna-ho a provar abans de tancar.');
+    }
   };
 
   return (
@@ -540,7 +561,7 @@ export default function FacturaCompraModal({
               </span>
             )}
           </h2>
-          <button className="modal-close" onClick={handleClose}>
+          <button className="modal-close" onClick={() => handleClose(true)}>
             <X size={24} />
           </button>
         </div>
@@ -951,6 +972,11 @@ export default function FacturaCompraModal({
           </div>{/* end blocking wrapper */}
         </div>
 
+        {error && (
+          <p role="alert" style={{ color: 'var(--color-error-dark)', padding: '0.75rem 1.5rem', margin: 0, flexShrink: 0 }}>
+            {error}
+          </p>
+        )}
         <div className="modal-footer" style={{ flexShrink: 0 }}>
           {editingFactura && onDelete && !camposBloquejats && (
             <button 
@@ -968,7 +994,7 @@ export default function FacturaCompraModal({
             </button>
           )}
           
-          <button type="button" className="btn-primary" onClick={handleClose}>
+          <button type="button" className="btn-primary" onClick={() => handleClose()}>
             Acceptar
           </button>
         </div>

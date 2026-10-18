@@ -13,6 +13,7 @@ export async function saveFiscalDocumentVersion(input: {
   existingRefs?: DocumentFileRef[];
   folder?: FiscalDocumentFolder;
   periode?: string;
+  onError?: (message: string) => void;
 }): Promise<DocumentFileRef | null> {
   const rootPath = storage.getParametres().gestorDocumental?.rootPath;
   const electronDocuments = typeof window !== 'undefined' ? window.electronDocuments : undefined;
@@ -32,7 +33,9 @@ export async function saveFiscalDocumentVersion(input: {
   });
 
   if (!result.success || !result.data) {
-    alert(result.error || 'No sha pogut guardar el document al gestor documental.');
+    const message = result.error || 'No s’ha pogut guardar el document al gestor documental.';
+    if (input.onError) input.onError(message);
+    else alert(message);
     return null;
   }
 

@@ -4,6 +4,7 @@ import { getNextTdCodi, syncAlbaransForProject, checkEliminarLinia, deleteAlbara
 import { syncProjectDatesToGoogle, isGoogleCalendarConnected } from '../../utils/googleCalendarSync';
 import { ChevronLeft, Trash2, FileText } from 'lucide-react';
 import DocumentModal from './DocumentModal';
+import ProjectFolderButton from '../common/ProjectFolderButton';
 import type { Projecte, TascaProjecte, RecursHumaProjecte, MaterialProjecte, DocumentProjecte } from '../../types/projecte';
 import type { Client } from '../../types/client';
 import type { Parametres } from '../../types/parametres';
@@ -715,6 +716,7 @@ function ProjecteDetailView({
 
           {/* Actions */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <ProjectFolderButton projecteCodi={formData.codi} />
 
             {/* Crear Factura */}
             {projecte && formData.estat === 'acabat' && !formData.facturaAssociada && !formData.facturaHistorica && (

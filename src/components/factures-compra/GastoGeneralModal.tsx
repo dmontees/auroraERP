@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Lock } from 'lucide-react';
 import type { GastoGeneral, CategoriaGastoGeneral } from '../../types/facturaCompra';
 import { CATEGORIES_GASTO_GENERAL } from '../../types/facturaCompra';
@@ -116,12 +116,20 @@ export default function GastoGeneralModal({
     };
   };
 
-  const { saveNow } = useAutoSave(
-    { formData, pagaments },
+  const [error, setError] = useState('');
+  const autoSaveData = useMemo(() => ({ formData, pagaments }), [formData, pagaments]);
+  useAutoSave(
+    autoSaveData,
     () => {
       const gastoCompleto = prepararGasto();
       if (gastoCompleto) {
-        onSave(gastoCompleto);
+        try {
+          onSave(gastoCompleto);
+          setError('');
+        } catch (err) {
+          console.error('Error guardant la despesa', err);
+          setError('No s’ha pogut guardar la despesa. Torna-ho a provar.');
+        }
       }
     }
   );
@@ -137,29 +145,35 @@ export default function GastoGeneralModal({
   };
 
   const handlePDFUpload = (file: File) => {
-    setPdfFileName(file.name);
-
     const reader = new FileReader();
+    reader.onerror = () => setError('No s’ha pogut llegir el PDF. Torna’l a seleccionar.');
     reader.onload = async (event) => {
       const documentPDF = event.target?.result as string;
-      const displayName = `${formData.codi}_${formData.categoria}_${file.name.replace(/\.[^.]+$/, '')}`;
-      const fileRef = await saveFiscalDocumentVersion({
-        kind: 'gasto-general',
-        ownerCodi: formData.codi,
-        dataGasto: formData.dataGasto,
-        displayName,
-        originalName: file.name,
-        dataBase64: documentPDF,
-        existingRefs: formData.documentsGenerats,
-      });
-      setFormData({ 
-        ...formData, 
-        documentPDF,
-        documentPDFName: file.name,
-        documentsGenerats: fileRef
-          ? appendCurrentDocumentRef(formData.documentsGenerats, fileRef)
-          : formData.documentsGenerats,
-      });
+      // Attach first: archiving must not delay saving or overwrite newer edits.
+      setPdfFileName(file.name);
+      setFormData(prev => ({ ...prev, documentPDF, documentPDFName: file.name }));
+      try {
+        const displayName = `${formData.codi}_${formData.categoria}_${file.name.replace(/\.[^.]+$/, '')}`;
+        const fileRef = await saveFiscalDocumentVersion({
+          kind: 'gasto-general',
+          ownerCodi: formData.codi,
+          dataGasto: formData.dataGasto,
+          displayName,
+          originalName: file.name,
+          dataBase64: documentPDF,
+          existingRefs: formData.documentsGenerats,
+          onError: message => setError(`El PDF està adjunt, però no s’ha pogut arxivar: ${message}`),
+        });
+        if (fileRef) {
+          setFormData(prev => ({
+            ...prev,
+            documentsGenerats: appendCurrentDocumentRef(prev.documentsGenerats, fileRef),
+          }));
+        }
+      } catch (err) {
+        console.error('Error arxivant el PDF', err);
+        setError('El PDF està adjunt, però no s’ha pogut copiar al gestor documental.');
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -172,6 +186,10 @@ export default function GastoGeneralModal({
   };
 
   const handleAfegirPagament = (nouPagament: any) => {
+    if (!prepararGasto()) {
+      setError('Omple el concepte, les dates i adjunta el PDF abans de registrar el pagament.');
+      return;
+    }
     afegirPagament(nouPagament);
   };
 
@@ -195,7 +213,7 @@ export default function GastoGeneralModal({
     onClose();
   };
 
-  const handleClose = () => {
+  const handleClose = (discardIncomplete = false) => {
     if (esNou && !haCambiat) {
       onClose();
       return;
@@ -203,12 +221,21 @@ export default function GastoGeneralModal({
     
     const gastoCompleto = prepararGasto();
     if (!gastoCompleto) {
-      alert('Omple tots els camps obligatoris i puja un recibo PDF');
+      if (discardIncomplete && confirm('La despesa està incompleta. Vols tancar sense guardar els canvis pendents?')) {
+        onClose();
+        return;
+      }
+      setError('Omple el concepte, les dates i adjunta el PDF per guardar la despesa.');
       return;
     }
     
-    saveNow();
-    onClose();
+    try {
+      onSave(gastoCompleto);
+      onClose();
+    } catch (err) {
+      console.error('Error guardant la despesa', err);
+      setError('No s’ha pogut guardar la despesa. Torna-ho a provar abans de tancar.');
+    }
   };
 
   return (
@@ -242,7 +269,7 @@ export default function GastoGeneralModal({
               </span>
             )}
           </h2>
-          <button className="modal-close" onClick={handleClose}>
+          <button className="modal-close" onClick={() => handleClose(true)}>
             <X size={24} />
           </button>
         </div>
@@ -450,6 +477,11 @@ export default function GastoGeneralModal({
           </div>
         </div>
 
+        {error && (
+          <p role="alert" style={{ color: 'var(--color-error-dark)', padding: '0.75rem 1.5rem', margin: 0, flexShrink: 0 }}>
+            {error}
+          </p>
+        )}
         <div className="modal-footer" style={{ flexShrink: 0 }}>
           {editingGasto && onDelete && !camposBloquejats && (
             <button 
@@ -467,7 +499,7 @@ export default function GastoGeneralModal({
             </button>
           )}
           
-          <button type="button" className="btn-primary" onClick={handleClose}>
+          <button type="button" className="btn-primary" onClick={() => handleClose()}>
             Acceptar
           </button>
         </div>
