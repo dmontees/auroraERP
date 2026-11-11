@@ -132,10 +132,13 @@ export function useWebSync(): WebSyncState {
     if (!electronAPI?.onAppWillClose || !electronAPI?.confirmClose) return;
 
     const config = storage.getWebSyncConfig();
-    if (!config?.url || !config?.apiKey) return;
-
-    electronAPI.onAppWillClose(async () => {
+    return electronAPI.onAppWillClose(async () => {
+      const formsReady = window.dispatchEvent(new Event('aurora-flush-forms', { cancelable: true }));
       try {
+        if (!formsReady) throw new Error('No sha pogut guardar algun formulari.');
+        const saved = await electronAPI.prepareClose();
+        if (!saved.success) throw new Error(saved.error);
+        if (!config?.url || !config?.apiKey) return;
         await syncToWeb(config.url, config.apiKey);
         const results = await Promise.allSettled([
           syncDocuments(config.url, config.apiKey),

@@ -5,6 +5,7 @@ import { CATEGORIES_GASTO_GENERAL } from '../../types/facturaCompra';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import PagamentsManager from './shared/PagamentsManager';
 import PDFUploader from './shared/PDFUploader';
+import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
 import { appendCurrentDocumentRef, saveFiscalDocumentVersion } from '../../utils/fiscalDocumentStorage';
@@ -99,7 +100,7 @@ export default function GastoGeneralModal({
       return null;
     }
     
-    if (!formData.documentPDF) {
+    if (!formData.documentPDF && !formData.documentsGenerats?.some(ref => ref.relativePath)) {
       return null;
     }
 
@@ -464,6 +465,7 @@ export default function GastoGeneralModal({
             disabled={camposBloquejats}
             required
           />
+          {!!formData.documentsGenerats?.length && <DocumentVersionsPanel title="Documents arxivats" documents={formData.documentsGenerats} />}
 
           <div className="form-group">
             <label>Notes</label>

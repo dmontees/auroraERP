@@ -9,6 +9,7 @@ import SearchableSelect from '../common/SearchableSelect';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import PagamentsManager from './shared/PagamentsManager';
 import PDFUploader from './shared/PDFUploader';
+import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 import { usePagaments } from './hooks/usePagaments';
 import { calcularImpostos, determinarEstat } from './utils/facturesCalculations';
 import { storage } from '../../utils/storageManager';
@@ -345,7 +346,7 @@ export default function FacturaCompraModal({
       return 'Per a una factura simplificada sense proveidor cal informar el camp Emissor.';
     }
 
-    if (esDocumentLleuger && !formData.documentPDF) {
+    if (esDocumentLleuger && !formData.documentPDF && !formData.documentsGenerats?.some(ref => ref.relativePath)) {
       return 'Per a una factura simplificada cal adjuntar el PDF del document.';
     }
 
@@ -957,6 +958,7 @@ export default function FacturaCompraModal({
             required={esDocumentLleuger}
             allowImages={esDocumentLleuger}
           />
+          {!!formData.documentsGenerats?.length && <DocumentVersionsPanel title="Documents arxivats" documents={formData.documentsGenerats} />}
 
           <div className="form-group">
             <label>Notes</label>

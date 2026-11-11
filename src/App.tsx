@@ -7,6 +7,7 @@ import WebSyncModal from './components/common/WebSyncModal';
 import CronometreWidget from './components/parts-treball/CronometreWidget';
 import CronometreModal from './components/parts-treball/CronometreModal';
 import UpdateNotification from './components/common/UpdateNotification';
+import StorageStatus from './components/common/StorageStatus';
 import type { CompanySettings } from './components/common/SettingsModal';
 import type { Client } from './types/client';
 import { migrateFacturesVendaTipus } from './utils/migrateFacturesVenda';
@@ -298,6 +299,7 @@ function App() {
       </aside>
 
       <main className="main-content">
+        <StorageStatus />
         {googleCalendarError && <div role="alert" style={{ padding: '0.75rem', color: 'var(--color-error)' }}>Google Calendar: {googleCalendarError} Els canvis pendents es tornaran a intentar. Revisa Paràmetres → Integracions si persisteix.</div>}
         <header className="content-header">
           <div className="header-info">

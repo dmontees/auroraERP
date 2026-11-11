@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const JSZip = require('jszip');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
+const { withCachedReads } = require('./cached-store.cjs');
+const { BackgroundStore } = require('./background-store.cjs');
 const { handleStoreRequest } = require('./store-bridge.cjs');
 const {
   GITHUB_LATEST_MAC_YML,
@@ -20,6 +22,18 @@ let backupInterval = null;
 let mainWindow = null;
 let pendingUpdateInfo = null; // cache per si el renderer no estava llest quan va arribar l'event
 let isQuitting = false;       // flag per al tancament controlat via sync
+let quitRequested = false;
+let installRequested = false;
+let closeRequested = false;
+let closePrepared = false;
+let closeTask = null;
+let closeTimer = null;
+
+// One owner for the live snapshot and the serialized disk queue.
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on('second-instance', () => {
+  if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+});
 
 const LOCAL_BACKUP_RETENTION = 30;
 const BACKUP_RESTORE_ALLOWED_KEYS = new Set([
@@ -79,7 +93,14 @@ const IMPORT_DATA_ALLOWED_KEYS = new Set([
 ]);
 
 // Inicializar electron-store
-const store = new Store({
+const CachedStore = withCachedReads(Store);
+const STORE_SCHEMA = {
+  clients: { type: 'array' }, facturesVenda: { type: 'array' },
+  projectes: { type: 'array' }, version: { type: 'string' },
+  dataSchemaVersion: { type: 'number' },
+};
+let initialStore = new CachedStore({
+  accessPropertiesByDotNotation: false,
   name: 'aurora-data',
   defaults: {
     clients: [],
@@ -105,17 +126,16 @@ const store = new Store({
     migrationCompleted: false
   },
   // Opcional: schema validation
-  schema: {
-    clients: { type: 'array' },
-    facturesVenda: { type: 'array' },
-    projectes: { type: 'array' },
-    version: { type: 'string' },
-    dataSchemaVersion: { type: 'number' }
-  }
+  schema: STORE_SCHEMA
+});
+const store = new BackgroundStore(initialStore, STORE_SCHEMA);
+initialStore = null;
+store.on('status', status => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('store-status', status);
 });
 
-// Synchronous to preserve the existing storage API and report write failures
-// before a modal can close. Only this main-process instance writes the store.
+// Synchronous acceptance and reads use memory only. Disk completion and errors
+// are reported separately; closing/updating always waits for store.flush().
 const ALLOWED_STORE_KEYS = new Set([...BACKUP_RESTORE_ALLOWED_KEYS, 'navigateTo']);
 ipcMain.on('aurora-store', (event, request) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
@@ -125,7 +145,7 @@ ipcMain.on('aurora-store', (event, request) => {
   event.returnValue = handleStoreRequest(store, ALLOWED_STORE_KEYS, request);
 });
 
-function createWindow() {
+async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -141,8 +161,8 @@ function createWindow() {
   });
 
   // Restaurar backup si existe (por compatibilidad)
-  restoreBackupIfNeeded();
-  backupElectronStoreSnapshotIfMeaningful('aurora-startup');
+  await restoreBackupIfNeeded();
+  await backupElectronStoreSnapshotIfMeaningful('aurora-startup');
 
   // Cargar aplicación
   if (process.env.NODE_ENV === 'development') {
@@ -153,11 +173,12 @@ function createWindow() {
   }
 
   mainWindow.setMenuBarVisibility(false);
+  mainWindow.webContents.on('did-navigate', () => store.finishMaintenance());
 
   // BACKUP AUTOMÁTICO cada 30 segundos (ahora de electron-store)
   backupInterval = setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      backupElectronStore();
+      backupElectronStore().catch(error => console.error('❌ Error en backup automàtic:', error));
     } else {
       if (backupInterval) {
         clearInterval(backupInterval);
@@ -170,26 +191,20 @@ function createWindow() {
   mainWindow.on('close', (e) => {
     if (backupInterval) { clearInterval(backupInterval); backupInterval = null; }
 
-    if (!isQuitting) {
-      e.preventDefault(); // atura el tancament
-      mainWindow.webContents.send('app-will-close');
-      console.log('🔄 Esperant sync del renderer abans de tancar...');
-
-      // Timeout de seguretat: si el renderer no respon en 10 s, tanquem igualment
-      setTimeout(() => {
-        if (!isQuitting) {
-          console.warn('⚠️  Timeout sync en tancar — forçant tancament');
-          isQuitting = true;
-          backupElectronStore();
-          mainWindow.destroy();
-        }
-      }, 10000);
-    } else {
-      // Tancament confirmat pel renderer — backup local final
-      if (!mainWindow.isDestroyed()) {
-        try { backupElectronStore(); } catch { /* ignore */ }
+    if (isQuitting) return;
+    e.preventDefault();
+    if (closeRequested) return;
+    closeRequested = true;
+    closePrepared = false;
+    mainWindow.webContents.send('app-will-close');
+    // Limit cloud-sync waiting only; never bypass local durability on timeout.
+    closeTimer = setTimeout(() => {
+      if (!closePrepared) {
+        reportCloseError(new Error('La finestra encara no ha confirmat el guardat dels formularis. Torna-ho a intentar.'));
+        return;
       }
-    }
+      finishClose().catch(reportCloseError);
+    }, 10000);
   });
 
   mainWindow.on('closed', () => {
@@ -412,27 +427,17 @@ async function checkForUpdatesMac() {
 // FUNCIONES DE BACKUP Y RESTAURACIÓN
 // ============================================
 
-function backupElectronStore() {
-  try {
-    const userDataPath = app.getPath('userData');
-    const backupFile = path.join(userDataPath, 'aurora-backup.json');
-    
-    // Leer todos los datos del store
-    
-    // Guardar backup con formato legible
-    writeJsonAtomically(backupFile, store.store);
-    console.log('✅ Backup de electron-store guardado:', backupFile);
-  } catch (error) {
-    console.error('❌ Error al guardar backup de electron-store:', error);
-  }
+async function backupElectronStore() {
+  const backupFile = path.join(app.getPath('userData'), 'aurora-backup.json');
+  return store.backup(backupFile, { skipUnchanged: true, appVersion: app.getVersion() });
 }
 
-function backupElectronStoreSnapshot(prefix) {
+async function backupElectronStoreSnapshot(prefix) {
   try {
     const userDataPath = getLocalBackupsPath();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFile = path.join(userDataPath, `${prefix}-${timestamp}.json`);
-    writeJsonAtomically(backupFile, store.store);
+    await store.backup(backupFile, { appVersion: app.getVersion() });
     pruneLocalBackups(userDataPath, LOCAL_BACKUP_RETENTION);
     console.log('✅ Snapshot de seguretat guardat:', backupFile);
     return backupFile;
@@ -442,7 +447,7 @@ function backupElectronStoreSnapshot(prefix) {
   }
 }
 
-function backupElectronStoreSnapshotIfMeaningful(prefix) {
+async function backupElectronStoreSnapshotIfMeaningful(prefix) {
   if (!hasMeaningfulStoreData(store.store)) return null;
   return backupElectronStoreSnapshot(prefix);
 }
@@ -681,7 +686,9 @@ function addDirectoryToZip(zip, directoryPath, zipRoot, counters) {
   }
 }
 
-function restoreBackupIfNeeded() {
+async function restoreBackupIfNeeded() {
+  // An existing live dataset must not pay for parsing a large recovery file.
+  if (hasMeaningfulStoreData(store.store)) return;
   const userDataPath = app.getPath('userData');
   const backupFile = path.join(userDataPath, 'aurora-backup.json');
 
@@ -699,10 +706,9 @@ function restoreBackupIfNeeded() {
       
       if (storeIsEmpty && backupData) {
         console.log('🔄 Restaurando datos desde backup...');
-        backupElectronStoreSnapshot('aurora-before-auto-restore');
-        Object.entries(backupData).forEach(([key, value]) => {
-          store.set(key, value);
-        });
+        if (!await backupElectronStoreSnapshot('aurora-before-auto-restore')) throw new Error('No sha pogut crear la còpia de seguretat.');
+        store.set(backupData);
+        await store.flush();
         console.log('✅ Datos restaurados desde backup');
       } else {
         console.log('ℹ️  Store ya contiene datos, no se restaura backup');
@@ -768,7 +774,10 @@ autoUpdater.on('error', (error) => {
 // ============================================
 
 ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall();
+  installRequested = true;
+  quitRequested = true;
+  if (mainWindow) mainWindow.close();
+  else finishClose().catch(reportCloseError);
 });
 
 ipcMain.handle('get-pending-update', () => pendingUpdateInfo);
@@ -821,24 +830,28 @@ ipcMain.handle('export-cloud-backup-data', () => {
 });
 
 // Handler para importar datos (útil para restaurar backups)
-ipcMain.handle('import-data', (_, data) => {
+ipcMain.handle('import-data', async (_, data) => {
   try {
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new Error('Format de dades invalid');
     }
 
-    const preImportBackup = backupElectronStoreSnapshot('aurora-pre-import-backup');
+    const preImportBackup = await backupElectronStoreSnapshot('aurora-pre-import-backup');
+    if (!preImportBackup) throw new Error('No sha pogut crear la còpia prèvia.');
     const importedKeys = [];
     const ignoredKeys = [];
 
+    const updates = {};
     Object.entries(data).forEach(([key, value]) => {
       if (!IMPORT_DATA_ALLOWED_KEYS.has(key)) {
         ignoredKeys.push(key);
         return;
       }
-      store.set(key, value);
+      updates[key] = value;
       importedKeys.push(key);
     });
+    store.set(updates);
+    await store.flush();
 
     return { success: true, importedKeys, ignoredKeys, preImportBackup };
   } catch (error) {
@@ -1032,11 +1045,71 @@ ipcMain.handle('documents-open-root', async (_, { rootPath }) => {
   }
 });
 
-ipcMain.handle('confirm-close', () => {
-  console.log('✅ Sync completat — tancant Aurora ERP');
-  isQuitting = true;
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+ipcMain.handle('store-status', () => store.status);
+ipcMain.handle('storage-diagnose', async event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Accés no permès.');
+  return store.diagnose();
 });
+ipcMain.handle('storage-compact', async event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Accés no permès.');
+  const rootPath = store.get('parametres')?.gestorDocumental?.rootPath;
+  const backupFile = path.join(app.getPath('userData'), `aurora-before-compact-${crypto.randomUUID()}.json`);
+  return store.compact(rootPath, backupFile);
+});
+ipcMain.handle('store-flush', async (_, retry) => {
+  try { await store.flush({ retry: retry === true }); return { success: true }; }
+  catch (error) { return { success: false, error: error.message }; }
+});
+ipcMain.handle('prepare-close', async () => {
+  try {
+    if (!closeRequested) throw new Error('No hi ha cap tancament pendent.');
+    await store.flush();
+    closePrepared = true;
+    return { success: true };
+  } catch (error) { return { success: false, error: error.message }; }
+});
+
+ipcMain.handle('confirm-close', async () => {
+  if (!closeRequested) return;
+  try {
+    if (!closePrepared) throw new Error(store.status.error || 'No s’ha confirmat el guardat dels formularis.');
+    await finishClose();
+  }
+  catch (error) { reportCloseError(error); }
+});
+
+function reportCloseError(error) {
+  if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+  isQuitting = false;
+  closeRequested = false;
+  closePrepared = false;
+  quitRequested = false;
+  installRequested = false;
+  dialog.showErrorBox('No s’ha pogut tancar Aurora',
+    `Els canvis encara no s’han pogut guardar. Aurora continuarà obert.\n\n${error.message}\n\nReintenta el guardat abans de sortir.`);
+}
+
+async function finishClose() {
+  if (closeTask) return closeTask;
+  if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+  closeTask = (async () => {
+    await store.flush();
+    await backupElectronStore();
+    await backupElectronStoreSnapshotIfMeaningful('aurora-shutdown');
+    isQuitting = true;
+    if (quitRequested || process.platform !== 'darwin') {
+      await store.shutdown();
+      if (installRequested) autoUpdater.quitAndInstall();
+      else app.quit();
+    } else {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+      closeRequested = false;
+      isQuitting = false;
+    }
+  })();
+  try { await closeTask; }
+  finally { closeTask = null; }
+}
 
 // ============================================
 // VERIFACTU — Enviament a l'AEAT (mTLS)
@@ -1244,11 +1317,11 @@ ipcMain.handle('google-calendar-disconnect', () => {
 // EVENTOS DE APLICACIÓN
 // ============================================
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   console.log('🚀 Aurora ERP iniciado');
   console.log('📁 Store ubicado en:', store.path);
-  createWindow();
-});
+  await createWindow();
+}).catch(reportCloseError);
 
 app.on('window-all-closed', () => {
   if (backupInterval) {
@@ -1263,13 +1336,15 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+      createWindow().catch(reportCloseError);
   }
 });
 
 // Backup final antes de salir
-app.on('before-quit', () => {
-  console.log('🛑 Aplicación cerrándose...');
-  backupElectronStoreSnapshotIfMeaningful('aurora-shutdown');
-  backupElectronStore();
+app.on('before-quit', event => {
+  if (isQuitting) return;
+  event.preventDefault();
+  quitRequested = true;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+  else finishClose().catch(reportCloseError);
 });

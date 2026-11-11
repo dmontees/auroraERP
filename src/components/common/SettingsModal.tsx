@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { storage } from '../../utils/storageManager';
+import StorageMaintenance from './StorageMaintenance';
 import { Settings, X, Film, Upload, Trash2, RefreshCw, CheckCircle, ShieldCheck, ShieldOff, KeyRound } from 'lucide-react';
 import { carregarCertificatP12, oblidarCertificat, obtenirInfoCertificat } from '../../utils/verifactuFirma';
 import { isQuotaExceededError, normalizeBackupForImport, stripBackupBinariesForBrowserStorage } from '../../utils/backupImport';
@@ -639,6 +640,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                     <code style={{ wordBreak: 'break-all' }}>{storePath}</code>
                   </div>
                 )}
+                <StorageMaintenance />
               </div>
             </div>
 

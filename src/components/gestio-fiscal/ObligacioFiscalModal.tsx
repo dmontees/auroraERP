@@ -8,6 +8,7 @@ import type { AlbaraCompra } from '../../types/albara';
 import PagamentsManager from '../common/PagamentsManager';
 import SearchableSelect from '../common/SearchableSelect';
 import PDFUploader from '../common/PDFUploader';
+import DocumentVersionsPanel from '../common/DocumentVersionsPanel';
 import { usePagaments } from '../../hooks/usePagaments';
 import { determinarEstat } from '../factures-compra/utils/facturesCalculations';
 import { useAutoSave } from '../../hooks/useAutoSave';
@@ -208,7 +209,7 @@ export default function ObligacioFiscalModal({
   const prepararGasto = (): ObligacioFiscal | null => {
     if (!data || !periode) return null;
     if (!concepte && subtipus !== 'nomina-treballador') return null;
-    if (needsPDF && !documentPDF) return null;
+    if (needsPDF && !documentPDF && !documentsGenerats.some(ref => ref.relativePath)) return null;
     if (detailsBlocked) return null;
 
     const estat = determinarEstat(totalGasto, totalPagat);
@@ -254,7 +255,8 @@ export default function ObligacioFiscalModal({
         ivaSuportatCalculat: editingGasto?.ivaSuportatCalculat,
         ivaNetCalculat: editingGasto?.ivaNetCalculat,
       }),
-      ...(documentPDF && { documentPDF, documentPDFName }),
+      ...(documentPDF && { documentPDF }),
+      ...(documentPDFName && { documentPDFName }),
       documentsGenerats,
     };
   };
@@ -804,6 +806,7 @@ export default function ObligacioFiscalModal({
             />
           )}
 
+          {!!documentsGenerats.length && <DocumentVersionsPanel title="Documents arxivats" documents={documentsGenerats} />}
           {isTaxDeclaration && (
             <div style={{ marginTop: '1rem' }}>
               <PDFUploader

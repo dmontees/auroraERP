@@ -1,4 +1,6 @@
 export interface ElectronStore {
+  // set/delete update the live snapshot and queue persistence. Use
+  // electron.flushStore() when an operation requires durable completion.
   get: (key: string) => any;
   set: (key: string, value: any) => void;
   delete: (key: string) => void;
@@ -18,14 +20,20 @@ export interface ElectronAPI {
   onUpdateNotAvailable: (callback: () => void) => void;
   onUpdateError: (callback: (data: { message?: string }) => void) => void;
   getStorePath: () => Promise<string>;
+  getStoreStatus: () => Promise<{ pending: boolean; error: string | null }>;
+  diagnoseStorage: () => Promise<import('./documental').StorageDiagnostic>;
+  compactStorage: () => Promise<import('./documental').StorageCompactionResult>;
+  flushStore: (retry?: boolean) => Promise<{ success: boolean; error?: string }>;
+  onStoreStatus: (callback: (status: { pending: boolean; error: string | null }) => void) => () => void;
   exportCloudBackupData: () => Promise<any>;
   importData: (data: any) => Promise<{ success: boolean; error?: string; importedKeys?: string[]; ignoredKeys?: string[]; preImportBackup?: string | null }>;
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
   startGoogleAuth: (clientId: string, clientSecret: string) => Promise<any>;
   disconnectGoogle: () => Promise<{ success: boolean }>;
   verifactuEnviar: (data: { xmlPayload: string; p12Base64: string; pin: string; entornTest: boolean }) => Promise<any>;
-  onAppWillClose: (callback: () => void) => void;
+  onAppWillClose: (callback: () => void) => () => void;
   confirmClose: () => Promise<void>;
+  prepareClose: () => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ElectronDocumentsAPI {

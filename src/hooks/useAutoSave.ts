@@ -106,6 +106,7 @@ export function useAutoSave<T>(
   const saveNow = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
     }
 
     const data = formDataRef.current as any;
@@ -126,6 +127,19 @@ export function useAutoSave<T>(
     onSaveRef.current(formDataRef.current);
   }, []);
 
+  // Flush the final debounce before the main process waits for durable writes.
+  useEffect(() => {
+    const flushPending = (event: Event) => {
+      try { if (timeoutRef.current) saveNow(); }
+      catch (error) {
+        event.preventDefault();
+        console.error('No sha pogut preparar el guardat del formulari:', error);
+      }
+    };
+    window.addEventListener('aurora-flush-forms', flushPending);
+    return () => window.removeEventListener('aurora-flush-forms', flushPending);
+  }, [saveNow]);
+
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -134,6 +148,7 @@ export function useAutoSave<T>(
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
     }
 
     const data = formData as any;
@@ -148,12 +163,14 @@ export function useAutoSave<T>(
     }
 
     timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = undefined;
       onSaveRef.current(formDataRef.current);
     }, delay);
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
       }
     };
   // onSave intentionally excluded — kept current via ref to break the re-render loop

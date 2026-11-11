@@ -112,7 +112,7 @@ function ProjecteDetailView({
     };
     return migrateProjecteIds(projecte);
   });
-  const facturesAnticip = (storage.getFacturesVenda() as FacturaVenta[]).filter(f =>
+  const facturesAnticip = factures.filter(f =>
     f.projecte === formData.codi && f.tipusComercial === 'bestreta'
   );
 

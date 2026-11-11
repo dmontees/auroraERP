@@ -8,6 +8,23 @@ export type DocumentKind =
   | 'obligacio-fiscal'
   | 'proveidor';
 
+export interface StorageDiagnostic {
+  fileBytes: number;
+  embeddedBytes: number;
+  embeddedCount: number;
+  transferableCount: number;
+  transferableBytes: number;
+  rows: { key: string; bytes: number }[];
+}
+
+export interface StorageCompactionResult {
+  migrated: number;
+  errors: string[];
+  beforeBytes: number;
+  afterBytes: number;
+  backupFile: string | null;
+}
+
 export type DocumentOwnerType = 'client' | 'projecte' | 'proveidor' | 'fiscal';
 
 export interface DocumentFileRef {

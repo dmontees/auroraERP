@@ -1,7 +1,7 @@
 {
   "name": "Aurora-erp",
   "private": true,
-  "version": "3.1.8",
+  "version": "3.1.9",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Dani Montes",
@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc",
-    "check:electron": "node --check electron/main.cjs && node --check electron/preload.js && node --check electron/store-bridge.cjs && node --check scripts/test-electron-storage.cjs",
+    "test:electron": "npm run build && electron scripts/test-electron-storage.cjs && electron scripts/test-app-close.cjs && electron scripts/test-app-close.cjs --maintenance",
+    "check:electron": "node --check electron/main.cjs && node --check electron/preload.js && node --check electron/store-bridge.cjs && node --check electron/cached-store.cjs && node --check electron/background-store.cjs && node --check electron/storage-worker.cjs && node --check electron/storage-maintenance.cjs && node --check scripts/test-electron-storage.cjs && node --check scripts/test-app-close.cjs && node scripts/test-cached-store.cjs && node scripts/test-background-store.cjs && node scripts/test-storage-maintenance.cjs",
     "test:critical": "node scripts/test-updater-utils.mjs && node scripts/test-critical-contracts.mjs && node scripts/test-pressupost-alternatives.mjs && node scripts/test-document-budget-mirrors.mjs && node scripts/test-google-calendar-sync.mjs && node scripts/test-gasto-general.mjs && node scripts/test-purchase-invoice-save.mjs && node scripts/test-storage-migration.mjs",
     "check": "npm run typecheck && npm run test:critical && npm run check:electron",
     "build": "tsc && vite build",

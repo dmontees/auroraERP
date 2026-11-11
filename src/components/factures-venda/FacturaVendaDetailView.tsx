@@ -76,6 +76,7 @@ export default function FacturaVendaDetailView({
 }: Props) {
   const [parametres, setParametres] = useState<any>({ serveis: [], unitats: [] });
   const [verifactuConfig] = useState(() => storage.getVerifactuConfig());
+  const [developerOptions] = useState(() => storage.getSettings()?.opcionsDesenvolupador);
   useEffect(() => { setParametres(storage.getParametres()); }, []);
 
   const [activeTab, setActiveTab] = useState<TabId>('resum');
@@ -243,8 +244,8 @@ export default function FacturaVendaDetailView({
   // Una factura deixa de ser borrador quan s'emet → contingut immutable
   const esEmesa = formData.estat !== 'borrador';
   const permetEliminarFacturesEmeses =
-    storage.getSettings()?.opcionsDesenvolupador?.actiu === true &&
-    storage.getSettings()?.opcionsDesenvolupador?.permetEliminarFacturesEmeses === true &&
+    developerOptions?.actiu === true &&
+    developerOptions?.permetEliminarFacturesEmeses === true &&
     !verifactuConfig.enabled;
   // Només es pot eliminar un borrador sense pagaments; un cop emesa, es corregeix amb rectificativa
   const esEliminable = !tePagaments && (formData.estat === 'borrador' || (esEmesa && permetEliminarFacturesEmeses));

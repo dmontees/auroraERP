@@ -45,6 +45,15 @@ contextBridge.exposeInMainWorld('electron', {
 
   // Store utilities
   getStorePath: () => ipcRenderer.invoke('get-store-path'),
+  getStoreStatus: () => ipcRenderer.invoke('store-status'),
+  diagnoseStorage: () => ipcRenderer.invoke('storage-diagnose'),
+  compactStorage: () => ipcRenderer.invoke('storage-compact'),
+  flushStore: (retry = false) => ipcRenderer.invoke('store-flush', retry),
+  onStoreStatus: (callback) => {
+    const listener = (_, status) => callback(status);
+    ipcRenderer.on('store-status', listener);
+    return () => ipcRenderer.removeListener('store-status', listener);
+  },
   exportCloudBackupData: () => ipcRenderer.invoke('export-cloud-backup-data'),
   importData: (data) => ipcRenderer.invoke('import-data', data),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
@@ -60,8 +69,13 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('verifactu-enviar', { xmlPayload, p12Base64, pin, entornTest }),
 
   // Tancament controlat — el main avisa el renderer perquè faci sync abans de sortir
-  onAppWillClose: (callback) => ipcRenderer.on('app-will-close', () => callback()),
+  onAppWillClose: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('app-will-close', listener);
+    return () => ipcRenderer.removeListener('app-will-close', listener);
+  },
   confirmClose: () => ipcRenderer.invoke('confirm-close'),
+  prepareClose: () => ipcRenderer.invoke('prepare-close'),
 });
 
 contextBridge.exposeInMainWorld('electronDocuments', {

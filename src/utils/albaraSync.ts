@@ -154,7 +154,10 @@ export function syncAlbaransForProject(
     }
   }
 
-  storage.setAlbaransCompra(updated);
+  // Editing a title or dates must not rewrite the whole store for unchanged lines.
+  if (JSON.stringify(updated) !== JSON.stringify(albarans)) {
+    storage.setAlbaransCompra(updated);
+  }
 }
 
 /**

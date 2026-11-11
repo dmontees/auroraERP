@@ -27,7 +27,9 @@ const compile = (path, mocks, globals = {}) => {
   }, module, module.exports, ...Object.values(globals));
   return module.exports;
 };
+const formEvents = new EventTarget();
 const hook = compile('src/hooks/useAutoSave.ts', { react: React }, {
+  window: formEvents,
   setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
   clearTimeout: id => timers.delete(id),
 });
@@ -39,6 +41,7 @@ const component = compile('src/components/factures-compra/FacturaCompraModal.tsx
   '../../utils/storageErrors': { storageErrorMessage: error => error.message },
   react: React, 'lucide-react': {}, jspdf: {},
   '../common/SearchableSelect': {},
+  '../common/DocumentVersionsPanel': {},
   '../../hooks/useAutoSave': hook,
   './shared/PDFUploader': { __esModule: true, default: PDF },
   './shared/PagamentsManager': { __esModule: true, default: Payments },
@@ -83,6 +86,15 @@ find(tree, n => n.type === Payments).props.onAfegirPagament({ data: '2026-08-01'
 find(tree, n => n.type === 'button' && n.children.includes('Acceptar')).props.onClick();
 assert.equal(writes.at(-1).totalPagat, 100, 'Accept saves latest payment');
 assert.ok(closed);
+// Closing the application must flush the final edit before the 500ms debounce.
+find(tree, n => n.type === 'textarea').props.onChange({ target: { value: 'Final edit at close' } });
+render();
+formEvents.dispatchEvent(new Event('aurora-flush-forms'));
+assert.equal(writes.at(-1).notes, 'Final edit at close');
+const writesAfterCloseFlush = writes.length;
+formEvents.dispatchEvent(new Event('aurora-flush-forms'));
+tick();
+assert.equal(writes.length, writesAfterCloseFlush, 'Close flush must cancel the debounce and avoid duplicate writes');
 // An archive rejection must leave the receipt usable without opening a native alert.
 closed = false;
 const failedUpload = find(tree, n => n.type === PDF).props.onUpload({ name: 'other.pdf', type: 'application/pdf' });
@@ -123,3 +135,18 @@ for (const missingInvoiceNumber of [false, true]) {
   assert.ok(closed, 'X closes unchanged paid invoice');
 }
 console.log('Screenshot regression: paid 9.98 EUR invoice closes without validation or storage writes.');
+
+// A compacted simplified invoice still has its required attachment externally.
+slots = []; timers.clear(); writes = []; closed = false;
+props.editingFactura = {
+  ...invoice, tipusDocument: 'simplificada', documentPDF: undefined,
+  documentsGenerats: [{ id: 'external', relativePath: 'Fiscal/receipt.pdf', originalName: 'receipt.pdf' }],
+};
+props.onSave = data => { writes.push(structuredClone(data)); dirty = true; };
+render();
+find(tree, n => n.type === 'textarea').props.onChange({ target: { value: 'Edited after compaction' } });
+render(); tick();
+assert.equal(writes.at(-1)?.notes, 'Edited after compaction');
+assert.equal(writes.at(-1).documentPDF, undefined);
+assert.equal(writes.at(-1).documentsGenerats[0].relativePath, 'Fiscal/receipt.pdf');
+console.log('Compacted simplified invoice remains editable with its external attachment.');
